@@ -12,6 +12,8 @@ Web app quản lý khách hàng của New Era. Một nơi gom đủ dự án, vi
   - Trang chủ "việc cần anh/chị xử lý". Mỗi việc có hạn, ô "Nếu chưa làm" và 1 nút chính. Việc đã quá hạn thì ô này đổi thành "Đang ảnh hưởng" và nói rõ mốc nào đã lùi.
   - Tiến độ, thương mại, tài liệu, giao việc cho đồng nghiệp.
 
+**Bản chạy online:** https://clienthub.nea.io.vn (Cloudflare Pages, project `clienthub`). Cách deploy lại xem mục "Deploy" bên dưới.
+
 Tài liệu gốc:
 - [SPEC.md](SPEC.md): đặc tả sản phẩm.
 - [DESIGN.md](DESIGN.md): ngôn ngữ thiết kế.
@@ -83,6 +85,25 @@ Sau đó mở http://localhost:8780. Muốn đổi cổng thì thêm `-Port 8790
 - Đóng gói lại file demo: http://localhost:8780/tools/build-standalone.html?auto=1. Kết quả ghi đè `dist/ClientHub-demo.html`.
 
 ---
+
+### Deploy lên Cloudflare Pages (không cần Node)
+
+Bản online là file đóng gói tự chứa (`dist/ClientHub-demo.html`, khoảng 6,8 MB). File này đã nhúng sẵn mọi thư viện, Tailwind và font, nên không gọi ra CDN nào. Để deploy lại sau khi sửa code:
+
+1. Chạy server không cần Node, rồi mở http://localhost:8780/tools/build-standalone.html?auto=1 để đóng gói.
+2. Mở http://localhost:8780/tools/pages-manifest.html để tính mã băm, kết quả ghi vào `dist/pages-manifest.json`.
+3. Chạy lệnh deploy từ thư mục `client-hub`:
+
+```bash
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/deploy-cloudflare.ps1
+```
+
+Script đọc API token từ file `.cloudflare-token`. File này đã được git bỏ qua, không bao giờ commit. Token cần 3 quyền:
+- Account › Cloudflare Pages › Edit
+- Zone › Zone › Read
+- Zone › DNS › Edit (cho `nea.io.vn`)
+
+Lần đầu script tạo project và gắn tên miền `clienthub.nea.io.vn` (CNAME, có proxy). Các lần sau chỉ tạo bản deploy mới.
 
 ## 3. Đăng nhập demo
 
