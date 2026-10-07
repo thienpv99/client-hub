@@ -27,6 +27,12 @@ export interface PageHeaderProps {
 }
 
 /**
+ * className for underline page tabs in the `tabs` slot of an internal page (DESIGN §3 "full-bleed border"): the strip
+ * and its hairline run to the edges of the content column (main pads px-4 / md:px-6 / xl:px-8).
+ */
+export const PAGE_TABS_BLEED = '-mx-4 w-auto max-w-none px-4 md:-mx-6 md:px-6 xl:-mx-8 xl:px-8';
+
+/**
  * false inside an app frame whose top bar already offers the way back (internal app: breadcrumbs from md,
  * "‹ section" on phones), where a `back` link would only repeat it. The client portal has no breadcrumbs and keeps it.
  */

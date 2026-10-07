@@ -113,14 +113,27 @@ export function TableSkeleton({ rows = 5, cols = 5, className }: { rows?: number
   );
 }
 
+export interface KpiSkeletonProps {
+  count?: number;
+  /** grid classes (same as the real KPI row) */
+  className?: string;
+  /** per-tile classes, e.g. `(i) => (i === 0 ? 'col-span-2 xl:col-span-1' : undefined)` for a 3-KPI row */
+  itemClassName?: string | ((index: number) => string | undefined);
+  /** same as KpiCard `labelLines` */
+  labelLines?: 1 | 2;
+}
+
 /** Row of KPI tiles: label row (16px icon + caption), big number block, context line. */
-export function KpiSkeleton({ count = 4, className }: { count?: number; className?: string }) {
+export function KpiSkeleton({ count = 4, className, itemClassName, labelLines = 2 }: KpiSkeletonProps) {
   return (
     <Loading className={cx('grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4', className)}>
       {Array.from({ length: count }, (_, i) => (
-        <SkeletonCardFrame key={i} className="[container-type:inline-size]">
+        <SkeletonCardFrame
+          key={i}
+          className={cx('[container-type:inline-size]', typeof itemClassName === 'function' ? itemClassName(i) : itemClassName)}
+        >
           {/* same label-row height as KpiCard (two lines on narrow cards) so nothing jumps when data arrives */}
-          <div className="flex items-start gap-2 [@container_(max-width:200px)]:min-h-9">
+          <div className={cx('flex items-start gap-2', labelLines === 2 && '[@container_(max-width:200px)]:min-h-9')}>
             <Skeleton className="mt-0.5 h-4 w-4 shrink-0 rounded" />
             <Skeleton className="mt-1 h-3 w-24 max-w-full" />
           </div>

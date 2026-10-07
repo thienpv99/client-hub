@@ -5,7 +5,7 @@ import { useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Newspaper } from 'lucide-react';
 import { api } from '@/services/api';
-import { PageHeader } from '@/components/common/page-header';
+import { PAGE_TABS_BLEED, PageHeader } from '@/components/common/page-header';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useQuery } from '@/hooks/useQuery';
@@ -47,7 +47,7 @@ export function NotificationsPage() {
   if (!viewer) return null;
 
   return (
-    <Tabs value={tab} onValueChange={setTab} className="space-y-6">
+    <Tabs value={tab} onValueChange={setTab} className="space-y-6 md:space-y-8">
       <PageHeader
         title={t('notify.page.title')}
         description={<span className="hidden sm:inline">{t('notify.page.description')}</span>}
@@ -63,7 +63,7 @@ export function NotificationsPage() {
           <TabsList
             variant="underline"
             aria-label={t('notify.page.tabsLabel')}
-            className="-mx-4 w-auto max-w-none px-4 md:-mx-6 md:px-6 xl:-mx-8 xl:px-8"
+            className={PAGE_TABS_BLEED}
           >
             <TabsTrigger
               value="inbox"

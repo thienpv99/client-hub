@@ -158,7 +158,7 @@ export function SettingsPage() {
   const readOnly = viewer.role !== 'director' && (active === 'users' || active === 'rules');
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 md:space-y-8">
       <PageHeader
         title={t('settings.page.title')}
         description={<span className="hidden sm:inline">{t('settings.page.description')}</span>}

@@ -104,7 +104,8 @@ function InstallmentTable({ payments, manage }: { payments: PaymentView[]; manag
             </TableCell>
             {manage ? (
               <TableCell>
-                <PaymentActionButtons payment={p} className="justify-end" />
+                {/* wraps under 2 buttons wide, so the table fits the 951px column at 1280 */}
+                <PaymentActionButtons payment={p} className="flex-wrap justify-end" />
               </TableCell>
             ) : null}
           </TableRow>

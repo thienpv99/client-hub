@@ -34,7 +34,7 @@ function useCatalog(accountId: string | null, enabled: boolean) {
 /** header + main column (info, lines) + side summary — the real layout's sizes */
 function EditorSkeleton() {
   return (
-    <div className="space-y-6" role="status" aria-busy="true">
+    <div className="space-y-6 md:space-y-8" role="status" aria-busy="true">
       <span className="sr-only">{t('common.loading')}</span>
       <div className="space-y-2.5">
         <Skeleton className="h-3.5 w-36" />
@@ -83,7 +83,7 @@ function ExistingQuote({ quoteId }: { quoteId: string }) {
   if (quoteQ.loading) return <EditorSkeleton />;
   if (!quote) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 md:space-y-8">
         <PageHeader compact title={t('commercial.editor.notFoundTitle')} />
         <Card>
           <ErrorState error={quoteQ.error} onRetry={quoteQ.refetch} />
@@ -120,7 +120,7 @@ function ExistingQuote({ quoteId }: { quoteId: string }) {
 function AccountPicker() {
   const accountsQ = useQuery(() => api.listAccounts(), []);
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 md:space-y-8">
       <PageHeader title={t('commercial.editor.newTitle')} description={t('commercial.editor.pickAccount')} />
       {accountsQ.loading ? (
         <ListSkeleton rows={5} />
@@ -170,7 +170,7 @@ function NewQuote({ accountId }: { accountId: string }) {
   const error = accountQ.error ?? catalogQ.error;
   if (error && (!account || !catalog)) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 md:space-y-8">
         <PageHeader compact title={t('commercial.editor.newTitle')} />
         <Card>
           <ErrorState error={error} onRetry={() => (accountQ.error ? accountQ.refetch() : catalogQ.refetch())} />

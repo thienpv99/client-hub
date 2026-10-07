@@ -61,7 +61,11 @@ function Company({ row }: { row: RankedRow }) {
   const n = row.node;
   return (
     <div className="flex min-w-0 items-center gap-3">
-      <AccountLogo account={{ name: n.label, logo_url: n.logo.logo_url, brand_color: n.logo.brand_color }} size="sm" />
+      <AccountLogo
+        account={{ name: n.label, logo_url: n.logo.logo_url, brand_color: n.logo.brand_color }}
+        initials={n.logo.initials}
+        size="sm"
+      />
       <div className="min-w-0">
         {n.href ? (
           <Link to={n.href} className="break-words font-semibold text-foreground underline-offset-4 hover:text-primary hover:underline">

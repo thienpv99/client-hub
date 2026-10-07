@@ -139,9 +139,14 @@ export interface AccountHeaderProps {
   access: AccountAccess;
   /** the tab bar (TabsList), kept in the sticky band */
   tabs: ReactNode;
+  /**
+   * phones only: leave out the key facts (AM, contract value, next milestone — ~150px) so a work tab (Việc, Lộ trình…)
+   * starts above the fold; the overview tab keeps them. From sm they always show.
+   */
+  compactFacts?: boolean;
 }
 
-export function AccountHeader({ account, access, tabs }: AccountHeaderProps) {
+export function AccountHeader({ account, access, tabs, compactFacts = false }: AccountHeaderProps) {
   // no wrapping element: a sticky row only sticks inside its parent, so both bands are children of the page root
   return (
     <>
@@ -167,7 +172,12 @@ export function AccountHeader({ account, access, tabs }: AccountHeaderProps) {
           {account.industry ? <span className="hidden text-caption sm:inline">{account.industry}</span> : null}
         </div>
 
-        <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 md:flex md:flex-wrap md:items-start md:gap-x-10">
+        <dl
+          className={cn(
+            'mt-4 grid grid-cols-2 gap-x-4 gap-y-3 md:flex md:flex-wrap md:items-start md:gap-x-10',
+            compactFacts && 'hidden sm:grid',
+          )}
+        >
           <Fact label={t('account.header.am')}>
             <AmMenu account={account} canAssign={access.assignAm} />
           </Fact>

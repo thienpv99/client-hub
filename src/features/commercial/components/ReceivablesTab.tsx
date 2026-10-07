@@ -181,8 +181,8 @@ export function ReceivablesTab() {
 
   if (query.loading) {
     return (
-      <div className="space-y-6">
-        <KpiSkeleton count={3} className="grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-3" />
+      <div className="space-y-6 md:space-y-8">
+        <KpiSkeleton count={3} className="grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-3" itemClassName={(i) => (i === 0 ? 'col-span-2 xl:col-span-1' : undefined)} />
         <TableSkeleton rows={4} cols={5} />
       </div>
     );
@@ -203,7 +203,7 @@ export function ReceivablesTab() {
   const rows = overdueOnly ? data.by_account.filter((r) => r.overdue > 0) : data.by_account;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 md:space-y-8">
       <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-3">
         <KpiCard
           className="col-span-2 xl:col-span-1"

@@ -67,8 +67,8 @@ export function ContractsTab() {
 
   if (query.loading) {
     return (
-      <div className="space-y-6">
-        <KpiSkeleton count={3} className="grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-3" />
+      <div className="space-y-6 md:space-y-8">
+        <KpiSkeleton count={3} className="grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-3" itemClassName={(i) => (i === 0 ? 'col-span-2 xl:col-span-1' : undefined)} labelLines={1} />
         <CardSkeleton lines={5} />
       </div>
     );
@@ -89,7 +89,7 @@ export function ContractsTab() {
   const pick = (f: Focus) => setParam('focus', focus === f ? null : f);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 md:space-y-8">
       <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-3">
         <KpiCard
           className="col-span-2 xl:col-span-1"
@@ -100,6 +100,7 @@ export function ContractsTab() {
           progress={{ value: collected, max: value, label: t('commercial.contracts.kpi.collected', { value: formatMoneyCompact(collected) }) }}
         />
         <KpiCard
+          labelLines={1}
           label={t('commercial.contracts.kpi.action')}
           value={action.length}
           icon={ListTodo}
@@ -108,6 +109,7 @@ export function ContractsTab() {
           active={focus === 'action'}
         />
         <KpiCard
+          labelLines={1}
           label={t('commercial.contracts.kpi.overdue')}
           value={overdue.length}
           icon={CircleAlert}

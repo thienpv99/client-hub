@@ -40,7 +40,7 @@ export interface PortfolioTabProps {
 
 function PortfolioSkeleton() {
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 md:space-y-8">
       <KpiSkeleton count={4} className="grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4" />
       <div className="space-y-4">
         <div className="flex flex-wrap items-center gap-2" aria-hidden="true">

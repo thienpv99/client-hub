@@ -1,5 +1,5 @@
 // Account detail (SPEC §4.2): /app/accounts/:accountId/:tab? — sticky header + URL-synced tabs.
-import { useEffect } from 'react';
+// The browser tab title ("Cỏ Xanh Retail · Client Hub") comes from InternalLayout (breadcrumb leaf).
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import type { AccountDetail, ApiErrorCode } from '@/services/contract';
 import { api } from '@/services/api';
@@ -34,17 +34,6 @@ function errorCode(error: unknown): ApiErrorCode | null {
 function isFinalError(error: unknown): boolean {
   const code = errorCode(error);
   return code === 'forbidden' || code === 'not_found' || code === 'unauthenticated';
-}
-
-function useDocumentTitle(name: string | undefined) {
-  useEffect(() => {
-    if (!name) return undefined;
-    const previous = document.title;
-    document.title = t('account.page.documentTitle', { name });
-    return () => {
-      document.title = previous;
-    };
-  }, [name]);
 }
 
 /** Same frame as the page: identity row, badges, facts, tabs, then the overview's 2/3 + 1/3 columns. */
@@ -92,7 +81,7 @@ function AccountPageSkeleton() {
 function AccountErrorState({ error, onRetry }: { error: unknown; onRetry: () => void }) {
   return (
     <SectionCard>
-      <ErrorState error={error} onRetry={onRetry} />
+      <ErrorState error={error} onRetry={onRetry} titleAs="h1" />
       {isFinalError(error) ? (
         <div className="-mt-6 flex justify-center pb-6">
           <Button asChild variant="secondary">
@@ -132,7 +121,6 @@ export function AccountDetailPage() {
   const viewer = useViewer();
   const query = useQuery(() => api.getAccount(accountId), [accountId], { enabled: accountId !== '' });
   const account = query.data;
-  useDocumentTitle(account?.name);
 
   if (query.error && (!account || isFinalError(query.error))) {
     return <AccountErrorState error={query.error} onRetry={query.refetch} />;
@@ -162,6 +150,7 @@ export function AccountDetailPage() {
       <AccountHeader
         account={account}
         access={access}
+        compactFacts={current !== 'overview'}
         tabs={
           <TabsList
             variant="underline"

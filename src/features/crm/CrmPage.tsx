@@ -11,7 +11,7 @@ import { useQuery } from '@/hooks/useQuery';
 import { useViewer } from '@/hooks/useViewer';
 import { t } from '@/i18n';
 import { ErrorState } from '@/components/common/error-state';
-import { PageHeader } from '@/components/common/page-header';
+import { PAGE_TABS_BLEED, PageHeader } from '@/components/common/page-header';
 import { KpiSkeleton, TableSkeleton } from '@/components/common/skeletons';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -28,7 +28,6 @@ import { FollowUpsTab } from './followups/FollowUpsTab';
 import { ForecastTab } from './forecast/ForecastTab';
 import { OpportunityList } from './list/OpportunityList';
 import { PipelineBoard } from './pipeline/PipelineBoard';
-import { useDocumentTitle } from './useDocumentTitle';
 
 function OwnerFilter({ viewer, value, onChange }: { viewer: Viewer; value: string; onChange: (v: string) => void }) {
   const isDirector = viewer.role === 'director';
@@ -107,7 +106,6 @@ export function CrmPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const close = useCloseFlow();
   const today = todayISO();
-  useDocumentTitle(t('crm.page.documentTitle', { app: t('common.appName') }));
 
   const tab: CrmTab = isCrmTab(rawTab) ? rawTab : 'pipeline';
   const owner = resolveOwner(params.get('owner'), viewer);
@@ -169,7 +167,7 @@ export function CrmPage() {
           if (isCrmTab(next)) navigate(crmTabPath(next, ownerSearch));
         }}
       >
-        <TabsList variant="underline" aria-label={t('crm.tabs.label')}>
+        <TabsList variant="underline" aria-label={t('crm.tabs.label')} className={PAGE_TABS_BLEED}>
           {CRM_TABS.map((id) => (
             <TabsTrigger
               key={id}
@@ -182,15 +180,15 @@ export function CrmPage() {
             </TabsTrigger>
           ))}
         </TabsList>
-        <TabsContent value="pipeline" className="mt-5 md:mt-6">
+        <TabsContent value="pipeline" className="mt-6 md:mt-8">
           {tab === 'pipeline'
             ? oppsBody((items) => <PipelineBoard items={items} today={today} close={close} listHref={listHref} />, <BoardSkeleton />)
             : null}
         </TabsContent>
-        <TabsContent value="list" className="mt-5 md:mt-6">
+        <TabsContent value="list" className="mt-6 md:mt-8">
           {tab === 'list' ? oppsBody((items) => <OpportunityList items={items} today={today} />, <TableSkeleton rows={6} cols={6} />) : null}
         </TabsContent>
-        <TabsContent value="forecast" className="mt-5 md:mt-6">
+        <TabsContent value="forecast" className="mt-6 md:mt-8">
           {tab === 'forecast' ? (
             dash.data ? (
               <ForecastTab dashboard={dash.data} />
@@ -201,7 +199,7 @@ export function CrmPage() {
             )
           ) : null}
         </TabsContent>
-        <TabsContent value="followups" className="mt-5 md:mt-6">
+        <TabsContent value="followups" className="mt-6 md:mt-8">
           {tab === 'followups' ? <FollowUpsTab owner={owner} today={today} /> : null}
         </TabsContent>
       </Tabs>

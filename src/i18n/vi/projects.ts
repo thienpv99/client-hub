@@ -3,8 +3,6 @@
 const projects = {
   page: {
     title: 'Dự án',
-    /** browser tab: {page} = page title, {app} = common.appName */
-    documentTitle: '{page} · {app}',
     /** scope line under the title (the health numbers live in the KPI cards) */
     description: '{total} dự án của {accounts} khách hàng',
     descriptionEmpty: 'Sức khỏe, tiến độ và mốc sắp tới của mọi dự án.',
@@ -74,12 +72,9 @@ const projects = {
     tableCaption: 'Danh mục dự án, xếp theo mức độ cần chú ý. Bấm một dòng để mở lộ trình của dự án.',
     columns: {
       project: 'Dự án',
-      people: 'Phụ trách',
       health: 'Sức khỏe',
-      healthSlip: 'Sức khỏe · độ trễ',
       progress: 'Tiến độ',
       next: 'Mốc tiếp theo',
-      slip: 'Độ trễ',
       waiting: 'Đang chờ',
       end: 'Kết thúc',
       actions: 'Thao tác',

@@ -18,7 +18,6 @@ import { t } from '@/i18n';
 import { effectiveStatus, PortfolioFilters, ResultLine } from './components/PortfolioFilters';
 import { PortfolioList, PortfolioSkeleton } from './components/PortfolioList';
 import { applyCriteria, isSortKey, SORT_KEYS, sortPortfolio } from './portfolioModel';
-import { useDocumentTitle } from './useDocumentTitle';
 import { usePortfolioParams } from './usePortfolioParams';
 
 const SEARCH_DEBOUNCE_MS = 250;
@@ -35,7 +34,6 @@ function describe(accounts: AccountSummary[]): string {
 }
 
 export function AccountsPage() {
-  useDocumentTitle(t('dashboard.accounts.title'));
   const viewer = useViewer();
   const params = usePortfolioParams();
   const { data, loading, error, refetch } = useQuery(() => api.listAccounts(), [viewer?.user.id]);
@@ -88,7 +86,7 @@ export function AccountsPage() {
   const filtered = status !== null || params.amId !== null || query.trim() !== '';
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 md:space-y-8">
       <PageHeader
         title={t('dashboard.accounts.title')}
         description={data ? describe(data) : undefined}

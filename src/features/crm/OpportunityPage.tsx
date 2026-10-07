@@ -1,7 +1,7 @@
 // /app/crm/opportunities/:opportunityId — one deal (DESIGN §5 detail page): header (account, name, stage, key facts
 // inline, actions), then main 2/3 (stage progress + next step, interactions) and side facts 1/3 on xl (details, quote,
 // contacts, stage history). Phones: win / lose sit in a sticky bottom bar.
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ChevronRight, CircleAlert, CircleCheck, CircleX, MessageSquarePlus, Pencil, RotateCcw } from 'lucide-react';
@@ -96,14 +96,6 @@ function OpportunityBody({ opp }: { opp: OpportunityDetail }) {
   const [logOpen, setLogOpen] = useState(false);
   const open = isOpenStage(opp.stage);
   const closeDays = diffDays(opp.expected_close_date, today);
-
-  useEffect(() => {
-    const previous = document.title;
-    document.title = t('crm.opportunity.documentTitle', { name: opp.name });
-    return () => {
-      document.title = previous;
-    };
-  }, [opp.name]);
 
   const move = (to: OpenStage) =>
     void run(() => api.moveOpportunityStage(opp.id, to), {

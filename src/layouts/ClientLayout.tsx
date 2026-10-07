@@ -1,8 +1,8 @@
 // Client portal frame (mobile-first, DESIGN §3). Tablet / desktop: 64px blurred header — client logo + "cùng New Era",
 // centred nav pills, compact project selector, bell, avatar. Phone (<768): compact header + bottom tab bar.
 // Portal canvas: max-w-[1120px].
-import { useCallback, useState } from 'react';
-import { Link, NavLink, Outlet } from 'react-router-dom';
+import { useCallback, useEffect, useState } from 'react';
+import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { AccountLogo } from '@/components/common/account-logo';
 import { NewEraMark } from '@/components/common/new-era-logo';
 import { TaskDrawerHost } from '@/components/task/TaskDrawerHost';
@@ -17,7 +17,7 @@ import { api } from '@/services/api';
 import { t } from '@/i18n';
 import { toastError } from '@/lib/toast';
 import { cn } from '@/components/ui/cn';
-import { CLIENT_NAV, navFor, type NavItem } from './navItems';
+import { CLIENT_NAV, navFor, navItemForPath, type NavItem } from './navItems';
 import { SkipLink } from './SkipLink';
 import { ViewAsClientBanner } from './ViewAsClientBanner';
 
@@ -122,8 +122,18 @@ function BottomTab({ item, search, badge }: { item: NavItem; search: string; bad
   );
 }
 
+/** Pages whose content follows the selected project (home, tasks, progress, documents). Commercial and settings are
+ * company-wide, so they show no project selector. */
+function isProjectScoped(pathname: string): boolean {
+  const path = pathname.replace(/\/+$/, '');
+  return (
+    path === '/portal' ||
+    ['/portal/tasks', '/portal/progress', '/portal/documents'].some((p) => path === p || path.startsWith(`${p}/`))
+  );
+}
+
 /** Client logo + name, thin divider, New Era mark + "cùng New Era". */
-function BrandLockup({ search }: { search: string }) {
+function BrandLockup({ search, nameOnPhone = true }: { search: string; nameOnPhone?: boolean }) {
   const { account } = usePortalShell();
   return (
     // the accessible name starts with what is visible: client name, then New Era (WCAG 2.5.3)
@@ -140,7 +150,13 @@ function BrandLockup({ search }: { search: string }) {
         <Skeleton className="h-8 w-8 rounded-lg" />
       )}
       {account ? (
-        <span className="max-w-[140px] truncate text-table font-semibold tracking-tightish text-ink md:hidden xl:inline xl:max-w-[160px]">
+        <span
+          className={cn(
+            'max-w-[140px] truncate text-table font-semibold tracking-tightish text-ink md:hidden xl:inline xl:max-w-[160px]',
+            // phones with the project selector in the header: the logo alone names the company
+            !nameOnPhone && 'hidden',
+          )}
+        >
           {account.short_name || account.name}
         </span>
       ) : null}
@@ -157,9 +173,23 @@ export function ClientLayout() {
   const viewer = useViewer();
   const { account, myTaskCount } = usePortalShell();
   const { projectId, projects } = usePortalProject();
+  const { pathname } = useLocation();
   const items = navFor(CLIENT_NAV, viewer?.role);
   const search = projectId ? `?${PROJECT_PARAM}=${encodeURIComponent(projectId)}` : '';
-  const hasProjects = projects.length > 1;
+  // the selector only where the page follows it; phones carry it in the header (no extra 60px row above the
+  // focal block), iPad portrait in a row under the header (the centred nav fills its header), lg+ in the header
+  const showProjects = projects.length > 1 && isProjectScoped(pathname);
+
+  // browser tab title = the portal section ("Việc · Client Hub")
+  const section = navItemForPath(CLIENT_NAV, pathname);
+  const sectionTitle = section
+    ? t(section.labelKey)
+    : pathname.startsWith('/portal/settings')
+      ? t('layout.userMenu.notificationSettings')
+      : null;
+  useEffect(() => {
+    if (sectionTitle) document.title = t('layout.documentTitle', { page: sectionTitle });
+  }, [sectionTitle]);
 
   const [onboardingClosed, setOnboardingClosed] = useState(false);
   const showOnboarding = !!viewer && viewer.user.onboarded_at === null && !viewer.read_only && !onboardingClosed;
@@ -181,7 +211,7 @@ export function ClientLayout() {
         <ViewAsClientBanner accountName={account?.name ?? null} />
         <header className="border-b border-border/70 bg-card/90 backdrop-blur-md supports-[backdrop-filter]:bg-card/80">
           <div className={cn(CANVAS, 'flex h-14 items-center gap-3 px-4 md:grid md:h-16 md:grid-cols-[1fr_auto_1fr] md:gap-4 md:px-6')}>
-            <BrandLockup search={search} />
+            <BrandLockup search={search} nameOnPhone={!showProjects} />
 
             <nav aria-label={t('layout.nav.main')} className="hidden items-center gap-1 md:flex">
               {items.map((item) => (
@@ -189,18 +219,22 @@ export function ClientLayout() {
               ))}
             </nav>
 
-            <div className="ml-auto flex items-center gap-1 justify-self-end md:gap-1.5">
-              <ProjectSelect size="sm" className="hidden w-44 lg:block xl:w-52" />
+            <div className="ml-auto flex min-w-0 items-center gap-1 justify-self-end md:gap-1.5">
+              {showProjects ? (
+                <ProjectSelect size="sm" className="w-40 min-w-0 md:hidden lg:block lg:w-44 xl:w-52" />
+              ) : null}
               <NotificationBell side="client" />
               <UserMenu side="client" accountName={account?.name ?? null} />
             </div>
           </div>
         </header>
       </div>
-      {/* below lg the project row scrolls with the page: the sticky chrome stays header + bottom tab bar only */}
-      {hasProjects ? (
-        <div className="border-b border-border/70 bg-card px-4 py-2 md:px-6 lg:hidden">
-          <ProjectSelect className={CANVAS} />
+      {/* iPad portrait: the project row scrolls with the page (the sticky chrome stays the header only) */}
+      {showProjects ? (
+        <div className="hidden border-b border-border/70 bg-card px-6 py-2 md:block lg:hidden">
+          <div className={CANVAS}>
+            <ProjectSelect size="sm" className="w-72" />
+          </div>
         </div>
       ) : null}
 

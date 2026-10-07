@@ -140,7 +140,7 @@ export function FollowUpsTab({ owner, today }: { owner: string; today: string })
   const calm = groups.overdue.length === 0 && groups.today.length === 0;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 md:space-y-8">
       {total === 0 ? (
         <Card>
           <EmptyState icon={CalendarCheck} title={t('crm.followups.empty')} description={t('crm.followups.emptyHint')} />

@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Compass } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -9,6 +10,10 @@ export function NotFoundPage() {
   const viewer = useViewer();
   const navigate = useNavigate();
   const canGoBack = typeof window !== 'undefined' && window.history.length > 1;
+  // no section matches this URL, so neither frame names the browser tab: say what the page is
+  useEffect(() => {
+    document.title = t('layout.documentTitle', { page: t('layout.notFound.title') });
+  }, []);
   return (
     <div className="flex min-h-[60vh] items-center justify-center px-4 py-16">
       <div className="flex max-w-md flex-col items-center text-center">

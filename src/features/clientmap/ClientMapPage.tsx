@@ -24,16 +24,6 @@ import { MapToolbar, ViewSwitch } from './MapToolbar';
 import { isCompany, mapKpis, rankedRows } from './mapModel';
 import { useMapParams } from './useMapParams';
 
-function useDocumentTitle(page: string): void {
-  useEffect(() => {
-    const previous = document.title;
-    document.title = t('clientmap.page.documentTitle', { page, app: t('common.appName') });
-    return () => {
-      document.title = previous;
-    };
-  }, [page]);
-}
-
 /**
  * The map fills the viewport below its top edge (the CSS fallback is calc(100dvh − 276px)), never shorter than
  * `min`; measured on mount and on window resize.
@@ -99,7 +89,6 @@ export function ClientMapPage() {
   const params = useMapParams();
   const [mapBox, setMapBox] = useState<HTMLDivElement | null>(null);
   const { update } = params;
-  useDocumentTitle(t('clientmap.page.title'));
 
   const query = useQuery(
     () => api.getClientMap({ metric: params.metric, includeLeads: params.showLeads, ownerId: params.amId ?? undefined }),
@@ -201,26 +190,29 @@ export function ClientMapPage() {
   }
 
   return (
-    <div className="space-y-4">
+    // same rhythm as every list page: header, then (section gap) the toolbar row grouped with its content
+    <div className="space-y-6 md:space-y-8">
       {header}
-      <MapToolbar
-        metric={params.metric}
-        onMetric={(m) => update({ metric: m })}
-        showLeads={params.showLeads}
-        onShowLeads={(v) => update({ showLeads: v })}
-        ams={ams}
-        amId={params.amId}
-        onAm={(id) => update({ amId: id, eco: null })}
-        view={params.view}
-        onView={(v) => update({ view: v })}
-        refreshing={query.refreshing}
-        compact={phone}
-        onEcosystems={() => setSheetOpen(true)}
-      />
-      {/* below 1280 (phones, iPad) the map — the focal point — comes first, the figures right under it */}
-      {kpisFirst ? kpiStrip : null}
-      {content}
-      {kpisFirst ? null : kpiStrip}
+      <div className="space-y-4">
+        <MapToolbar
+          metric={params.metric}
+          onMetric={(m) => update({ metric: m })}
+          showLeads={params.showLeads}
+          onShowLeads={(v) => update({ showLeads: v })}
+          ams={ams}
+          amId={params.amId}
+          onAm={(id) => update({ amId: id, eco: null })}
+          view={params.view}
+          onView={(v) => update({ view: v })}
+          refreshing={query.refreshing}
+          compact={phone}
+          onEcosystems={() => setSheetOpen(true)}
+        />
+        {/* below 1280 (phones, iPad) the map — the focal point — comes first, the figures right under it */}
+        {kpisFirst ? kpiStrip : null}
+        {content}
+        {kpisFirst ? null : kpiStrip}
+      </div>
 
       <EcosystemSheet
         open={sheetOpen}

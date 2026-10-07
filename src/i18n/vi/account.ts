@@ -2,7 +2,6 @@
 const account = {
   page: {
     backToList: 'Về danh sách khách hàng',
-    documentTitle: '{name} · Client Hub',
   },
 
   tabs: {

@@ -177,7 +177,7 @@ function ContractsSection({ accountId, manage }: { accountId: string; manage: bo
  */
 function Summary({ account }: { account: AccountDetail }) {
   const c = account.commercial;
-  if (!c) return <KpiSkeleton count={3} className="grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-3" />;
+  if (!c) return <KpiSkeleton count={3} className="grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-3" itemClassName={(i) => (i === 0 ? 'col-span-2 xl:col-span-1' : undefined)} labelLines={1} />;
   return (
     <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-3">
       <KpiCard
@@ -193,12 +193,14 @@ function Summary({ account }: { account: AccountDetail }) {
         }
       />
       <KpiCard
+        labelLines={1}
         label={t('commercial.account.kpi.receivable')}
         value={formatMoneyCompact(c.receivable)}
         icon={Wallet}
         sub={c.next_payment ? t('commercial.account.kpi.nextPayment', { name: c.next_payment.name }) : t('commercial.account.kpi.noNextPayment')}
       />
       <KpiCard
+        labelLines={1}
         label={t('commercial.account.kpi.overdue')}
         value={formatMoneyCompact(c.receivable_overdue)}
         icon={c.receivable_overdue > 0 ? CircleAlert : CircleCheck}

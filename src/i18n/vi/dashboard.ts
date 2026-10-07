@@ -2,8 +2,6 @@
 // Director / AM overview (/app) and the account portfolio (/app/accounts) — SPEC §4.1, DESIGN §5.
 const dashboard = {
   title: 'Tổng quan',
-  /** browser tab: {page} = page title, {app} = common.appName */
-  documentTitle: '{page} · {app}',
   /** "Thứ Tư, 07/10/2026" */
   dateLine: '{weekday}, {date}',
   /** {name} = "anh Nam" (salutation + given name) or the given name alone */

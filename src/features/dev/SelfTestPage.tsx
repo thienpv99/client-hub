@@ -1,5 +1,5 @@
 // /dev/selftest — run domain, RBAC, seed and API smoke checks in the browser (no Node on this machine).
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, CircleCheck, CircleX, FlaskConical, Play, TriangleAlert } from 'lucide-react';
 import { NewEraLogo } from '@/components/common/new-era-logo';
@@ -128,6 +128,10 @@ function SuiteCard({ id, state, onRun, disabled }: { id: SuiteId; state: SuiteSt
 
 export function SelfTestPage() {
   const viewer = useViewer();
+  // outside both app frames, so the page names the browser tab itself
+  useEffect(() => {
+    document.title = t('layout.documentTitle', { page: t('dev.title') });
+  }, []);
   const [states, setStates] = useState<Record<SuiteId, SuiteState>>({
     domain: { status: 'idle' },
     rbac: { status: 'idle' },

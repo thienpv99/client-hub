@@ -57,12 +57,18 @@ export function SectionCard({
     // min-w-0: safe as a grid/flex child (truncated rows inside must not widen the page)
     <Card id={id} className={cx('min-w-0 rounded-xl border border-border/70 bg-card shadow-card', className)}>
       {hasHeader ? (
-        <div className={cx('flex flex-wrap items-start justify-between gap-x-4 gap-y-2 px-4 pt-4 sm:px-5 sm:pt-5', headerClassName)}>
-          <div className="min-w-0 flex-1">
-            {title ? <Heading className="text-heading font-semibold tracking-tightish text-ink">{title}</Heading> : null}
-            {description ? <p className="mt-0.5 text-caption">{description}</p> : null}
+        <div className="px-4 pt-4 sm:px-5 sm:pt-5">
+          {/* title row: the title keeps its one-line width (basis-auto) — actions that do not fit beside it wrap
+              under it instead of squeezing it; the description runs full width under the row, never squeezed */}
+          <div className={cx('flex flex-wrap items-start justify-between gap-x-4 gap-y-2', headerClassName)}>
+            {title ? (
+              <Heading className="min-w-0 flex-1 basis-auto text-heading font-semibold tracking-tightish text-ink">{title}</Heading>
+            ) : (
+              <span className="flex-1" aria-hidden="true" />
+            )}
+            {actions ? <div className="-my-1 flex shrink-0 flex-wrap items-center gap-1.5">{actions}</div> : null}
           </div>
-          {actions ? <div className="-my-1 flex shrink-0 flex-wrap items-center gap-1.5">{actions}</div> : null}
+          {description ? <p className="mt-0.5 text-caption">{description}</p> : null}
         </div>
       ) : null}
       <div className={cx(bodyClass, contentClassName)}>{children}</div>

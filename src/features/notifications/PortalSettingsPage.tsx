@@ -51,7 +51,7 @@ export function PortalSettingsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 md:space-y-8">
       <PageHeader title={t('notify.settings.title')} description={t('notify.settings.description', { salutation })} />
 
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] lg:gap-8">

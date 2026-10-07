@@ -58,6 +58,11 @@ export interface KpiCardProps {
   spark?: number[];
   /** custom footer under the context line */
   footer?: ReactNode;
+  /**
+   * label lines a narrow card (≤ 200px: 2-up phones, 4-up iPad) reserves so the numbers of a row line up. Default 2;
+   * pass 1 for a row whose labels all fit one line (saves ~18px per tile on phones). Same prop on KpiSkeleton.
+   */
+  labelLines?: 1 | 2;
   className?: string;
 }
 
@@ -121,6 +126,9 @@ function KpiProgressBar({ progress }: { progress: KpiProgress }) {
 
 const SPARK_STROKE = 'rgb(var(--chart-1))';
 
+/** two label lines on narrow tiles (container query on the card); shared with KpiSkeleton */
+export const KPI_LABEL_RESERVE = '[@container_(max-width:200px)]:min-h-9';
+
 function KpiSpark({ data }: { data: number[] }) {
   const rows = data.map((v, i) => ({ i, v }));
   return (
@@ -160,13 +168,14 @@ export function KpiCard({
   progress,
   spark,
   footer,
+  labelLines = 2,
   className,
 }: KpiCardProps) {
   const clickable = Boolean(onClick);
   const body = (
     <>
       {/* narrow cards (2-up phones, 4-up iPad): reserve two label lines so the numbers of a row line up */}
-      <div className={cx('flex min-w-0 items-start gap-2 [@container_(max-width:200px)]:min-h-9', clickable && 'pr-3')}>
+      <div className={cx('flex min-w-0 items-start gap-2', labelLines === 2 && KPI_LABEL_RESERVE, clickable && 'pr-3')}>
         {Icon ? <Icon className={cx('mt-px h-4 w-4 shrink-0', ICON_TONE[tone])} aria-hidden="true" /> : null}
         <span className="min-w-0 flex-1 text-caption font-medium">{label}</span>
       </div>

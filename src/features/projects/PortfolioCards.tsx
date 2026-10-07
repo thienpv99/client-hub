@@ -63,7 +63,7 @@ function PortfolioCard({ project: p }: { project: ProjectPortfolioRow }) {
           </div>
         </dl>
 
-        <WaitingCountsLine counts={p.counts} showOverdue className="mt-auto" />
+        <WaitingCountsLine counts={p.counts} showOverdue compact className="mt-auto" />
       </div>
 
       <div className="flex items-center justify-between gap-x-4 border-t border-border/60 py-1.5 pl-4 pr-2 sm:pl-5 sm:pr-3">

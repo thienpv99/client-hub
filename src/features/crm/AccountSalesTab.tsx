@@ -103,7 +103,7 @@ export function AccountSalesTab({ account }: { account: AccountRef }) {
   const dealsListed = opps.data !== undefined && sorted.length > 0;
 
   return (
-    <div className="grid min-w-0 gap-6 xl:grid-cols-3">
+    <div className="grid min-w-0 gap-4 md:gap-6 xl:grid-cols-3">
       <SectionCard
         className="xl:col-span-2"
         title={t('crm.accountTab.deals')}

@@ -51,6 +51,13 @@ export function InternalLayout() {
     setMenuOpen(false);
   }, [location.pathname, chrome]);
 
+  // browser tab title = the current page ("Việc · Client Hub", "Cỏ Xanh Retail · Client Hub"); pages may refine it
+  const leaf = crumbs[crumbs.length - 1];
+  const pageTitle = leaf && !leaf.pending && leaf.label ? leaf.label : null;
+  useEffect(() => {
+    if (pageTitle) document.title = t('layout.documentTitle', { page: pageTitle });
+  }, [pageTitle]);
+
   // global Ctrl/Cmd + K
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {

@@ -28,7 +28,6 @@ import { effectiveStatus } from './components/PortfolioFilters';
 import { UpcomingMilestones } from './components/UpcomingMilestones';
 import { ValueMapTeaser } from './components/ValueMapTeaser';
 import type { StatusFilter } from './portfolioModel';
-import { useDocumentTitle } from './useDocumentTitle';
 import { usePortfolioParams } from './usePortfolioParams';
 
 /** scroll the portfolio into view when its top is below the fold (KPI filters act on it) */
@@ -108,7 +107,6 @@ function DashboardBody({ data, today }: { data: DirectorDashboard; today: string
 }
 
 export function DashboardPage() {
-  useDocumentTitle(t('dashboard.title'));
   const viewer = useViewer();
   const { data, loading, error, refetch } = useQuery(() => api.getDirectorDashboard(), [viewer?.user.id]);
   const today = todayISO();

@@ -239,7 +239,7 @@ function DecisionBar({ quote, salutation }: { quote: QuoteDetail; salutation: st
 
 function QuotePageSkeleton() {
   return (
-    <div className="mx-auto w-full max-w-reading space-y-6" role="status" aria-busy="true">
+    <div className="mx-auto w-full max-w-reading space-y-6 md:space-y-8" role="status" aria-busy="true">
       <span className="sr-only">{t('common.loading')}</span>
       <div className="space-y-2.5">
         <Skeleton className="h-4 w-24" />
@@ -280,7 +280,7 @@ export function PortalQuotePage() {
   if (query.loading) return <QuotePageSkeleton />;
   if (!quote) {
     return (
-      <div className="mx-auto w-full max-w-reading space-y-6">
+      <div className="mx-auto w-full max-w-reading space-y-6 md:space-y-8">
         <PageHeader back={back()} title={t('commercial.doc.kind')} />
         <Card>
           <ErrorState error={query.error} onRetry={query.refetch} />
@@ -292,7 +292,7 @@ export function PortalQuotePage() {
   const decidable = quote.can.client_decide;
   // one centred reading column (header, status, quote page, decision bar) like a document viewer
   return (
-    <div className="mx-auto w-full max-w-reading space-y-6">
+    <div className="mx-auto w-full max-w-reading space-y-6 md:space-y-8">
       <PageHeader
         back={back()}
         title={quote.title}

@@ -100,6 +100,9 @@ const components = {
   waiting: {
     client: 'Đang chờ khách',
     internal: 'Đang chờ New Era',
+    /** WaitingCountsLine compact (narrow cards) */
+    clientShort: 'Chờ khách',
+    internalShort: 'Chờ New Era',
     overdue: '{count} quá hạn',
   },
 

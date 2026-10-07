@@ -1,7 +1,7 @@
 // /login — split layout: calm brand panel with a product preview (≥1024) + sign-in column.
 // Sign-in column: heading → sign-in card (segmented Khách hàng / Nội bộ New Era) → demo quick-login grid.
 // Phones: one column, the demo grid comes first (the fastest way in), then the sign-in card.
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Navigate, useSearchParams } from 'react-router-dom';
 import { NewEraLogo } from '@/components/common/new-era-logo';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -19,6 +19,10 @@ export function LoginPage() {
   const viewer = useViewer();
   const [params] = useSearchParams();
   const [mode, setMode] = useState<Mode>('client');
+  // outside both app frames: name the browser tab here (after a logout it still showed the last page)
+  useEffect(() => {
+    document.title = t('layout.documentTitle', { page: t('auth.pageTitle') });
+  }, []);
 
   if (viewer) {
     const target = safeNextPath(params.get('next'), viewer) ?? homePathFor(viewer);

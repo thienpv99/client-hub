@@ -13,13 +13,22 @@ export function useMediaQuery(query: string): boolean {
     (onChange: () => void) => {
       if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return () => {};
       const mql = window.matchMedia(query);
+      // `resize` as well: some viewport emulations (devtools device mode) change the size without firing the
+      // MediaQueryList change event; useSyncExternalStore only re-renders when the snapshot really flips.
+      window.addEventListener('resize', onChange);
       if (typeof mql.addEventListener === 'function') {
         mql.addEventListener('change', onChange);
-        return () => mql.removeEventListener('change', onChange);
+        return () => {
+          mql.removeEventListener('change', onChange);
+          window.removeEventListener('resize', onChange);
+        };
       }
       // Safari < 14
       mql.addListener(onChange);
-      return () => mql.removeListener(onChange);
+      return () => {
+        mql.removeListener(onChange);
+        window.removeEventListener('resize', onChange);
+      };
     },
     [query],
   );

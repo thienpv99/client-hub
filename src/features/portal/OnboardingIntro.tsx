@@ -114,6 +114,7 @@ export function OnboardingIntro({ onDone }: OnboardingIntroProps) {
       }}
     >
       <DialogContent
+        mobileFullScreen
         showCloseButton={false}
         onOpenAutoFocus={(e) => {
           e.preventDefault();
@@ -124,12 +125,8 @@ export function OnboardingIntro({ onDone }: OnboardingIntroProps) {
         onKeyDown={onKeyDown}
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
-        className={cn(
-          // phones: a full screen, not a draggable bottom sheet → no handle bar (the kit's ::before)
-          'flex h-[100dvh] max-h-[100dvh] w-full max-w-full flex-col gap-0 overflow-y-auto rounded-none border-0 p-0 before:hidden',
-          // sm+: a centred card sized by its content (h-fit: with `inset-0 m-auto`, h-auto would stretch it to max-h)
-          'sm:h-fit sm:max-h-[92vh] sm:max-w-md sm:rounded-xl sm:border sm:border-border/70 sm:p-0',
-        )}
+        // phones: full screen (the kit's mobileFullScreen); sm+: a centred card sized by its content
+        className="flex-col gap-0 p-0 sm:max-h-[92vh] sm:p-0"
       >
         <div className="flex items-center justify-between px-5 pt-[max(1rem,env(safe-area-inset-top))] sm:px-6 sm:pt-5">
           <NewEraLogo size="sm" withText />

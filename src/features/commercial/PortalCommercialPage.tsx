@@ -174,7 +174,7 @@ export function PortalCommercialPage() {
   const hasHistory = others.length > 0;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 md:space-y-8">
       <PageHeader title={t('commercial.portal.title')} description={t('commercial.portal.description')} />
 
       <div className={hasHistory ? 'grid gap-8 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start lg:gap-6' : undefined}>

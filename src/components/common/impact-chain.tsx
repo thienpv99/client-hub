@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronRight, CircleAlert, CircleCheck, Clock, Flag } from 'lucide-react';
+import { ChevronRight, CircleAlert, CircleCheck, Clock, Flag } from 'lucide-react';
 import type { ChainNode } from '@/services/contract';
 import { t } from '@/i18n';
 import { formatDateShort } from '@/lib/format';
@@ -75,24 +75,16 @@ export interface ImpactChainProps {
 }
 
 /**
- * "Duyệt thiết kế › Lập trình Đặt hàng › Mốc UAT › Go-live": a pill chain with chevrons from `sm` (wraps when long),
- * vertical on narrow phones. The stuck link is red with an icon.
+ * "Duyệt thiết kế › Lập trình Đặt hàng › Mốc UAT › Go-live": a pill chain with chevrons that wraps when long (phones
+ * included — short links share a line, a long one takes its own). The stuck link is red with an icon.
  */
 export function ImpactChain({ nodes, className }: ImpactChainProps) {
   if (nodes.length === 0) return null;
   return (
-    <ol
-      aria-label={t('components.chain.label')}
-      className={cx('flex flex-col items-start gap-0.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-1 sm:gap-y-2', className)}
-    >
+    <ol aria-label={t('components.chain.label')} className={cx('flex flex-wrap items-center gap-x-1 gap-y-2', className)}>
       {nodes.map((node, i) => (
-        <li key={`${node.kind}:${node.id}:${i}`} className="flex max-w-full flex-col items-start gap-0.5 sm:flex-row sm:items-center sm:gap-1">
-          {i > 0 ? (
-            <>
-              <ChevronDown className="ml-3 h-4 w-4 shrink-0 text-caption sm:hidden" aria-hidden="true" />
-              <ChevronRight className="hidden h-4 w-4 shrink-0 text-caption sm:block" aria-hidden="true" />
-            </>
-          ) : null}
+        <li key={`${node.kind}:${node.id}:${i}`} className="flex min-w-0 max-w-full items-center gap-1">
+          {i > 0 ? <ChevronRight className="h-4 w-4 shrink-0 text-caption" aria-hidden="true" /> : null}
           <NodeChip node={node} />
         </li>
       ))}

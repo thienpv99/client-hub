@@ -278,7 +278,7 @@ export function CompanyTasksPage() {
   const toggleWait = (wait: CompanyFilters['wait']) => update({ wait: filters.wait === wait ? null : wait });
 
   return (
-    <div className={hasSelection ? 'space-y-6 pb-24' : 'space-y-6'}>
+    <div className={hasSelection ? 'space-y-6 pb-24 md:space-y-8' : 'space-y-6 md:space-y-8'}>
       <PageHeader title={title} description={description} />
 
       {/* focal block: where work is stuck — each tile filters the list below */}

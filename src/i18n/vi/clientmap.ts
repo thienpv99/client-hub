@@ -3,7 +3,6 @@ const clientmap = {
   page: {
     title: 'Bản đồ khách hàng',
     description: 'Bong bóng càng lớn, giá trị càng cao; công ty cùng hệ sinh thái tụ thành cụm.',
-    documentTitle: '{page} · {app}',
   },
   metric: {
     label: 'Kích thước theo',

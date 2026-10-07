@@ -45,7 +45,6 @@ const tasks = {
   },
 
   kanban: {
-    jump: 'Đi tới cột',
     columnCount: '{count} việc',
     moveTo: 'Chuyển sang…',
     moveMenu: 'Chuyển “{task}” sang cột khác',

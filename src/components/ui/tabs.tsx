@@ -11,6 +11,9 @@ export type TabsListVariant = 'default' | 'pill' | 'segmented' | 'underline';
 
 const TabsVariantContext = React.createContext<'pill' | 'underline'>('pill');
 
+/** width of the scroll-fade mask (index.css `.scroll-fade-x`) + a little air */
+const EDGE_FADE = 44;
+
 const Tabs = TabsPrimitive.Root;
 
 export interface TabsListProps extends React.ComponentPropsWithoutRef<typeof TabsPrimitive.List> {
@@ -24,24 +27,45 @@ const TabsList = React.forwardRef<React.ElementRef<typeof TabsPrimitive.List>, T
     React.useImperativeHandle(ref, () => innerRef.current as HTMLDivElement);
 
     // Keep the active tab visible when the list scrolls horizontally (mobile), also when the
-    // value changes from outside (URL, uncontrolled state).
+    // value changes from outside (URL, uncontrolled state) — clear of the 40px edge fade (index.css .scroll-fade-x),
+    // so the active tab is never half under the fade.
     React.useEffect(() => {
       const list = innerRef.current;
       if (!list) return;
       const reveal = () => {
-        if (list.scrollWidth <= list.clientWidth) return;
+        const max = list.scrollWidth - list.clientWidth;
+        if (max <= 1) return;
         const active = list.querySelector<HTMLElement>('[role="tab"][data-state="active"]');
         if (!active) return;
         const left = active.offsetLeft;
         const right = left + active.offsetWidth;
-        if (left < list.scrollLeft || right > list.scrollLeft + list.clientWidth) {
-          list.scrollTo({ left: Math.max(0, left - 16) });
-        }
+        const current = list.scrollLeft;
+        let target = current;
+        if (left - EDGE_FADE < current) target = left - EDGE_FADE;
+        else if (right + EDGE_FADE > current + list.clientWidth) target = right + EDGE_FADE - list.clientWidth;
+        target = Math.max(0, Math.min(max, target));
+        if (Math.abs(target - current) > 1) list.scrollTo({ left: target });
       };
       reveal();
-      const observer = new MutationObserver(reveal);
-      observer.observe(list, { subtree: true, attributes: true, attributeFilter: ['data-state'] });
-      return () => observer.disconnect();
+      // the strip often starts to overflow only after first paint (web font, counts arriving): reveal again when
+      // the list or a tab changes size
+      const sizes = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => reveal());
+      const watchTabs = () => {
+        if (!sizes) return;
+        sizes.disconnect();
+        sizes.observe(list);
+        list.querySelectorAll<HTMLElement>('[role="tab"]').forEach((tab) => sizes.observe(tab));
+      };
+      watchTabs();
+      const observer = new MutationObserver((records) => {
+        if (records.some((r) => r.type === 'childList')) watchTabs();
+        reveal();
+      });
+      observer.observe(list, { subtree: true, childList: true, attributes: true, attributeFilter: ['data-state'] });
+      return () => {
+        observer.disconnect();
+        sizes?.disconnect();
+      };
     }, []);
     // a strip that scrolls (phones) fades its cut edge
     useScrollFade(innerRef);

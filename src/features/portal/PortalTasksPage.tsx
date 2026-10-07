@@ -175,7 +175,7 @@ export function PortalTasksPage() {
 
   // lg (iPad landscape / desktop): the list keeps the home's 2/3 reading width, the counts + contact sit beside it
   const layout = (content: ReactNode) => (
-    <div className="space-y-5 md:space-y-6">
+    <div className="space-y-6 md:space-y-8">
       {header}
       <div className="lg:grid lg:grid-cols-3 lg:items-start lg:gap-6">
         <div className="min-w-0 lg:col-span-2">{content}</div>

@@ -2,7 +2,7 @@
 // sit in the PageHeader's tabs slot (underline, DESIGN §3). Each tab opens with its own KPI row (the focal block).
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { FilePlus2 } from 'lucide-react';
-import { PageHeader } from '@/components/common/page-header';
+import { PAGE_TABS_BLEED, PageHeader } from '@/components/common/page-header';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useViewer } from '@/hooks/useViewer';
@@ -51,7 +51,7 @@ export function CommercialPage() {
         }
         tabs={
           // gap-0.5 on phones: the four short labels fit 343px without a scrolling strip
-          <TabsList variant="underline" aria-label={t('commercial.tabs.label')} className="gap-0.5 md:gap-2">
+          <TabsList variant="underline" aria-label={t('commercial.tabs.label')} className={`${PAGE_TABS_BLEED} gap-0.5 md:gap-2`}>
             {COMMERCIAL_TABS.map((id) => (
               <TabsTrigger key={id} value={id}>
                 {t(`commercial.tabs.short.${id}`)}

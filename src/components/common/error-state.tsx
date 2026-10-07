@@ -38,10 +38,12 @@ export interface ErrorStateProps {
   error: unknown;
   onRetry?: () => void;
   compact?: boolean;
+  /** element of the title: 'h1' when the error replaces a whole page (the page then still has its one heading) */
+  titleAs?: 'p' | 'h1' | 'h2';
   className?: string;
 }
 
-export function ErrorState({ error, onRetry, compact = false, className }: ErrorStateProps) {
+export function ErrorState({ error, onRetry, compact = false, titleAs: Title = 'p', className }: ErrorStateProps) {
   const kind = kindOf(error);
   const look = LOOK[kind];
   return (
@@ -55,9 +57,9 @@ export function ErrorState({ error, onRetry, compact = false, className }: Error
     >
       <EmptyIcon icon={look.icon} tone={look.tone} compact={compact} />
       <div className="max-w-md space-y-1">
-        <p className={cx('text-balance text-ink', compact ? 'text-table font-medium' : 'text-heading font-semibold tracking-tightish')}>
+        <Title className={cx('text-balance text-ink', compact ? 'text-table font-medium' : 'text-heading font-semibold tracking-tightish')}>
           {t(look.titleKey)}
-        </p>
+        </Title>
         <p className="text-balance text-table text-muted-foreground">{errorMessage(error)}</p>
       </div>
       {onRetry && kind === 'failed' ? (

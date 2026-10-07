@@ -1,10 +1,9 @@
 // /app/projects/:tab? — project portfolio (Danh mục · Dòng thời gian · Tải việc), director, AM and member (read-only).
 // Header + underline tabs; each tab has its own focal block (portfolio: KPI filters over the list, timeline: the
 // cross-project Gantt, workload: the heat map). The tab follows the URL, portfolio filters live in ?query.
-import { useEffect } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { api } from '@/services/api';
-import { PageHeader } from '@/components/common/page-header';
+import { PAGE_TABS_BLEED, PageHeader } from '@/components/common/page-header';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useQuery } from '@/hooks/useQuery';
@@ -16,22 +15,11 @@ import { WorkloadTab } from './WorkloadTab';
 import { isProjectTab, PROJECT_TABS, projectsTabPath, type ProjectTab } from './projectsModel';
 import { useProjectParams } from './useProjectParams';
 
-function useDocumentTitle(page: string): void {
-  useEffect(() => {
-    const previous = document.title;
-    document.title = t('projects.page.documentTitle', { page, app: t('common.appName') });
-    return () => {
-      document.title = previous;
-    };
-  }, [page]);
-}
-
 export function ProjectsPage() {
   const { tab: rawTab } = useParams();
   const navigate = useNavigate();
   const viewer = useViewer();
   const params = useProjectParams();
-  useDocumentTitle(t('projects.page.title'));
   const portfolio = useQuery(() => api.listProjectPortfolio(), [viewer?.user.id]);
 
   if (rawTab !== undefined && !isProjectTab(rawTab)) return <Navigate to="/app/projects" replace />;
@@ -60,7 +48,7 @@ export function ProjectsPage() {
           <TabsList
             variant="underline"
             aria-label={t('projects.tabs.label')}
-            className="-mx-4 w-auto max-w-none px-4 md:-mx-6 md:px-6 xl:-mx-8 xl:px-8"
+            className={PAGE_TABS_BLEED}
           >
             {PROJECT_TABS.map((id) => (
               <TabsTrigger key={id} value={id}>

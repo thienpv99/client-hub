@@ -77,7 +77,6 @@ const crm = {
 
   page: {
     title: 'Bán hàng',
-    documentTitle: 'Bán hàng · {app}',
     description: 'Cơ hội đang theo đuổi và việc cần theo dõi.',
     create: 'Tạo cơ hội',
   },
@@ -262,7 +261,6 @@ const crm = {
 
   opportunity: {
     back: 'Bán hàng',
-    documentTitle: '{name} · Bán hàng',
     win: 'Đánh dấu thắng',
     lose: 'Đánh dấu thua',
     winShort: 'Chốt thắng',

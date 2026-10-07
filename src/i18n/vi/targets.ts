@@ -3,9 +3,6 @@
 // when such a key is missing, so a raw key never reaches the screen.
 const targets = {
   title: 'Khách hàng mục tiêu',
-  /** browser tab titles, {app} = common.appName */
-  documentTitle: 'Khách hàng mục tiêu · {app}',
-  documentTitleLead: '{company} · Khách hàng mục tiêu',
   intro: 'Công ty nên tiếp cận, xếp theo mức phù hợp.',
   tabsLabel: 'Các phần của trang khách hàng mục tiêu',
   tabs: {

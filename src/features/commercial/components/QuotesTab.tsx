@@ -129,7 +129,7 @@ export function QuotesTab() {
 
   if (query.loading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 md:space-y-8">
         <KpiSkeleton count={4} className="grid-cols-2 gap-3 sm:gap-4" />
         <TableSkeleton rows={6} cols={5} />
       </div>
@@ -144,7 +144,7 @@ export function QuotesTab() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 md:space-y-8">
       <QuoteKpis quotes={byAccount} status={status} onPick={(s) => setParam('status', s)} />
 
       <div className="space-y-3">
@@ -251,7 +251,7 @@ export function QuotesTab() {
             <TableBody>
               {visible.map((q) => (
                 <TableRow key={q.id} className="group cursor-pointer" onClick={() => navigate(quoteHref(q.id))}>
-                  <TableCell className="max-w-[420px]">
+                  <TableCell className="max-w-[380px]">
                     <div className="flex items-center gap-3">
                       <AccountLogo account={q.account} size="sm" />
                       <div className="min-w-0">

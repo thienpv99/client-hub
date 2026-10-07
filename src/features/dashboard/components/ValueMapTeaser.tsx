@@ -42,14 +42,9 @@ function Row({ node, rank, max }: { node: ClientMapNode; rank: number; max: numb
         {rank}
       </span>
       <AccountLogo
-        // the map node carries the account's initials ("TA" for Ngân hàng Thịnh An) but no short name: passing the
-        // initials as the short name keeps the tile identical to the account's logo everywhere else
-        account={{
-          name: node.label,
-          short_name: node.logo.initials,
-          logo_url: node.logo.logo_url,
-          brand_color: node.logo.brand_color,
-        }}
+        // the map node carries the account's initials ("TA" for Ngân hàng Thịnh An) but no short name
+        account={{ name: node.label, logo_url: node.logo.logo_url, brand_color: node.logo.brand_color }}
+        initials={node.logo.initials}
         size="sm"
       />
       <span className="min-w-0 flex-1" aria-hidden="true">

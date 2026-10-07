@@ -95,7 +95,7 @@ export function DigestPreviewPage() {
   });
 
   return (
-    <div className="mx-auto w-full max-w-reading space-y-6">
+    <div className="mx-auto w-full max-w-reading space-y-6 md:space-y-8">
       <PageHeader
         title={t('notify.preview.title')}
         description={description}

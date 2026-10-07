@@ -143,7 +143,7 @@ export function IcpTab({ isDirector }: { isDirector: boolean }) {
   const updated = t('targets.icp.updated', { when: formatRelativeTime(icp.updated_at) });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 md:space-y-8">
       <div className="grid min-w-0 gap-6 xl:grid-cols-5">
         <SectionCard
           className="xl:col-span-3"

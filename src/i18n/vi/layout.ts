@@ -1,6 +1,8 @@
 // i18n namespace 'layout' — owner: shell (G1). App frame: navigation, top bar, search, bell, menus.
 const layout = {
   brand: 'Client Hub',
+  /** browser tab title set by both frames from the current page (breadcrumb leaf / portal section) */
+  documentTitle: '{page} · Client Hub',
   nav: {
     main: 'Điều hướng chính',
     bottom: 'Điều hướng nhanh',

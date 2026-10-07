@@ -11,11 +11,16 @@ export interface AccountLogoProps {
   size?: IdentitySize;
   /** 2px card-coloured ring (overlapping stacks, logos on tinted backgrounds) */
   ring?: boolean;
+  /**
+   * initials already computed by the data layer (e.g. ClientMapNode.logo.initials, which has no short_name) — wins
+   * over the initials worked out from short_name / name, so one company shows the same tile everywhere
+   */
+  initials?: string | null;
   className?: string;
 }
 
 /** Client logo, or initials in white on the account's brand colour. Company logos are rounded squares. */
-export function AccountLogo({ account, size = 'md', ring = false, className }: AccountLogoProps) {
+export function AccountLogo({ account, size = 'md', ring = false, initials: givenInitials, className }: AccountLogoProps) {
   const [broken, setBroken] = useState(false);
   useEffect(() => setBroken(false), [account.logo_url]);
   const radius = size === 'xs' ? 'rounded-md' : size === 'lg' ? 'rounded-xl' : 'rounded-lg';
@@ -50,7 +55,7 @@ export function AccountLogo({ account, size = 'md', ring = false, className }: A
       style={brand ? { backgroundColor: brand } : undefined}
     >
       {/* short_name drops industry prefixes: 'Ngân hàng Thịnh An' → 'Thịnh An' → 'TA' */}
-      {initials(account.short_name?.trim() || account.name)}
+      {givenInitials?.trim() || initials(account.short_name?.trim() || account.name)}
     </span>
   );
 }

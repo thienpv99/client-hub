@@ -127,7 +127,11 @@ export function MapTooltip({ id, node, eco, anchor, canvas, docked, touch, onOpe
             <Network className="h-[18px] w-[18px]" />
           </span>
         ) : (
-          <AccountLogo account={{ name: node.label, logo_url: node.logo.logo_url, brand_color: node.logo.brand_color }} size="md" />
+          <AccountLogo
+            account={{ name: node.label, logo_url: node.logo.logo_url, brand_color: node.logo.brand_color }}
+            initials={node.logo.initials}
+            size="md"
+          />
         )}
         <div className="min-w-0 flex-1">
           <p className="line-clamp-2 text-table font-semibold text-ink">{title}</p>

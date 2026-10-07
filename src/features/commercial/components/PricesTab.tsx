@@ -165,14 +165,15 @@ export function PricesTab() {
             <TableBody>
               {visible.map((i) => (
                 <TableRow key={i.id} className="group">
-                  <TableCell className="min-w-[260px] max-w-[420px]">
+                  {/* fits the 951px content column at 1280 (sidebar open) with the cost columns: no sideways scroll */}
+                  <TableCell className="min-w-[200px] max-w-[420px]">
                     <p className={i.active ? 'font-semibold text-ink' : 'font-semibold text-muted-foreground'}>{i.name}</p>
                     <p className="line-clamp-1 text-caption">
                       <span className="tabular">{i.code}</span>
                       {i.description ? ` · ${i.description}` : ''}
                     </p>
                   </TableCell>
-                  <TableCell className="whitespace-nowrap text-muted-foreground">{i.category}</TableCell>
+                  <TableCell className="max-w-[9rem] text-muted-foreground">{i.category}</TableCell>
                   <TableCell className="whitespace-nowrap text-muted-foreground">{unitLabel(i)}</TableCell>
                   <TableCell className="text-right font-semibold text-ink">
                     <Money value={i.list_price} />

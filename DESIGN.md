@@ -159,10 +159,9 @@ The kit (`components/ui`), the product components (`components/common`) and the 
 are done. Screens compose them; they do not rebuild them. Every API below is optional and additive — old props work.
 
 ### 7.1 Class merging and type gotchas
-- `cn` from `@/components/ui/cn` (= `cx` from `components/common/cx`) knows every v2 token. **`cn` from `@/lib/utils`
-  does not yet**: it silently drops `text-micro|heading|title|display|kpi-lg` next to a text colour and cannot let
-  `shadow-none` beat `shadow-btn|xs|segment`. Until the lead updates lib/utils, a feature file that puts v2 tokens
-  inside `cn()` imports `cn` from `@/components/ui/cn`. Plain `className="…"` strings are safe either way.
+- `cn` from `@/components/ui/cn` (= `cx` from `components/common/cx`) and `cn` from `@/lib/utils` now share the same
+  merge config and know every v2 token (sizes, shadows incl. `segment`, tracking, `max-w-page|reading`, `ease-out-quart`,
+  `min-h|w-tap`). Either is safe; new code prefers `@/components/ui/cn`. Keep the two configs in step.
 - `text-caption` = 13px **and** the caption colour: never next to another size. 12px caption-coloured text =
   `text-micro text-muted-foreground` (`MICRO_MUTED`); 13px in another colour = `SMALL` (`text-[13px] leading-[18px]`).
 - Kit components merge the caller's `className` with the token-aware `cn`, so `className="text-micro"` etc. is safe.
@@ -185,6 +184,15 @@ are done. Screens compose them; they do not rebuild them. Every API below is opt
 - **Breakpoints**: two-column layouts (main 2/3 + side 1/3, dashboard attention + chart, kanban 4 columns, editor +
   totals) switch at **`xl`**, not `lg` — at 1024 the sidebar is open. KPI rows: `grid grid-cols-2 gap-3 sm:gap-4
   xl:grid-cols-4`. Internal tables become cards below `xl` (TableSkeleton matches).
+- **Browser tab title** belongs to the frames: InternalLayout sets `"{breadcrumb leaf} · Client Hub"` ("Việc",
+  "Cỏ Xanh Retail", "Không mở được" when an entity cannot be opened), ClientLayout `"{portal section} · Client Hub"`
+  (`layout.documentTitle`). Pages never set `document.title`, except the pages outside any section (NotFoundPage,
+  LoginPage, SelfTestPage — same `layout.documentTitle` format) and QuotePrint's temporary print title.
+- **Portal project selector**: only on project-scoped pages (home, Việc, Tiến độ, Tài liệu — not Thương mại or
+  settings). Phones: in the header (the company name hides, the logo stays), so the focal block starts right under the
+  header; iPad portrait (md–lg): a row under the header (the centred nav fills it); lg+: in the header.
+- **Detail header on phones**: AccountHeader `compactFacts` (AccountDetailPage passes it on every tab but Tổng quan)
+  hides the key-facts block below `sm`, so a work tab (Việc, Lộ trình…) starts ~150px higher; the overview keeps it.
 
 ### 7.3 Kit (`components/ui`) — optional API added in v2
 | Component | v2 props / exports |
@@ -192,14 +200,15 @@ are done. Screens compose them; they do not rebuild them. Every API below is opt
 | `Button` | sizes `touch` (44px always: full-width mobile primary), `icon-sm` (32px mouse / 44px touch); `loading`. Ghost = muted text (add `text-foreground` when it must read as primary text) |
 | `Card` | `interactive` (hover lift + press), `asChild` (`<Card interactive asChild><Link/></Card>`); `CardAction` (right of the title row inside `CardHeader`); `CardFooter` = bar under a hairline |
 | `Badge` | `dot` (6px leading dot), `size="sm"` (20px, dense tables); status variants always with icon or `dot` + word |
-| `Tabs` | `TabsList variant="underline"` (page tabs) · `"segmented"` (= pill/default, in-card); `TabsTrigger count` / `countTone="danger"` / `countLabel`; `TabsCount`. Strips that scroll fade their cut edge |
+| `Tabs` | `TabsList variant="underline"` (page tabs) · `"segmented"` (= pill/default, in-card); `TabsTrigger count` / `countTone="danger"` / `countLabel`; `TabsCount`. Strips that scroll fade their cut edge and keep the active tab clear of the 40px fade (re-checked when a tab changes size, e.g. once the web font is in) |
 | `ToggleGroup` | `variant="segmented"` (view switcher, same look as segmented tabs) · `"outline"` chips |
 | `Table` | `stickyHeader` + `wrapperClassName="max-h-[60vh]"`; rows 56px, first/last cell 16px edge padding |
 | `Input` | `inputSize` sm/default/lg, `icon` (leading, e.g. `<Search />`), `wrapperClassName`; read-only gets `bg-subtle` |
 | `SelectTrigger` / `NativeSelect` | `size="sm"` (toolbar) · NativeSelect `lg` |
 | `FormField` | `labelAside` (right of the label row); hint + error both shown |
 | `Sheet` | `SheetHeader` (sticky) + `SheetMeta` (badges row) + `SheetBody` (scrolls) + `SheetFooter` (sticky blurred bar, primary last); `side="bottom"` has a drag-to-close handle (`showHandle`); `mobileFullScreen` |
-| `Dialog` | default `max-w-md`; phones = bottom sheet with full-width actions (primary on top) |
+| `Dialog` | default `max-w-md`; phones = bottom sheet with full-width actions (primary on top); `mobileFullScreen` = full screen on phones (no handle, zoom/fade in instead of the slide-up) for flows that own the screen (first-login intro) |
+| hooks | `useMediaQuery` / `useBreakpoint` also re-check on `resize` (device emulation may not fire the MediaQueryList change event) |
 | `Avatar` | `size` xs/sm/md/lg; `AvatarGroup` (overlapping stack) |
 | `Progress` | default 6px, `size="md"` 8px |
 | `Skeleton` | `SkeletonText lines` |
@@ -210,19 +219,22 @@ are done. Screens compose them; they do not rebuild them. Every API below is opt
 ### 7.4 Product components (`components/common`) — optional API added in v2
 | Component | v2 props / exports |
 |---|---|
-| `PageHeader` | `eyebrow` (date / context line above the title), `tabs` (underline TabsList slot), `compact` (`text-title` for detail pages), `children` (badges / meta row). Never override the title size |
-| `KpiCard` | `trend {value, direction, good?, label?}` (arrow chip), `progress {value, max, label?}` (6px bar + %), `spark number[]` (32px area chart), `footer`; `onClick` + `active` = filter (ring + corner filter icon). Pass plain values — no size wrappers inside `value`. `KpiTrendChip` |
-| `SectionCard` | `divided` (direct children become hairline-separated rows), `flush` (tables / media), `footer`, `headerClassName`, `as` |
+| `PageHeader` | `eyebrow` (date / context line above the title), `tabs` (underline TabsList slot), `compact` (`text-title` for detail pages), `children` (badges / meta row). Never override the title size. `PAGE_TABS_BLEED` = className for internal page tabs (strip + hairline run edge to edge of the content column) — every underline page strip uses it |
+| `KpiCard` | `trend {value, direction, good?, label?}` (arrow chip), `progress {value, max, label?}` (6px bar + %), `spark number[]` (32px area chart), `footer`; `onClick` + `active` = filter (ring + corner filter icon). Pass plain values — no size wrappers inside `value`. `KpiTrendChip`. `labelLines` 2 (default: narrow tiles reserve two label lines so a row's numbers line up) or 1 (a row whose labels all fit one line at 375 — saves ~18px per tile) |
+| `KpiSkeleton` | `className` (grid, same as the real row), `itemClassName` (string or `(i) => …`, e.g. the 3-KPI span), `labelLines` |
+| `SectionCard` | `divided` (direct children become hairline-separated rows), `flush` (tables / media), `footer`, `headerClassName`, `as`. Header: title row (the title keeps its one-line width; actions that do not fit beside it wrap under it instead of squeezing it), then the description at full width under the row; `headerClassName` styles the title row |
+| `ErrorState` | `titleAs="h1"` when the error replaces a whole page (forbidden / not found detail pages keep their one `<h1>`) |
 | `StatusBand` | `milestone` (white chip: planned → forecast), `aside`, `showLabel`; auto "Go-live · lùi N ngày" chip for waiting_client |
 | `HealthBadge` | `variant="dot"` for dense tables; `size` sm (rows/cards) · md (headers) |
 | `DueLabel` | chip by default; `variant="text"` inside sentences / dot-separated meta; `compact` in rows |
 | `ForecastLabel` | non-compact = 2 lines (dates + delay chip, reason caption) → give it full width; `compact` in tables |
-| `WaitingCountsLine` | two stat chips on their own line — no wrapper text, no separators |
+| `WaitingCountsLine` | two stat chips on their own line — no wrapper text, no separators; `compact` (12px chips, "Chờ khách 3 · Chờ New Era 2") on cards ≤ ~320px so both chips share one line |
+| `ImpactChain` | pill chain with chevrons that wraps at every width (phones too: short links share a line) |
 | `ImpactBox` / `BlockedNote` | inset `bg-subtle` panels (never bordered boxes); `MilestoneTag` export |
 | `EmptyState` / `ErrorState` | `compact` inside cards and drawers; `EmptyIcon` export; actions secondary/ghost |
 | `ActivityFeed` | draws its own timeline rail — no dividers around items; `compact` in side columns |
 | `FileList` | `FileTypeTile`, `fileExtension`; needs ≥ 8px horizontal padding around it (hover fill bleeds `-mx-2`) |
-| `UserAvatar` / `AccountLogo` | `ring` for overlapping stacks (`flex -space-x-2`); rows = `size="sm"` (28), headers md/lg |
+| `UserAvatar` / `AccountLogo` | `ring` for overlapping stacks (`flex -space-x-2`); rows = `size="sm"` (28), headers md/lg. AccountLogo `initials` = initials computed by the data layer (ClientMapNode.logo.initials) so one company shows one tile everywhere |
 | `ChipFilter` | 32px pills (44 on touch), scrolls + fades on phones, wraps from sm |
 | skeletons | `TableSkeleton` (cards < xl), `KpiSkeleton`, `PageSkeleton` (with status hero), `CardSkeleton`, `ListSkeleton` |
 
@@ -245,10 +257,21 @@ are done. Screens compose them; they do not rebuild them. Every API below is opt
   `variant="link" size="sm"` below; short pickers = `SheetContent side="bottom"`.
 - **Inset panel** (instead of a box in a box): `rounded-lg bg-subtle p-3 ring-1 ring-inset ring-border/60`.
 - **Numbers**: `tabular` everywhere; KPI values through `KpiCard`; inline money `Money compact`.
+- **Page rhythm** (same on every page, internal and portal): page root `space-y-6 md:space-y-8` (header → first
+  block 24/32px); header tabs → tab content `mt-6 md:mt-8` (or the root's space-y); inside a tab, KPI row → list
+  group `space-y-6 md:space-y-8`; a toolbar and the list it filters stay grouped (`space-y-3`/`space-y-4`). A page's
+  underline tabs use `PAGE_TABS_BLEED`.
+- **3-KPI row**: grid `grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-3`, first tile `className="col-span-2 xl:col-span-1"`
+  (full width on phones / iPad, the two others side by side), skeleton `KpiSkeleton count={3}` with the same grid and
+  `itemClassName={(i) => (i === 0 ? 'col-span-2 xl:col-span-1' : undefined)}`.
+- **Tables at 1280**: the content column is ~951px with the sidebar open. A table must fit it without sideways scroll:
+  cap the entity column (`max-w-[380px]` + `truncate`), let short text columns wrap (`max-w-[9rem]`), let action
+  groups wrap (`flex-wrap justify-end`), drop a column into the entity subline before adding width.
 
 ### 7.6 Per-screen checklist
 1. One focal block, visible above the fold at 375×812 and 1024×768 (DESIGN §6).
-2. `PageHeader` (or the detail header) is the only title; no back link, no own top bar, no extra max-width.
+2. `PageHeader` (or the detail header) is the only title; no back link, no own top bar, no extra max-width, no
+   `document.title` (the frame sets it). Page root `space-y-6 md:space-y-8`; page tabs `PAGE_TABS_BLEED`.
 3. Two-column / 4-up layouts switch at `xl`; nothing overflows at 1024 with the sidebar open.
 4. Only kit / common components and token classes (no raw colours, no `text-[Npx]` where a token exists,
    no `border-border` at 100% on cards — `border-border/70`).

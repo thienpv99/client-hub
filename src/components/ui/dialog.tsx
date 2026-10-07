@@ -35,6 +35,16 @@ const dialogPanelClassName = [
   'sm:before:hidden sm:data-[state=open]:animate-zoom-in sm:data-[state=closed]:animate-fade-out',
 ].join(' ');
 
+/**
+ * `mobileFullScreen`: phones get a full screen (no handle bar, fades/zooms in instead of sliding up like a sheet) —
+ * for flows that own the whole screen (first-login intro); from sm it is the same centred card as every dialog.
+ */
+const fullScreenPhoneClassName = [
+  'top-0 h-[100dvh] max-h-[100dvh] rounded-none border-0 before:hidden',
+  'data-[state=open]:animate-zoom-in data-[state=closed]:animate-fade-out',
+  'sm:h-fit sm:border',
+].join(' ');
+
 const closeButtonClassName =
   'touch-tap-square absolute right-2 top-3 inline-flex h-11 w-11 items-center justify-center rounded-lg text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:pointer-events-none sm:right-4 sm:top-4 sm:h-9 sm:w-9';
 
@@ -43,13 +53,19 @@ export interface DialogContentProps extends React.ComponentPropsWithoutRef<typeo
   closeLabel?: string;
   showCloseButton?: boolean;
   overlayClassName?: string;
+  /** phones: full screen instead of a bottom sheet (no handle, no slide-up); sm+: the usual centred card */
+  mobileFullScreen?: boolean;
 }
 
 const DialogContent = React.forwardRef<React.ElementRef<typeof DialogPrimitive.Content>, DialogContentProps>(
-  ({ className, children, closeLabel, showCloseButton = true, overlayClassName: overlayClass, ...props }, ref) => (
+  ({ className, children, closeLabel, showCloseButton = true, overlayClassName: overlayClass, mobileFullScreen = false, ...props }, ref) => (
     <DialogPortal>
       <DialogOverlay className={overlayClass} />
-      <DialogPrimitive.Content ref={ref} className={cn(dialogPanelClassName, className)} {...props}>
+      <DialogPrimitive.Content
+        ref={ref}
+        className={cn(dialogPanelClassName, mobileFullScreen && fullScreenPhoneClassName, className)}
+        {...props}
+      >
         {children}
         {showCloseButton && (
           <DialogPrimitive.Close

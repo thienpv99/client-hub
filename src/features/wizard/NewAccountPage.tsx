@@ -227,7 +227,7 @@ export function NewAccountPage() {
   );
 
   return (
-    <div className="mx-auto w-full max-w-reading space-y-6">
+    <div className="mx-auto w-full max-w-reading space-y-6 md:space-y-8">
       <PageHeader title={t('wizard.title')} description={t('wizard.description')} />
       <WizardStepper current={step} maxReachable={pending ? -1 : maxReached} onStep={goTo} />
 

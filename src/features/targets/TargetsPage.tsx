@@ -7,11 +7,10 @@ import { Plus } from 'lucide-react';
 import { api } from '@/services/api';
 import { useQuery } from '@/hooks/useQuery';
 import { useViewer } from '@/hooks/useViewer';
-import { PageHeader } from '@/components/common/page-header';
+import { PAGE_TABS_BLEED, PageHeader } from '@/components/common/page-header';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { t } from '@/i18n';
-import { useDocumentTitle } from '@/features/crm/useDocumentTitle';
 import { TargetAccountsTab } from './accounts/TargetAccountsTab';
 import { IcpTab } from './icp/IcpTab';
 import { LeadDrawer } from './leads/LeadDrawer';
@@ -40,12 +39,7 @@ export function TargetsPage() {
   // bumped by the header's "Tạo phân khúc": the segments tab opens its builder
   const [segmentRequest, setSegmentRequest] = useState(0);
 
-  // browser tab title: the page, or the open lead's company while its drawer is open (one effect, no nesting)
-  const [leadName, setLeadName] = useState<string | null>(null);
-  const app = t('common.appName');
-  useDocumentTitle(
-    leadId && leadName ? t('targets.documentTitleLead', { company: leadName, app }) : t('targets.documentTitle', { app }),
-  );
+  // the browser tab title (page, or the open lead's company) comes from InternalLayout's breadcrumbs
 
   const current: TargetsTab = leadId ? 'leads' : isTab(tab) ? tab : 'leads';
   if (!leadId && tab !== undefined && !isTab(tab)) return <Navigate to="/app/targets/leads" replace />;
@@ -72,13 +66,13 @@ export function TargetsPage() {
     ) : null;
 
   return (
-    <Tabs value={current} onValueChange={(v) => navigate(`/app/targets/${v}`)} className="min-w-0 space-y-6">
+    <Tabs value={current} onValueChange={(v) => navigate(`/app/targets/${v}`)} className="min-w-0 space-y-6 md:space-y-8">
       <PageHeader
         title={t('targets.title')}
         description={t('targets.intro')}
         actions={action}
         tabs={
-          <TabsList variant="underline" aria-label={t('targets.tabsLabel')}>
+          <TabsList variant="underline" aria-label={t('targets.tabsLabel')} className={PAGE_TABS_BLEED}>
             {TABS.map((key) => (
               <TabsTrigger key={key} value={key}>
                 {t(`targets.tabs.${key}`)}
@@ -101,7 +95,7 @@ export function TargetsPage() {
         <IcpTab isDirector={isDirector} />
       </TabsContent>
 
-      <LeadDrawer leadId={leadId ?? null} onClose={closeLead} people={people} isDirector={isDirector} meId={meId} onLeadName={setLeadName} />
+      <LeadDrawer leadId={leadId ?? null} onClose={closeLead} people={people} isDirector={isDirector} meId={meId} />
       <LeadFormDialog
         open={leadFormOpen}
         onOpenChange={setLeadFormOpen}
