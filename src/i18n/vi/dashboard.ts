@@ -17,12 +17,13 @@ const dashboard = {
 
   kpi: {
     risk: {
-      /** short: one line in the 2-up phone tile */
-      label: 'Account rủi ro',
+      /** short: at most two lines in the 2-up phone tile (KpiCard reserves two label lines there) */
+      label: 'Khách hàng rủi ro',
       blocked: '{count} bị chặn',
       attention: '{count} cần chú ý',
-      allClear: 'Không có account nào gặp rủi ro',
-      noActive: 'Chưa có account đang triển khai',
+      /** every account in delivery is on track (same words as the /app/accounts header and the progress caption) */
+      allClear: 'Tất cả đúng kế hoạch',
+      noActive: 'Chưa có khách hàng đang triển khai',
       /** progress caption: on-track share of the accounts in delivery */
       onTrack: '{count}/{total} đúng kế hoạch',
     },
@@ -90,7 +91,7 @@ const dashboard = {
     generic: '{account}: có điểm cần xem lại',
     actions: {
       remind_client: 'Nhắc khách',
-      open_account: 'Mở account',
+      open_account: 'Mở khách hàng',
       approve_quote: 'Duyệt',
       view_quote: 'Xem',
       open_task: 'Xem việc',
@@ -131,14 +132,16 @@ const dashboard = {
 
   valueMap: {
     title: 'Bản đồ giá trị',
-    description: 'Khách hàng lớn nhất theo hợp đồng và pipeline',
+    description: 'Khách hàng lớn nhất theo giá trị hợp đồng và cơ hội',
     open: 'Mở bản đồ',
     openLabel: 'Mở bản đồ khách hàng',
-    contract: 'Hợp đồng',
-    pipeline: 'Pipeline',
+    /** legend: the same two words as the client map's KPI tiles (clientmap.kpi.value.*), which this card previews */
+    contract: 'Giá trị hợp đồng',
+    /** open opportunities weighted by win probability (never the English "pipeline") */
+    pipeline: 'Giá trị cơ hội',
     total: 'Tổng {value} trên {count} khách hàng',
     listLabel: 'Khách hàng xếp theo tổng giá trị',
-    rowLabel: 'Hạng {rank}: {name}, {value} (hợp đồng {contract}, pipeline {pipeline})',
+    rowLabel: 'Hạng {rank}: {name}, {value} (hợp đồng {contract}, cơ hội {pipeline})',
     empty: 'Chưa có khách hàng nào có giá trị.',
     emptyDescription: 'Khi có hợp đồng hoặc cơ hội, khách hàng lớn nhất sẽ hiện ở đây.',
   },
@@ -164,7 +167,7 @@ const dashboard = {
     am: {
       trigger: 'Theo AM',
       selected: 'AM: {name}',
-      menuLabel: 'Lọc theo Account Manager',
+      menuLabel: 'Lọc theo AM phụ trách',
       all: 'Tất cả AM',
     },
     count: '{count} khách hàng',
@@ -196,7 +199,7 @@ const dashboard = {
     updatedPrefix: 'Cập nhật',
     empty: {
       none: 'Chưa có khách hàng nào.',
-      noneDescription: 'Khi có account mới, khách hàng sẽ hiện ở đây kèm sức khỏe, mốc tiếp theo và công nợ.',
+      noneDescription: 'Khách hàng mới sẽ hiện ở đây kèm sức khỏe, mốc tiếp theo và công nợ.',
       filtered: 'Không có khách hàng nào khớp bộ lọc đang chọn.',
       filteredDescription: 'Thử bỏ bớt bộ lọc để xem toàn bộ danh mục.',
       search: 'Không tìm thấy khách hàng nào cho “{query}”.',
@@ -211,7 +214,8 @@ const dashboard = {
     descriptionAttention: '{attention} khách hàng cần chú ý, còn lại đúng kế hoạch.',
     descriptionCalm: 'Tất cả khách hàng đang chạy đúng kế hoạch.',
     descriptionEmpty: 'Sức khỏe, mốc tiếp theo và công nợ của từng khách hàng.',
-    create: 'Tạo account',
+    /** same verb as the page it opens ("Tạo khách hàng mới") and its submit button ("Tạo khách hàng") */
+    create: 'Tạo khách hàng',
     searchLabel: 'Tìm khách hàng',
     searchPlaceholder: 'Tìm theo tên, ngành hoặc AM…',
     sortLabel: 'Sắp xếp',

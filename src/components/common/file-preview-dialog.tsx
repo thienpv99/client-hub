@@ -119,7 +119,7 @@ export function FilePreviewDialog({ file, onOpenChange }: FilePreviewDialogProps
               <FileTypeTile file={current} className="mt-0.5" />
               <div className="min-w-0 flex-1 space-y-1">
                 {/* arbitrary size: the kit's cn() may not know the text-heading token yet */}
-                <DialogTitle className="truncate text-[17px] font-semibold leading-6 tracking-tightish text-ink">{current.name}</DialogTitle>
+                <DialogTitle className="truncate text-heading font-semibold tracking-tightish text-ink">{current.name}</DialogTitle>
                 <DialogDescription className={cx('flex flex-wrap items-center gap-x-1.5 gap-y-1 text-muted-foreground', SMALL)}>
                   <span className="inline-flex h-5 items-center rounded bg-muted px-1.5 text-micro font-semibold tabular">
                     {t('components.files.version', { version: current.version })}

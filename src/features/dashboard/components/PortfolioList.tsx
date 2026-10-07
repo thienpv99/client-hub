@@ -1,10 +1,9 @@
 // Table on desktop (≥1280), cards below (iPad portrait/landscape and phones), with natural-sentence empty states.
-import { Building2, SearchX } from 'lucide-react';
+import { Building2 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { AccountSummary } from '@/services/contract';
-import { EmptyState } from '@/components/common/empty-state';
+import { EmptyState, SearchEmptyState } from '@/components/common/empty-state';
 import { TableSkeleton } from '@/components/common/skeletons';
-import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useBreakpoint } from '@/hooks/useMedia';
@@ -86,18 +85,7 @@ export function PortfolioList({ accounts, total, showMoney, query, onClear, empt
         />
       );
     } else {
-      body = (
-        <EmptyState
-          icon={q ? SearchX : Building2}
-          title={q ? t('dashboard.portfolio.empty.search', { query: q }) : t('dashboard.portfolio.empty.filtered')}
-          description={t('dashboard.portfolio.empty.filteredDescription')}
-          action={
-            <Button variant="secondary" onClick={onClear}>
-              {t('dashboard.portfolio.clear')}
-            </Button>
-          }
-        />
-      );
+      body = <SearchEmptyState entity="account" query={q} icon={Building2} onClear={onClear} />;
     }
     return <Card>{body}</Card>;
   }

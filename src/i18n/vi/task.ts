@@ -142,6 +142,8 @@ const task = {
 
   manage: {
     status: 'Trạng thái',
+    statusBlockedUnblock: 'Đang chờ việc phía trước – mở chặn để đổi trạng thái.',
+    statusBlockedWait: 'Đang chờ việc phía trước – đổi được khi việc đó xong.',
     assignee: 'Người phụ trách',
     noAssignee: 'Chưa phân công',
     visible: 'Khách thấy được',
@@ -278,7 +280,7 @@ const task = {
     replyingTo: 'Đang trả lời {name}',
     cancelReply: 'Bỏ trả lời',
     internalTag: 'Ghi chú nội bộ',
-    sharedDisabled: 'Chỉ người phụ trách và quản lý account được trả lời khách.',
+    sharedDisabled: 'Chỉ người phụ trách việc và AM phụ trách khách hàng được trả lời khách.',
   },
 };
 

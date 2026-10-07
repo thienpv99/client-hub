@@ -3,18 +3,17 @@
 // (DESIGN §6: search + the most useful filters, result count). Respects the project selector (account-wide files
 // always shown).
 import { useMemo, useState } from 'react';
-import { FolderOpen, Search, SearchX } from 'lucide-react';
+import { FolderOpen, Search } from 'lucide-react';
 import type { FileView } from '@/services/contract';
 import type { FileKind } from '@/domain/types';
 import { api } from '@/services/api';
 import { t } from '@/i18n';
 import { normalizeText } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ChipFilter } from '@/components/common/chip-filter';
-import { EmptyState } from '@/components/common/empty-state';
+import { EmptyState, SearchEmptyState } from '@/components/common/empty-state';
 import { ErrorState } from '@/components/common/error-state';
 import { FilePreviewDialog } from '@/components/common/file-preview-dialog';
 import { enumLabel } from '@/components/common/labels';
@@ -167,16 +166,7 @@ export function PortalDocumentsPage() {
           ) : null}
           {groups.length === 0 ? (
             <Card>
-              <EmptyState
-                icon={SearchX}
-                title={t('portal.documents.emptyFiltered')}
-                description={t('portal.documents.emptyFilteredHint')}
-                action={
-                  <Button variant="secondary" size="sm" onClick={clearFilters}>
-                    {t('portal.documents.clearFilters')}
-                  </Button>
-                }
-              />
+              <SearchEmptyState entity="document" query={search} icon={FolderOpen} onClear={clearFilters} />
             </Card>
           ) : (
             groups.map((g) => (

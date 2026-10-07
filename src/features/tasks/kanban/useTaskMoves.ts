@@ -7,7 +7,7 @@ import { api } from '@/services/api';
 import { t } from '@/i18n';
 import { toastApiError, useAction } from '@/hooks/useAction';
 import { toastSuccess } from '@/lib/toast';
-import { statusLabel } from '../shared/taskStatus';
+import { canDropOn, statusLabel } from '../shared/taskStatus';
 
 interface Override {
   status: TaskStatus;
@@ -69,7 +69,13 @@ export function useTaskMoves(tasks: TaskView[] | undefined): TaskMoves {
         return;
       }
       setOverride(task.id, { status: to, confirmed: true });
-      toastSuccess(t('tasks.kanban.moved', { task: task.title, status: statusLabel(to) }), {
+      const message = t('tasks.kanban.moved', { task: task.title, status: statusLabel(to) });
+      // a blocked task moved back to Cần làm cannot go forward again: no "Hoàn tác" the service would refuse
+      if (!canDropOn(result, to, from)) {
+        toastSuccess(message);
+        return;
+      }
+      toastSuccess(message, {
         onUndo: async () => {
           setOverride(task.id, { status: from, confirmed: false });
           try {

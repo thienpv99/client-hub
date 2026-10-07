@@ -3,7 +3,7 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import type { LucideIcon } from 'lucide-react';
-import { ArrowRight, CalendarX, CircleCheck, Clock, FilePlus2, FileText, Mail, MessageSquareWarning, Phone, Send } from 'lucide-react';
+import { ArrowRight, CalendarX, CircleCheck, Clock, FilePlus2, FileText, Link2, Mail, MessageSquareWarning, Phone, Repeat2, Send } from 'lucide-react';
 import type { QuoteStatus } from '@/domain/types';
 import type { OpportunityDetail } from '@/services/crmContract';
 import { t } from '@/i18n';
@@ -81,18 +81,30 @@ const QUOTE_LOOK: Record<QuoteStatus, { icon: LucideIcon; variant: 'default' | '
   expired: { icon: CalendarX, variant: 'default' },
 };
 
-export function QuoteCard({ opp }: { opp: OpportunityDetail }) {
+/**
+ * The deal's quote. `onLink` opens the edit dialog on its "Báo giá" field: link one of the account's quotes (empty
+ * card) or switch to another one / a newer version (linked card).
+ */
+export function QuoteCard({ opp, onLink }: { opp: OpportunityDetail; onLink?: () => void }) {
   const quote = opp.quote;
   if (!quote) {
     return (
       <SectionCard title={t('crm.opportunity.quote')}>
         <p className="text-table text-muted-foreground">{t('crm.opportunity.noQuote')}</p>
-        <Button asChild variant="secondary" size="sm" className="mt-3">
-          <Link to={crmPaths.newQuote(opp.account.id)}>
-            <FilePlus2 aria-hidden="true" />
-            {t('crm.opportunity.createQuote')}
-          </Link>
-        </Button>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <Button asChild variant="secondary" size="sm">
+            <Link to={crmPaths.newQuote(opp.account.id, opp.id)}>
+              <FilePlus2 aria-hidden="true" />
+              {t('crm.opportunity.createQuote')}
+            </Link>
+          </Button>
+          {onLink ? (
+            <Button variant="ghost" size="sm" onClick={onLink} className="text-foreground">
+              <Link2 aria-hidden="true" />
+              {t('crm.opportunity.linkQuote')}
+            </Button>
+          ) : null}
+        </div>
       </SectionCard>
     );
   }
@@ -101,6 +113,14 @@ export function QuoteCard({ opp }: { opp: OpportunityDetail }) {
   return (
     <SectionCard
       title={t('crm.opportunity.quote')}
+      actions={
+        onLink ? (
+          <Button variant="ghost" size="sm" onClick={onLink}>
+            <Repeat2 aria-hidden="true" />
+            {t('crm.opportunity.changeQuote')}
+          </Button>
+        ) : undefined
+      }
       footer={
         <Link
           to={crmPaths.quote(quote.id)}

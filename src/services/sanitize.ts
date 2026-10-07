@@ -64,7 +64,8 @@ interface Rules {
 /**
  * Deep copy of `value` filtered for `viewer`:
  * - client viewers (and no viewer at all): drop CLIENT_FORBIDDEN_KEYS, CLIENT_FORBIDDEN_HEALTH_KEYS inside
- *   HealthInfo-shaped objects, and array elements with `visibility === 'internal'` or `client_visible === false`;
+ *   HealthInfo-shaped objects (whose `auto` becomes `value` and `overridden` false), and array elements with
+ *   `visibility === 'internal'` or `client_visible === false`;
  * - internal viewers without cost permission: drop COST_KEYS;
  * - everyone except a director / AM (clients, view-as, internal members): drop CRM activity elements.
  */
@@ -103,6 +104,11 @@ function walk(value: unknown, rules: Rules): unknown {
     if (rules.forbidden.has(key)) continue;
     if (health && CLIENT_FORBIDDEN_HEALTH_KEYS.includes(key)) continue;
     out[key] = walk(child, rules);
+  }
+  if (health) {
+    // whether New Era set the colour by hand is internal too: a client gets the effective colour only
+    if ('value' in out) out.auto = out.value;
+    out.overridden = false;
   }
   return out;
 }

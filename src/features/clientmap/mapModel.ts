@@ -30,6 +30,13 @@ const LEAD_SCALE = 0.4;
 const HUB_OVER_MEMBER = 1.2;
 /** … and the largest hub (the biggest group by value) reaches this × the largest customer */
 const HUB_TOP = 1.4;
+/**
+ * The hubs share one √ scale (group areas stay proportional to value). It grows past HUB_TOP when a group would
+ * otherwise be narrower than its widest member — at most this factor, so one tiny group cannot inflate every hub.
+ */
+const HUB_SCALE_MAX = 2;
+/** a group worth nothing in the chosen metric: a small, muted ring around its members (no full-size hub) */
+export const R_EMPTY_HUB = 24;
 /** share of the canvas the bubbles' area aims for; the fitted view then fills the card */
 const DENSITY = 0.5;
 /** keep in step with forceSim COLLIDE_PAD */
@@ -59,9 +66,13 @@ export function hubIndex(map: Pick<ClientMap, 'nodes' | 'links'>): Map<string, s
  * Area ∝ value (r = rMax × √(value / max), never below the kind's floor):
  * - customers against the largest customer, rMax ≤ 0.22 × the canvas' short side;
  * - targets against the largest target, up to LEAD_SCALE × rMax (a budget estimate, see LEAD_SCALE);
- * - hubs are the centre of their cluster and always its biggest shape: the larger of HUB_OVER_MEMBER × their widest
- *   member and their own value on a √ scale up to HUB_TOP × rMax (less when the biggest group is worth less than
- *   √-proportionally more than the biggest customer), so a big group is the biggest shape on the map.
+ * - hubs are the centre of their cluster and always its biggest shape, and group areas stay proportional to each
+ *   other: ONE √ scale for every hub (r = k × √value), k = the scale that puts the biggest group at HUB_TOP × rMax
+ *   (less when the biggest group is worth less than √-proportionally more than the biggest customer), raised just
+ *   enough that every group is HUB_OVER_MEMBER × wider (+4px) than its widest member (≤ HUB_SCALE_MAX × the base).
+ *   So a group worth less is never drawn bigger than one worth more (Sao Bắc 4,1 tỷ vs Cỏ Xanh 5,6 tỷ); R_MIN_HUB
+ *   keeps the short name legible on the smallest ones. A group worth 0 in the metric gets a small muted ring
+ *   (R_EMPTY_HUB, still around its widest member) — BubbleNode draws it without the blue fill.
  * rMax shrinks until the bubbles cover about DENSITY of the canvas, so the fitted map fills it at every size
  * (1440×900: the biggest hub ≈ 0.2 and the biggest customer ≈ 0.15 of the canvas' short side, targets 12–28px).
  */
@@ -88,10 +99,21 @@ export function computeRadii(nodes: ClientMapNode[], hubOf: Map<string, string>,
   const assign = (rMax: number) => {
     for (const n of accounts) out.set(n.id, sized(n.value, maxAccount, rMax, R_MIN_ACCOUNT * fs));
     for (const n of leads) out.set(n.id, sized(n.value, maxLead, rMax * leadScale, R_MIN_LEAD));
+    // room each hub needs around its widest member
+    const room = new Map<string, number>();
+    for (const n of nodes) {
+      const hub = hubOf.get(n.id);
+      if (hub) room.set(hub, Math.max(room.get(hub) ?? 0, out.get(n.id) ?? 0));
+    }
+    const roomOf = (id: string) => (room.get(id) ?? 0) * HUB_OVER_MEMBER + 4;
+    // one √ scale for every hub: the default one, raised until each group clears its widest member
+    const base = maxHub > 0 ? (rMax * hubTop) / Math.sqrt(maxHub) : 0;
+    let k = base;
+    for (const h of hubs) if (h.value > 0) k = Math.max(k, roomOf(h.id) / Math.sqrt(h.value));
+    k = Math.min(k, base * HUB_SCALE_MAX);
     for (const h of hubs) {
-      let widest = 0;
-      for (const n of nodes) if (hubOf.get(n.id) === h.id) widest = Math.max(widest, out.get(n.id) ?? 0);
-      out.set(h.id, Math.max(widest * HUB_OVER_MEMBER + 4, sized(h.value, maxHub, rMax * hubTop, R_MIN_HUB * fs)));
+      // the room term only bites when the cap above was reached (then the order of two groups may still flip)
+      out.set(h.id, h.value > 0 ? Math.max(R_MIN_HUB * fs, roomOf(h.id), k * Math.sqrt(h.value)) : Math.max(R_EMPTY_HUB * fs, roomOf(h.id)));
     }
   };
 

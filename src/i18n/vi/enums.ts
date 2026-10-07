@@ -33,7 +33,15 @@ const taskAction = {
 const enums = {
   role: {
     director: 'Giám đốc',
-    am: 'Account Manager',
+    am: 'Quản lý khách hàng',
+    member: 'Thành viên nội bộ',
+    client_owner: 'Người quyết định',
+    client_member: 'Thành viên',
+  },
+  /** tight places next to other words about customers (wizard AM picker: "Nguyễn Thu Hà · AM · 5 khách hàng") */
+  roleShort: {
+    director: 'Giám đốc',
+    am: 'AM',
     member: 'Thành viên nội bộ',
     client_owner: 'Người quyết định',
     client_member: 'Thành viên',
@@ -41,7 +49,7 @@ const enums = {
   /** longer form when both sides appear in one list (settings, user admin) */
   roleFull: {
     director: 'Giám đốc',
-    am: 'Account Manager (AM)',
+    am: 'Quản lý khách hàng (AM)',
     member: 'Thành viên nội bộ',
     client_owner: 'Khách – Người quyết định',
     client_member: 'Khách – Thành viên',

@@ -39,9 +39,21 @@ export interface QuoteWorkspaceProps {
   parentLines: QuoteLineView[] | null;
   parentVersion: number | null;
   activities: ActivityView[];
+  /** new quote opened from a sales opportunity ("Tạo báo giá"): linked to it right after the first save */
+  opportunityId?: string | null;
 }
 
-export function QuoteWorkspace({ quote, account, catalog, thresholdPct, projects, parentLines, parentVersion, activities }: QuoteWorkspaceProps) {
+export function QuoteWorkspace({
+  quote,
+  account,
+  catalog,
+  thresholdPct,
+  projects,
+  parentLines,
+  parentVersion,
+  activities,
+  opportunityId = null,
+}: QuoteWorkspaceProps) {
   const uid = useId();
   const navigate = useNavigate();
   const { run, pending: saving } = useAction();
@@ -77,6 +89,10 @@ export function QuoteWorkspace({ quote, account, catalog, thresholdPct, projects
     if (!quote) {
       const created = await run(() => api.createQuote(account.id, input), { success: 'commercial.editor.toast.created' });
       if (created) {
+        // the deal now points at its quote (the api checks the quote belongs to the deal's account)
+        if (opportunityId) {
+          await run(() => api.updateOpportunity(opportunityId, { quote_id: created.id }), { success: 'commercial.editor.toast.linkedOpportunity' });
+        }
         reset(draftFromDetail(created));
         navigate(`/app/commercial/quotes/${created.id}`, { replace: true });
       }

@@ -1,5 +1,5 @@
 // "Chuyển sang…" — the keyboard / touch way to move a Kanban card (drag & drop is mouse-only).
-import { useRef } from 'react';
+import { useId, useRef } from 'react';
 import type { Ref } from 'react';
 import { ArrowRightLeft, Lock } from 'lucide-react';
 import type { TaskStatus, TaskView } from '@/services/contract';
@@ -14,7 +14,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { moveTargets, STATUS_ICONS, statusLabel } from '../shared/taskStatus';
+import { blockedTargets, moveTargets, STATUS_ICONS, STATUS_ORDER, statusLabel } from '../shared/taskStatus';
 
 export interface MoveMenuProps {
   task: TaskView;
@@ -25,7 +25,11 @@ export interface MoveMenuProps {
 }
 
 export function MoveMenu({ task, current, onMove, className, triggerRef }: MoveMenuProps) {
+  const hintId = useId();
   const targets = moveTargets(task, current);
+  // a blocked task: the columns only the blocker stands in the way of stay listed, disabled, with the reason below
+  const locked = blockedTargets(task, current);
+  const items = STATUS_ORDER.filter((s) => targets.includes(s) || locked.includes(s));
   // after a move the card re-mounts in its new column and takes the focus itself (KanbanCard focusRequest);
   // Escape / click outside returns the focus to this button as usual
   const moved = useRef(false);
@@ -54,11 +58,14 @@ export function MoveMenu({ task, current, onMove, className, triggerRef }: MoveM
         }}
       >
         <DropdownMenuLabel>{t('tasks.kanban.moveTo')}</DropdownMenuLabel>
-        {targets.map((s) => {
+        {items.map((s) => {
           const Icon = STATUS_ICONS[s];
+          const isLocked = locked.includes(s);
           return (
             <DropdownMenuItem
               key={s}
+              disabled={isLocked}
+              aria-describedby={isLocked ? hintId : undefined}
               onSelect={() => {
                 moved.current = true;
                 onMove(s);
@@ -66,12 +73,13 @@ export function MoveMenu({ task, current, onMove, className, triggerRef }: MoveM
             >
               <Icon aria-hidden="true" />
               {statusLabel(s)}
+              {isLocked ? <Lock className="ml-auto" aria-hidden="true" /> : null}
             </DropdownMenuItem>
           );
         })}
         {task.side === 'client' || task.blocked ? <DropdownMenuSeparator /> : null}
         {task.blocked ? (
-          <p className="flex items-start gap-2 px-2 py-1.5 text-caption">
+          <p id={hintId} className="flex items-start gap-2 px-2 py-1.5 text-caption">
             <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
             {t('tasks.kanban.blockedHint')}
           </p>

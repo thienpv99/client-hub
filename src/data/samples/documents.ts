@@ -47,7 +47,7 @@ export const DOCUMENTS: Record<string, PdfDoc> = {
   'coxanh-proposal': {
     title: 'Đề xuất giải pháp App bán hàng đa kênh',
     subtitle: 'Cỏ Xanh Retail',
-    meta: [['Phiên bản', '1.2'], ['Người lập', 'Nguyễn Thu Hà – Account Manager']],
+    meta: [['Phiên bản', '1.2'], ['Người lập', 'Nguyễn Thu Hà – Quản lý khách hàng']],
     sections: [
       { heading: 'Mục tiêu', lines: ['Cho khách đặt hàng trên điện thoại, chọn kho giao gần nhất và theo dõi đơn theo thời gian thực tại 24 cửa hàng.'] },
       { heading: 'Phạm vi', lines: ['- App bán hàng cho khách (iOS, Android)', '- Trang quản trị đơn hàng cho cửa hàng', '- Kết nối tồn kho 24 cửa hàng và 3 kho tổng', '- Báo cáo doanh thu theo kênh'] },

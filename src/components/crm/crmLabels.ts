@@ -73,5 +73,10 @@ export const crmPaths = {
   accountRoadmap: (id: string, projectId?: string | null): string =>
     `/app/accounts/${encodeURIComponent(id)}/roadmap${projectId ? `?project=${encodeURIComponent(projectId)}` : ''}`,
   quote: (id: string): string => `/app/commercial/quotes/${encodeURIComponent(id)}`,
-  newQuote: (accountId: string): string => `/app/commercial/quotes/new?account=${encodeURIComponent(accountId)}`,
+  /**
+   * with an opportunity id the quote editor can link the saved quote back to that deal (`?opportunity=`, read by
+   * the commercial quote editor; without that the deal's edit dialog links it via its "Báo giá" field)
+   */
+  newQuote: (accountId: string, opportunityId?: string | null): string =>
+    `/app/commercial/quotes/new?account=${encodeURIComponent(accountId)}${opportunityId ? `&opportunity=${encodeURIComponent(opportunityId)}` : ''}`,
 };

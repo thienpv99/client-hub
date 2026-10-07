@@ -43,7 +43,7 @@ export const lan: UserRef = {
   role: 'client_member', avatar_url: null, email: 'lan@coxanh.vn', phone: null,
 };
 export const ha: UserRef = {
-  id: 'u_am_ha', full_name: 'Nguyễn Thu Hà', title: 'Account Manager', salutation: 'chị', org_type: 'internal',
+  id: 'u_am_ha', full_name: 'Nguyễn Thu Hà', title: 'Quản lý khách hàng', salutation: 'chị', org_type: 'internal',
   role: 'am', avatar_url: null, email: 'ha.nguyen@newera.inc', phone: '0912 456 789',
 };
 export const tuan: UserRef = {
@@ -74,6 +74,10 @@ export const statusLines: { line: StatusLine; salutation: string | null }[] = [
   { line: { tone: 'attention', kind: 'payment_overdue', count: 1 }, salutation: 'anh' },
   { line: { tone: 'blocked', kind: 'waiting_client', count: 1, milestone_name: 'Go-live', delay_days: 6 }, salutation: 'anh' },
   { line: { tone: 'blocked', kind: 'waiting_client', count: 2, milestone_name: 'UAT', delay_days: 3 }, salutation: null },
+  {
+    line: { tone: 'blocked', kind: 'waiting_client', count: 1, milestone_name: 'Go-live', delay_days: 6, waiting_for: { name: 'anh Minh', company: 'Cỏ Xanh' } },
+    salutation: 'chị',
+  },
   {
     line: { tone: 'blocked', kind: 'waiting_internal', milestone_name: 'UAT', delay_days: 4, task_title: 'Hoàn thiện API đồng bộ công tơ' },
     salutation: 'anh',
@@ -162,7 +166,11 @@ export const chains: ChainNode[][] = [
   ],
 ];
 
-export const impactText = `Nếu chưa duyệt trước ${formatDateShort(day(-6))}, team New Era chưa thể lập trình phần Đặt hàng. Mốc UAT ${formatDateShort(day(22))} sẽ lùi theo số ngày trễ.`;
+export const impactText = `Nếu chưa duyệt trước ${formatDateShort(day(2))}, team New Era chưa thể lập trình phần Đặt hàng. Mốc UAT ${formatDateShort(day(22))} sẽ lùi theo số ngày trễ.`;
+
+/** the same task 6 days overdue: ImpactBox overdueDays={6} → "Đang ảnh hưởng" */
+export const impactTextOverdue = `Nếu chưa duyệt trước ${formatDateShort(day(-6))}, team New Era chưa thể lập trình phần Đặt hàng. Mốc UAT ${formatDateShort(day(22))} sẽ lùi theo số ngày trễ.`;
+export const impactOverdueDays = 6;
 
 export const impactMilestones: MilestoneRef[] = [
   { id: 'm_uat', name: 'UAT', project_id: 'p_cx_app', planned_date: day(22), forecast_date: day(28), status: 'upcoming' },

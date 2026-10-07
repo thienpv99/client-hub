@@ -1,6 +1,6 @@
 // Account health (red / yellow / green), its reasons, and the one-sentence status line for the client home.
 import type { Health, ID, ISODate, Milestone, PaymentSchedule, Task } from './types';
-import type { HealthReason, StatusLine } from '@/services/contract';
+import type { HealthReason, StatusLine, StatusLineWho } from '@/services/contract';
 import type { AccountGraph } from './graph';
 import { dueInfo } from './taskRules';
 import { effectivePaymentStatus, paymentOverdueDays } from './payments';
@@ -153,12 +153,15 @@ function sameHeadline(a: Headline, b: Headline): boolean {
  *   the milestone's delay — a larger delay from another cause is not put on the client); only New Era ones →
  *   waiting_internal (same delay cap: the delay the named visible tasks cause, never a hidden task's); none visible → generic;
  * - attention: due_soon_blocking on a client task waiting on the client → overdue → payment_overdue → generic.
+ * `waitingFor` (client viewers): told the ids of the tasks a waiting_client line counts; a non-null answer (they are
+ * not the viewer's own) is set as `waiting_for`, so the sentence names their holder instead of "từ phía anh/chị".
  */
 export function buildStatusLine(input: {
   health: Health;
   overridden: boolean;
   reasons: HealthReason[];
   headline(milestoneId: ID): Headline;
+  waitingFor?(taskIds: ID[]): StatusLineWho | null;
 }): StatusLine {
   const { health, overridden, reasons } = input;
   if (health === 'on_track') return { tone: 'on_track', kind: 'on_track' };
@@ -174,13 +177,15 @@ export function buildStatusLine(input: {
       const h = input.headline(firstClient.milestone_id);
       const same = client.filter((r) => r === firstClient || sameHeadline(input.headline(r.milestone_id), h));
       const clientDelay = same.reduce((max, r) => Math.max(max, r.overdue_days), 0);
-      return {
+      const line: Extract<StatusLine, { kind: 'waiting_client' }> = {
         tone: 'blocked',
         kind: 'waiting_client',
         count: distinctTasks(same),
         milestone_name: h.name,
         delay_days: Math.max(0, Math.min(h.delay_days, clientDelay)),
       };
+      const who = input.waitingFor ? input.waitingFor([...new Set(same.map((r) => r.task_id))]) : null;
+      return who ? { ...line, waiting_for: who } : line;
     }
     const firstInternal = blocking[0];
     if (firstInternal) {

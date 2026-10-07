@@ -15,7 +15,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { AccountLogo } from '@/components/common/account-logo';
 import { ActivityFeed } from '@/components/common/activity-feed';
 import { FileList } from '@/components/common/file-list';
-import { ImpactBox } from '@/components/common/impact-box';
+import { ImpactBox, impactBoxHasContent } from '@/components/common/impact-box';
 import { ImpactChain } from '@/components/common/impact-chain';
 import { UserAvatar } from '@/components/common/user-avatar';
 import { INSET, latestChangeRequest, latestSubmissionNote, reviewMode, submittedKey } from './taskHelpers';
@@ -128,8 +128,9 @@ export function TaskContext({ task, internal, className }: { task: TaskDetail; i
 }
 
 /**
- * "Nếu chưa làm" and the impact chain in ONE inset panel. The chain already names the milestones (with their
- * forecast dates), so the milestone tags of the impact box are left out when the chain is shown.
+ * "Nếu chưa làm" (overdue: "Đang ảnh hưởng") and the impact chain in ONE inset panel. The chain already names the
+ * milestones (with their forecast dates), so the milestone tags of the impact box are left out when the chain is
+ * shown; an overdue task's slip sentence still names them (it adds the planned → forecast dates the chain lacks).
  */
 export function ImpactPanel({
   text,
@@ -137,21 +138,25 @@ export function ImpactPanel({
   chain,
   showText,
   showChain,
+  overdueDays = 0,
 }: {
   text: string;
   milestones: MilestoneRef[];
   chain: ChainNode[];
   showText: boolean;
   showChain: boolean;
+  /** task.due.overdue_days (0 = not overdue) */
+  overdueDays?: number;
 }) {
-  const hasText = showText && text.trim() !== '';
   if (!showChain) {
-    return showText ? <ImpactBox text={text} milestones={milestones} /> : null;
+    return showText ? <ImpactBox text={text} milestones={milestones} overdueDays={overdueDays} /> : null;
   }
+  const box = { text, milestones, overdueDays, showTags: false };
+  const hasBox = showText && impactBoxHasContent(box);
   return (
     <div className="rounded-lg bg-subtle ring-1 ring-inset ring-border/60">
-      {hasText ? <ImpactBox text={text} milestones={[]} className="rounded-none bg-transparent ring-0" /> : null}
-      <div className={cn('p-3 sm:p-4', hasText && 'border-t border-border/60')}>
+      {hasBox ? <ImpactBox {...box} className="rounded-none bg-transparent ring-0" /> : null}
+      <div className={cn('p-3 sm:p-4', hasBox && 'border-t border-border/60')}>
         <p className="text-micro font-semibold text-muted-foreground">{t('task.drawer.sections.chain')}</p>
         <ImpactChain nodes={chain} className="mt-2.5" />
       </div>

@@ -1,4 +1,5 @@
-// /app/crm/:tab? — Bán hàng: KPI row, then Pipeline · Danh sách · Dự báo · Cần theo dõi (tabs follow the URL).
+// /app/crm/:tab? — Bán hàng: header with the underline tabs Theo giai đoạn · Danh sách · Dự báo · Cần theo dõi
+// (they follow the URL), then the tab: the three deal views open with the KPI row (DESIGN §3 tabs under the header).
 // Owner filter in `?owner=` (director: everyone by default; AM: their own deals by default).
 import { useState } from 'react';
 import type { ReactElement } from 'react';
@@ -137,8 +138,24 @@ export function CrmPage() {
   const oppsBody = (render: (items: NonNullable<typeof opps.data>) => ReactElement, skeleton: ReactElement) =>
     opps.data ? render(opps.data) : opps.loading ? skeleton : <Failed error={opps.error} onRetry={opps.refetch} />;
 
+  // the deal views (pipeline, list, forecast) open with the KPI row; "Cần theo dõi" goes straight to its to-do list
+  const kpiSkeleton = <KpiSkeleton count={4} className="grid-cols-2 gap-3 sm:gap-4" />;
+  const kpis = dash.data ? (
+    <CrmKpis data={dash.data} year={today.slice(0, 4)} />
+  ) : dash.loading ? (
+    kpiSkeleton
+  ) : (
+    <Failed error={dash.error} onRetry={dash.refetch} />
+  );
+
   return (
-    <div className="min-w-0 space-y-6 md:space-y-8">
+    <Tabs
+      value={tab}
+      onValueChange={(next) => {
+        if (isCrmTab(next)) navigate(crmTabPath(next, ownerSearch));
+      }}
+      className="min-w-0 space-y-6 md:space-y-8"
+    >
       <PageHeader
         title={t('crm.page.title')}
         description={t('crm.page.description')}
@@ -151,61 +168,62 @@ export function CrmPage() {
             </Button>
           </div>
         }
+        tabs={
+          <TabsList variant="underline" aria-label={t('crm.tabs.label')} className={PAGE_TABS_BLEED}>
+            {CRM_TABS.map((id) => (
+              <TabsTrigger
+                key={id}
+                value={id}
+                count={id === 'followups' && followUpCount > 0 ? followUpCount : null}
+                countTone={followUps && followUps.overdue > 0 ? 'danger' : 'neutral'}
+                countLabel={t('crm.tabs.followupsCount', { count: followUpCount })}
+              >
+                {t(`crm.tabs.${id}`)}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        }
       />
 
-      {dash.data ? (
-        <CrmKpis data={dash.data} year={today.slice(0, 4)} />
-      ) : dash.loading ? (
-        <KpiSkeleton count={4} className="grid-cols-2 gap-3 sm:gap-4" />
-      ) : (
-        <Failed error={dash.error} onRetry={dash.refetch} />
-      )}
-
-      <Tabs
-        value={tab}
-        onValueChange={(next) => {
-          if (isCrmTab(next)) navigate(crmTabPath(next, ownerSearch));
-        }}
-      >
-        <TabsList variant="underline" aria-label={t('crm.tabs.label')} className={PAGE_TABS_BLEED}>
-          {CRM_TABS.map((id) => (
-            <TabsTrigger
-              key={id}
-              value={id}
-              count={id === 'followups' && followUpCount > 0 ? followUpCount : null}
-              countTone={followUps && followUps.overdue > 0 ? 'danger' : 'neutral'}
-              countLabel={t('crm.tabs.followupsCount', { count: followUpCount })}
-            >
-              {t(`crm.tabs.${id}`)}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-        <TabsContent value="pipeline" className="mt-6 md:mt-8">
-          {tab === 'pipeline'
-            ? oppsBody((items) => <PipelineBoard items={items} today={today} close={close} listHref={listHref} />, <BoardSkeleton />)
-            : null}
-        </TabsContent>
-        <TabsContent value="list" className="mt-6 md:mt-8">
-          {tab === 'list' ? oppsBody((items) => <OpportunityList items={items} today={today} />, <TableSkeleton rows={6} cols={6} />) : null}
-        </TabsContent>
-        <TabsContent value="forecast" className="mt-6 md:mt-8">
-          {tab === 'forecast' ? (
-            dash.data ? (
+      <TabsContent value="pipeline" className="mt-0 space-y-6 md:space-y-8">
+        {tab === 'pipeline' ? (
+          <>
+            {kpis}
+            {oppsBody((items) => <PipelineBoard items={items} today={today} close={close} listHref={listHref} />, <BoardSkeleton />)}
+          </>
+        ) : null}
+      </TabsContent>
+      <TabsContent value="list" className="mt-0 space-y-6 md:space-y-8">
+        {tab === 'list' ? (
+          <>
+            {kpis}
+            {oppsBody((items) => <OpportunityList items={items} today={today} />, <TableSkeleton rows={6} cols={6} />)}
+          </>
+        ) : null}
+      </TabsContent>
+      <TabsContent value="forecast" className="mt-0 space-y-6 md:space-y-8">
+        {tab === 'forecast' ? (
+          dash.data ? (
+            <>
+              {kpis}
               <ForecastTab dashboard={dash.data} />
-            ) : dash.loading ? (
+            </>
+          ) : dash.loading ? (
+            <>
+              {kpiSkeleton}
               <TableSkeleton rows={4} cols={4} />
-            ) : (
-              <Failed error={dash.error} onRetry={dash.refetch} />
-            )
-          ) : null}
-        </TabsContent>
-        <TabsContent value="followups" className="mt-6 md:mt-8">
-          {tab === 'followups' ? <FollowUpsTab owner={owner} today={today} /> : null}
-        </TabsContent>
-      </Tabs>
+            </>
+          ) : (
+            <Failed error={dash.error} onRetry={dash.refetch} />
+          )
+        ) : null}
+      </TabsContent>
+      <TabsContent value="followups" className="mt-0">
+        {tab === 'followups' ? <FollowUpsTab owner={owner} today={today} /> : null}
+      </TabsContent>
 
       <CreateOpportunityDialog open={createOpen} onOpenChange={setCreateOpen} />
       {close.dialogs}
-    </div>
+    </Tabs>
   );
 }

@@ -90,10 +90,11 @@ export function ForecastLabel({ milestone: m, showReason = true, compact = false
   const textSize = compact ? SMALL : 'text-table';
   const iconSize = compact ? 'h-3.5 w-3.5' : 'h-4 w-4';
 
+  // calm states stay neutral (DESIGN §1.5 one status accent per card): only a slip is coloured
   if (m.status === 'done' || m.forecast_source === 'done') {
     const d = m.completed_at ? dateOf(m.completed_at) : m.forecast_date;
     return (
-      <span className={cx('inline-flex items-center gap-1.5 whitespace-nowrap font-medium tabular text-success', textSize, className)} title={sentence}>
+      <span className={cx('inline-flex items-center gap-1.5 whitespace-nowrap tabular text-muted-foreground', textSize, className)} title={sentence}>
         <CircleCheck className={cx('shrink-0', iconSize)} aria-hidden="true" />
         {t(compact ? 'components.forecast.doneCompact' : 'components.forecast.done', { date: formatDateShort(d) })}
       </span>
@@ -109,14 +110,14 @@ export function ForecastLabel({ milestone: m, showReason = true, compact = false
     const manualReason = !compact && reason && m.forecast_source === 'manual' ? reason : null;
     return (
       <span className={cx('inline-flex min-w-0 flex-col gap-0.5', textSize, className)} title={sentence}>
-        <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-0.5 tabular">
-          <span className="whitespace-nowrap text-foreground">
+        <span className="inline-flex flex-wrap items-center gap-x-1 gap-y-0.5 tabular">
+          <span className="whitespace-nowrap font-medium text-foreground">
             <span className="sr-only">{t('components.forecast.plannedSr')} </span>
             {plannedShort}
           </span>
-          <span className="inline-flex items-center gap-1 whitespace-nowrap font-medium text-success">
-            <CircleCheck className={cx('shrink-0', iconSize)} aria-hidden="true" />
-            {t('components.forecast.onPlan')}
+          <span className="whitespace-nowrap text-muted-foreground">
+            <span aria-hidden="true">· </span>
+            {lowerFirst(t('components.forecast.onPlan'))}
           </span>
         </span>
         {manualReason ? <span className="text-caption">{manualReason}</span> : null}

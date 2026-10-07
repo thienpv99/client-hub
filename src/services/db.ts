@@ -122,6 +122,8 @@ let batchDepth = 0;
 let dirty = false;
 let tracking: Map<string, Change> | null = null;
 let persistTimer: ReturnType<typeof setTimeout> | null = null;
+/** > 0 while self tests run on a private copy (db.isolated): no storage writes, other tabs' writes ignored */
+let isolation = 0;
 const listeners = new Set<() => void>();
 
 function clone<T>(v: T): T {
@@ -160,6 +162,7 @@ function generationOf(d: DbData): number {
 function persistNow(): void {
   if (persistTimer) clearTimeout(persistTimer);
   persistTimer = null;
+  if (isolation > 0) return;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   } catch {
@@ -169,12 +172,10 @@ function persistNow(): void {
 
 function persistSoon(): void {
   if (persistTimer) clearTimeout(persistTimer);
-  persistTimer = setTimeout(persistNow, 150);
+  persistTimer = isolation > 0 ? null : setTimeout(persistNow, 150);
 }
 
-function emit(): void {
-  version += 1;
-  persistSoon();
+function notifyListeners(): void {
   for (const cb of [...listeners]) {
     try {
       cb();
@@ -182,6 +183,12 @@ function emit(): void {
       console.error('[db] listener failed', err);
     }
   }
+}
+
+function emit(): void {
+  version += 1;
+  persistSoon();
+  notifyListeners();
 }
 
 function touched(): void {
@@ -358,12 +365,42 @@ export const db = {
   dump(): DbData {
     return clone(data);
   },
+
+  /**
+   * Self tests: run `fn` on a private in-memory copy of the data. Nothing is written to the shared localStorage key
+   * meanwhile (not even a demo reset), other tabs' writes are ignored, and afterwards this tab reloads the shared
+   * data — so test rows can never reach another tab or a client walkthrough, whatever the timing.
+   */
+  async isolated<R>(fn: () => Promise<R>): Promise<R> {
+    // changes made before the run still belong to the shared data
+    if (isolation === 0 && persistTimer) persistNow();
+    isolation += 1;
+    try {
+      return await fn();
+    } finally {
+      isolation -= 1;
+      if (isolation === 0) {
+        if (persistTimer) clearTimeout(persistTimer);
+        persistTimer = null;
+        data = loadOrSeed();
+        version += 1;
+        notifyListeners();
+      }
+    }
+  },
+
+  /** true while a self test runs on its private copy (db.isolated) */
+  get isIsolated(): boolean {
+    return isolation > 0;
+  },
 };
 
 // Keep several open tabs in sync (e.g. internal view in one tab, client in another).
 if (typeof window !== 'undefined') {
   window.addEventListener('storage', (e) => {
     if (e.key !== STORAGE_KEY || !e.newValue) return;
+    // a self test runs on its private copy: the shared data is reloaded when it ends
+    if (isolation > 0) return;
     try {
       const next = JSON.parse(e.newValue) as DbData;
       if (next?.meta?.seed_version === SEED_VERSION) {

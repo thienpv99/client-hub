@@ -40,6 +40,7 @@ import {
   taskContext,
   taskLinkFor,
   unique,
+  type TaskContext,
 } from './notifyEvents';
 import { buildWeeklyDigest, digestEmailText, digestRecipients, digestTaskIds, viewerForUser } from './digest';
 
@@ -371,7 +372,7 @@ function sendWeeklyBulletins(today: ISODate): void {
   for (const user of digestRecipients()) {
     const key = `weekly:${user.id}:${weekStart}`;
     if (db.rows('emails').some((e) => e.batch_key === key)) continue;
-    const digest = buildWeeklyDigest(viewerForUser(user));
+    const digest = buildWeeklyDigest(viewerForUser(user), 'current');
     if (digest.sections.length === 0) continue;
     const link = user.org_type === 'client' ? '/portal' : '/app/digest';
     const mail = deliverEmail(user.id, {
@@ -462,42 +463,107 @@ export function isRemindable(task: Task, accountId: ID): boolean {
   );
 }
 
-/** Call inside db.batch after the permission checks. Sends now (bypasses the 1-email/day limit) and logs. */
+function manualReminderText(task: Task, user: User): { title: string; body: string } {
+  const params = {
+    task: task.title,
+    due: fmtDay(task.due_date),
+    relative: dueRelative(openDue(task)),
+    impact: impactText(task),
+    ...addressingOf(user),
+  };
+  return { title: t(`${TPL}.reminder.manual.title`, params), body: t(`${TPL}.reminder.manual.body`, params) };
+}
+
+/**
+ * The "Nhắc khách" mail of one person, sent now: one task → that task's own mail; several (bulk "Nhắc khách (N)") →
+ * ONE mail listing every task with its deep link, never N mails in the same second.
+ */
+function sendReminderMail(user: User, tasks: Task[]): void {
+  const only = tasks.length === 1 ? tasks[0] : undefined;
+  if (only) {
+    const { title, body } = manualReminderText(only, user);
+    const link = clientTaskLink(only.id);
+    deliverEmail(user.id, {
+      subject: t(`${TPL}.email.subject`, { title }),
+      body_text: composeEmailBody(user, body, link),
+      link,
+      kind: 'reminder',
+      urgent: false,
+      immediate: true,
+      task_ids: [only.id],
+    });
+    return;
+  }
+  const addr = addressingOf(user);
+  const lines = [t(`${TPL}.reminder.manyMail.intro`, { count: tasks.length, pronoun: addr.pronoun })];
+  for (const task of tasks) {
+    lines.push(t(`${TPL}.reminder.manyMail.item`, { task: task.title, due: fmtDay(task.due_date), relative: dueRelative(openDue(task)) }));
+    lines.push(t(`${TPL}.summary.itemLink`, { url: absoluteUrl(clientTaskLink(task.id)) }));
+  }
+  lines.push('', t(`${TPL}.reminder.manyMail.outro`, { ...addr }));
+  const link = '/portal/tasks';
+  deliverEmail(user.id, {
+    subject: t(`${TPL}.reminder.manyMail.subject`, { count: tasks.length }),
+    body_text: composeEmailBody(user, lines.join('\n'), link, `${TPL}.reminder.manyMail.open`),
+    link,
+    kind: 'reminder',
+    urgent: false,
+    immediate: true,
+    task_ids: tasks.map((x) => x.id),
+  });
+}
+
+/**
+ * Call inside db.batch after the permission checks. Sends now (bypasses the 1-email/day limit) and logs: a bell item
+ * per task, ONE mail per person (all their reminded tasks), reminder_count + task.reminded per task.
+ */
 export function remindClientTasks(taskIds: ID[], actorId: ID): { reminded: number; skipped: number } {
   const at = nowISO();
   let reminded = 0;
   let skipped = 0;
+  const contexts: TaskContext[] = [];
+  /** recipient → the tasks they are reminded of, in the order asked */
+  const byUser = new Map<ID, TaskContext[]>();
   for (const id of unique(taskIds)) {
     const ctx = taskContext(id);
     if (!ctx || !isRemindable(ctx.task, ctx.account.id)) {
       skipped += 1;
       continue;
     }
-    const { task, account } = ctx;
-    const relative = dueRelative(openDue(task));
-    const reached: string[] = [];
-    for (const userId of clientRecipients(task, account.id)) {
-      const user = db.find('users', userId);
-      if (!user) continue;
-      const params = {
-        task: task.title,
-        due: fmtDay(task.due_date),
-        relative,
-        impact: impactText(task),
-        ...addressingOf(user),
-      };
+    contexts.push(ctx);
+    for (const userId of clientRecipients(ctx.task, ctx.account.id)) {
+      const list = byUser.get(userId) ?? [];
+      list.push(ctx);
+      byUser.set(userId, list);
+    }
+  }
+
+  const reached = new Map<ID, string[]>();
+  for (const [userId, list] of byUser) {
+    const user = db.find('users', userId);
+    if (!user) continue;
+    const sent: Task[] = [];
+    for (const { task, account } of list) {
+      const { title, body } = manualReminderText(task, user);
       const ok = sendNotice(userId, {
         kind: 'reminder',
-        title: t(`${TPL}.reminder.manual.title`, params),
-        body: t(`${TPL}.reminder.manual.body`, params),
+        title,
+        body,
         link: clientTaskLink(task.id),
         accountId: account.id,
         taskId: task.id,
-        email: 'immediate',
+        email: 'none',
       });
-      if (ok) reached.push(user.full_name);
+      if (!ok) continue;
+      sent.push(task);
+      reached.set(task.id, [...(reached.get(task.id) ?? []), user.full_name]);
     }
-    if (reached.length === 0) {
+    if (sent.length > 0) sendReminderMail(user, sent);
+  }
+
+  for (const { task, account } of contexts) {
+    const names = reached.get(task.id) ?? [];
+    if (names.length === 0) {
       skipped += 1;
       continue;
     }
@@ -508,7 +574,7 @@ export function remindClientTasks(taskIds: ID[], actorId: ID): { reminded: numbe
       action: 'task.reminded',
       target_type: 'task',
       target_id: task.id,
-      params: { task: task.title, to: reached.join(', ') },
+      params: { task: task.title, to: names.join(', ') },
       visibility: 'internal',
     });
     reminded += 1;

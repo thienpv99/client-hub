@@ -156,7 +156,7 @@ function AccountPicker() {
   );
 }
 
-function NewQuote({ accountId }: { accountId: string }) {
+function NewQuote({ accountId, opportunityId }: { accountId: string; opportunityId: string | null }) {
   const accountQ = useQuery(() => api.getAccount(accountId), [accountId]);
   const catalogQ = useCatalog(accountId, true);
   const settingsQ = useQuery(() => api.getSettings(), []);
@@ -190,6 +190,7 @@ function NewQuote({ accountId }: { accountId: string }) {
       parentLines={null}
       parentVersion={null}
       activities={[]}
+      opportunityId={opportunityId}
     />
   );
 }
@@ -198,7 +199,9 @@ export function QuoteEditorPage() {
   const { quoteId } = useParams();
   const [params] = useSearchParams();
   const accountId = params.get('account');
+  // "Tạo báo giá" from a sales opportunity (crmPaths.newQuote): the first save links the quote to that deal
+  const opportunityId = params.get('opportunity');
   if (quoteId) return <ExistingQuote key={quoteId} quoteId={quoteId} />;
   if (!accountId) return <AccountPicker />;
-  return <NewQuote key={accountId} accountId={accountId} />;
+  return <NewQuote key={accountId} accountId={accountId} opportunityId={opportunityId} />;
 }

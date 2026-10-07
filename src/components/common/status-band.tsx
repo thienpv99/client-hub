@@ -23,12 +23,16 @@ export function statusLineText(line: StatusLine, salutation?: string | null): st
     case 'payment_overdue':
       return t('components.statusBand.payment_overdue', { count: line.count });
     case 'waiting_client': {
+      const params = { count: line.count, milestone: line.milestone_name };
+      // "từ phía anh/chị" only when the waited-for task is the viewer's own; a colleague's is named, several → company
+      const other = line.waiting_for;
+      if (other) {
+        return other.name
+          ? t('components.statusBand.waiting_client_person', { ...params, name: other.name, company: other.company })
+          : t('components.statusBand.waiting_client_company', { ...params, company: other.company });
+      }
       const who = salutation && salutation.trim() ? salutation.trim() : t('components.statusBand.clientSide');
-      return t('components.statusBand.waiting_client', {
-        count: line.count,
-        milestone: line.milestone_name,
-        salutation: who,
-      });
+      return t('components.statusBand.waiting_client', { ...params, salutation: who });
     }
     case 'waiting_internal': {
       const hidden = line.task_title === null || line.task_title.trim() === '';
@@ -79,7 +83,8 @@ function MilestoneChip({ milestone: m }: { milestone: StatusBandMilestone }) {
         ) : (
           <>
             <span>{planned}</span>
-            <span className="inline-flex items-center gap-1 text-success">
+            {/* neutral: the band's tint is the one status accent (an on-plan chip on an amber band must not read green) */}
+            <span className="inline-flex items-center gap-1 text-muted-foreground">
               <CircleCheck className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
               <span className="sr-only">{t('components.forecast.onPlan')}</span>
             </span>

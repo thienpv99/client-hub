@@ -4,7 +4,7 @@ import { api } from '@/services/api';
 import { todayISO } from '@/domain/clock';
 import { t } from '@/i18n';
 
-export type SuiteId = 'domain' | 'rbac' | 'seed' | 'api';
+export type SuiteId = 'domain' | 'crm' | 'rbac' | 'seed' | 'api';
 
 export interface CheckRow {
   suite?: string;
@@ -106,6 +106,11 @@ async function load(id: SuiteId): Promise<unknown> {
       const m = await import('@/dev/domainTests');
       return m.runDomainTests();
     }
+    case 'crm': {
+      // pure CRM / client-map checks + the AM scoping of the client map on the current demo data (read only)
+      const m = await import('@/dev/crmTests');
+      return m.runCrmTests();
+    }
     case 'rbac': {
       const m = await import('@/dev/rbacTests');
       return await m.runRbacTests();
@@ -119,7 +124,7 @@ async function load(id: SuiteId): Promise<unknown> {
       return Array.isArray(problems) ? problems.map((p) => ({ name: String(p), ok: false })) : problems;
     }
     case 'api': {
-      // every read method as every demo role + the demo scenario checks; resets the demo data at the end
+      // every read method as every demo role + the demo scenario checks, on a private copy of the db (db.isolated)
       const m = await import('@/dev/apiSmoke');
       return await m.runApiSmoke();
     }

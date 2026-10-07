@@ -1,7 +1,8 @@
 // Data-level RBAC self test (SPEC §2, §11): calls the real `api` (latency + sanitizer, exactly like the UI)
 // as each role and deep-scans every response.
 // Run in the browser: (await import('/src/dev/rbacTests')).runRbacTests().then(r => r.filter(x => !x.ok))
-// The current session is restored at the end and every data change made by the test is rolled back.
+// The current session is restored at the end; the test runs on a private copy of the db (db.isolated) and rolls its
+// changes back, so nothing it writes ever reaches the shared localStorage demo data.
 
 import type { ID } from '@/domain/types';
 import { nowISO, setNow, todayISO } from '@/domain/clock';
@@ -52,6 +53,10 @@ interface Fixtures {
   notHaTaskIds: ID[];
   /** Cỏ Xanh tasks carrying a quote (owner-only, commercial) */
   quoteTaskIds: ID[];
+  /** Cỏ Xanh client tasks of Lan's colleagues (neither assigned to nor delegated by her, not commercial) */
+  colleagueTaskIds: ID[];
+  /** quote-approval / payment tasks on u_member_tuan's accounts that are not assigned to him */
+  memberCommercialTaskIds: ID[];
   quoteId: ID | null;
   clientTexts: string[];
   otherNames: Map<ID, string>;
@@ -236,6 +241,8 @@ async function collectFixtures(): Promise<Fixtures> {
   const clientQuote = quotes.find((q) => q.status === 'sent' || q.status === 'accepted' || q.status === 'changes_requested');
   const notHa = accounts.find((a) => a.am.id !== 'u_am_ha');
   const notHaTasks = notHa ? await api.listTasks({ accountId: notHa.id, openOnly: false }) : [];
+  const commercial = (x: TaskView): boolean => x.quote_id !== null || x.payment_schedule_id !== null || x.type === 'payment';
+  const tuanAccountTasks = (await Promise.all([...tuanAccounts].map((id) => api.listTasks({ accountId: id, openOnly: false })))).flat();
   return {
     hiddenTaskId: hidden.length ? hidden[0].id : null,
     visibleTaskIds: cxTasks.filter((x) => x.side === 'client' || x.client_visible).map((x) => x.id),
@@ -245,6 +252,10 @@ async function collectFixtures(): Promise<Fixtures> {
     notTuanAccountId: accounts.find((a) => !tuanAccounts.has(a.id))?.id ?? null,
     notHaTaskIds: notHaTasks.slice(0, 2).map((x) => x.id),
     quoteTaskIds: cxTasks.filter((x) => x.quote_id !== null).map((x) => x.id),
+    colleagueTaskIds: cxTasks
+      .filter((x) => x.side === 'client' && !commercial(x) && x.assignee?.id !== LAN && x.delegated_by?.id !== LAN)
+      .map((x) => x.id),
+    memberCommercialTaskIds: tuanAccountTasks.filter((x) => commercial(x) && x.assignee?.id !== 'u_member_tuan').map((x) => x.id),
     quoteId: clientQuote ? clientQuote.id : null,
     clientTexts: [...new Set(texts.filter((s) => s.trim().length >= 6))],
     otherNames,
@@ -511,6 +522,17 @@ async function crmRbac(suite: Suite): Promise<void> {
     account_ids: [CX, ducAccount.id],
     lead_ids: [ducLead.id, poolLead.id],
   });
+  // a group made only of Đức Anh's companies: Hà may see its name (to join it), never read or rewrite its description
+  const ducLead2 = await api.upsertLead(leadInput(`${CRM_SECRET} Công ty thứ hai của Đức Anh`, 'u_am_ducanh'));
+  const foreignDescription = `${CRM_SECRET} mô tả riêng của Đức Anh`;
+  const foreignEco = await api.saveEcosystem({
+    name: `${CRM_SECRET} Tập đoàn của Đức Anh`,
+    short_name: 'KD',
+    description: foreignDescription,
+    industry: 'Năng lượng',
+    account_ids: [],
+    lead_ids: [ducLead2.id],
+  });
   await api.loginDemo('am');
   await suite.testAsync('crm · AM cannot read Đức Anh’s opportunity on his account', async () => {
     await expectCode(api.getOpportunity(ducOpp.id), ['forbidden'], 'getOpportunity');
@@ -585,6 +607,19 @@ async function crmRbac(suite: Suite): Promise<void> {
     assertEqual(saved.members.map((m) => m.id), [poolLead.id], 'her view after the save');
   });
 
+  await suite.testAsync('crm · AM: a group of another AM’s companies is listed by name only and cannot be rewritten', async () => {
+    const listed = (await api.listEcosystems()).find((e) => e.id === foreignEco.id);
+    assert(listed, 'listed (so she can join it)');
+    assertEqual([listed.description, listed.industry, listed.members.length], ['', null, 0], 'name only');
+    const same = { id: foreignEco.id, name: foreignEco.name, short_name: 'KD', description: '', industry: null, account_ids: [], lead_ids: [] };
+    await expectCode(api.saveEcosystem({ ...same, name: `${CRM_SECRET} đổi tên` }), ['forbidden'], 'rename');
+    await expectCode(api.saveEcosystem({ ...same, description: `${CRM_SECRET} viết lại` }), ['forbidden'], 'rewrite the description');
+    await expectCode(api.saveEcosystem({ ...same, industry: 'Bán lẻ' }), ['forbidden'], 'change the industry');
+    // joining with one of her customers keeps the stored fields
+    const joined = await api.saveEcosystem({ ...same, account_ids: [CX] });
+    assertEqual([joined.name, joined.description, joined.industry], [foreignEco.name, foreignDescription, 'Năng lượng'], 'fields kept on join');
+  });
+
   // a client may still not see the deal the AM works on for its own company
   await api.loginDemo('client_owner');
   await suite.testAsync('crm · client_owner · Cỏ Xanh deal and touchpoints invisible', async () => {
@@ -612,7 +647,15 @@ async function crmRbac(suite: Suite): Promise<void> {
 
 // ───────────────────────────── the test ─────────────────────────────
 
+/**
+ * Runs on a private copy of the db (db.isolated): the test data never reaches localStorage, so another tab writing
+ * mid-run can neither pick it up nor bring it back after the rollback (the shared demo data stays clean).
+ */
 export async function runRbacTests(): Promise<TestResult[]> {
+  return db.isolated(runRbacSuite);
+}
+
+async function runRbacSuite(): Promise<TestResult[]> {
   const suite = createSuite('rbac');
   const savedSession = getSession();
   const snap = db.dump();
@@ -635,7 +678,8 @@ export async function runRbacTests(): Promise<TestResult[]> {
       assertEqual<unknown>(
         sanitizeOutgoing(raw, null),
         {
-          health: { value: 'attention', auto: 'blocked', overridden: true, reasons: [] },
+          // the effective colour only: no reason, no "set by hand" flag, no auto colour
+          health: { value: 'attention', auto: 'attention', overridden: false, reasons: [] },
           milestone: { id: 'm', forecast_source: 'manual', override_reason: 'Khách dời lịch UAT' },
         },
         'client sanitize',
@@ -760,6 +804,32 @@ export async function runRbacTests(): Promise<TestResult[]> {
           const acc = await api.getAccount(CX);
           assertEqual(acc.commercial, null, 'commercial');
           assertEqual(acc.contract_value, 0, 'contract value hidden');
+        });
+        // SPEC §2: own tasks + overall progress — a colleague's task is named in a blocker list, never opened
+        await suite.testAsync('client_member · a colleague’s task is neither listed nor opened', async () => {
+          assert(f.colleagueTaskIds.length > 0, 'fixture: a client task of a colleague');
+          const listed = await api.listTasks({ openOnly: false });
+          assert(!listed.some((x) => f.colleagueTaskIds.includes(x.id)), 'not listed');
+          for (const id of f.colleagueTaskIds) await expectCode(api.getTask(id), ['not_found'], `getTask(${id})`);
+          const found = await api.search('duyet');
+          assert(!found.some((r) => f.colleagueTaskIds.includes(r.id)), 'not found by search');
+        });
+      }
+
+      if (role.who === 'member') {
+        // the commercial module is director / AM / decision maker: no installment (name, amount, days) in a health
+        // reason, no someone-else's invoice or approval task, no CRM interaction log on contacts
+        await suite.testAsync('member · no overdue installment, commercial task or CRM note reaches a member', async () => {
+          const accounts = await api.listAccounts();
+          const payloads: unknown[] = [accounts, await api.listAccounts({ waitingClient: true }), await api.getWeeklyDigest()];
+          for (const a of accounts) payloads.push(await api.getAccount(a.id), await api.listContacts(a.id));
+          const text = JSON.stringify(payloads);
+          assert(!text.includes('overdue_payment'), 'no overdue_payment health reason');
+          const contacts = payloads.flatMap((p) => (p && typeof p === 'object' && 'contacts' in p ? (p as { contacts: { last_interaction_note: string | null; last_interaction_at: string | null }[] }).contacts : []));
+          assert(contacts.length > 0 && contacts.every((c) => c.last_interaction_note === null && c.last_interaction_at === null), 'contacts carry no interaction log');
+          const listed = await api.listTasks({ openOnly: false });
+          assert(!listed.some((x) => f.memberCommercialTaskIds.includes(x.id)), 'commercial tasks of others not listed');
+          for (const id of f.memberCommercialTaskIds) await expectCode(api.getTask(id), ['not_found', 'forbidden'], `getTask(${id})`);
         });
       }
 
@@ -994,8 +1064,11 @@ export async function runRbacTests(): Promise<TestResult[]> {
       const [detail, home] = await Promise.all([api.getAccount(CX), api.getPortalHome()]);
       for (const [label, health] of [['getAccount', detail.health], ['getPortalHome', home.health]] as const) {
         assert(!('override_reason' in health), `${label}: health.override_reason must be absent`);
-        assertEqual(health.overridden, true, `${label}: override flag still visible`);
+        // only the effective colour: neither the manual flag nor the auto colour it replaced
+        assertEqual([health.value, health.auto, health.overridden], ['attention', 'attention', false], `${label}: effective colour only`);
       }
+      assertEqual(detail.health_override, null, 'AccountDetail.health_override hidden');
+      assertEqual(home.status_line.kind, 'generic', 'the band of an overridden account is the neutral sentence');
       assert(!JSON.stringify([detail, home]).includes(healthReason), 'health override reason text never reaches the client');
       await api.loginDemo('am');
     });

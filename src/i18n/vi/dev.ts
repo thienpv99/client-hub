@@ -1,7 +1,7 @@
 // i18n namespace 'dev' — owner: shell (G1). Self-test page (/dev/selftest).
 const dev = {
   title: 'Tự kiểm tra hệ thống',
-  description: 'Chạy các bộ kiểm tra logic, phân quyền dữ liệu và dữ liệu mẫu ngay trong trình duyệt.',
+  description: 'Chạy các bộ kiểm tra logic, bán hàng, phân quyền dữ liệu và dữ liệu mẫu ngay trong trình duyệt.',
   runAll: 'Chạy tất cả',
   run: 'Chạy',
   running: 'Đang chạy…',
@@ -21,11 +21,16 @@ const dev = {
   suites: {
     domain: {
       title: 'Logic nghiệp vụ',
-      description: 'Chặn, dự báo mốc, sức khỏe account, thứ tự việc, tính báo giá, thanh toán quá hạn.',
+      description: 'Chặn, dự báo mốc, sức khỏe khách hàng, thứ tự việc, tính báo giá, thanh toán quá hạn.',
     },
     rbac: {
       title: 'Phân quyền dữ liệu',
       description: 'Khách không nhận được giá vốn, biên lợi nhuận, ghi chú nội bộ; chế độ chỉ đọc.',
+    },
+    crm: {
+      title: 'Bán hàng và bản đồ khách hàng',
+      description:
+        'Điểm phù hợp, phân khúc, phễu và dự báo bán hàng, khối lượng việc; bản đồ khách hàng: giá trị theo chỉ số, nhóm doanh nghiệp, phạm vi của AM.',
     },
     seed: {
       title: 'Dữ liệu mẫu',
@@ -34,7 +39,7 @@ const dev = {
     api: {
       title: 'Gọi API tổng quát',
       description:
-        'Gọi mọi hàm đọc dữ liệu với từng vai trò và kiểm tra 6 tình huống mẫu. Dữ liệu demo được đặt lại sau khi chạy.',
+        'Gọi mọi hàm đọc dữ liệu với từng vai trò và kiểm tra 6 tình huống mẫu trên một bản sao riêng. Dữ liệu demo đang dùng không bị thay đổi.',
     },
   },
 };

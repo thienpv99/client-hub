@@ -1,7 +1,8 @@
 // "Bảng" view — the accessible alternative of the map: companies ranked by the chosen metric, or grouped by
 // ecosystem with subtotal rows. A table from xl (1280), cards below.
 import { Fragment } from 'react';
-import { Link } from 'react-router-dom';
+import type { MouseEvent } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { Network } from 'lucide-react';
 import type { ClientMapMetric } from '@/services/crmContract';
 import { AccountLogo } from '@/components/common/account-logo';
@@ -57,7 +58,20 @@ function HealthCell({ row }: { row: RankedRow }) {
   return n.health ? <HealthBadge health={n.health} size="sm" /> : <span className="text-table text-muted-foreground">{t('clientmap.table.noHealth')}</span>;
 }
 
-function Company({ row }: { row: RankedRow }) {
+/**
+ * stretched link: the whole card (phones / iPad) is the tap target, not just the ~20px name (DESIGN §6 touch 44px).
+ * The card needs `relative`; the table rows navigate on click instead (a <tr> is no reliable containing block).
+ */
+const STRETCH = "after:absolute after:inset-0 after:content-[''] focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-primary";
+
+/** a click on the row that is not on the link itself (or a text selection) */
+function rowClickTarget(e: MouseEvent<HTMLElement>): boolean {
+  if ((e.target as HTMLElement | null)?.closest('a,button')) return false;
+  const selection = window.getSelection();
+  return !(selection && selection.toString().length > 0);
+}
+
+function Company({ row, stretch = false }: { row: RankedRow; stretch?: boolean }) {
   const n = row.node;
   return (
     <div className="flex min-w-0 items-center gap-3">
@@ -68,7 +82,10 @@ function Company({ row }: { row: RankedRow }) {
       />
       <div className="min-w-0">
         {n.href ? (
-          <Link to={n.href} className="break-words font-semibold text-foreground underline-offset-4 hover:text-primary hover:underline">
+          <Link
+            to={n.href}
+            className={cn('break-words font-semibold text-foreground underline-offset-4 hover:text-primary hover:underline', stretch && STRETCH)}
+          >
             {n.label}
           </Link>
         ) : (
@@ -94,11 +111,18 @@ function GroupHeading({ g }: { g: RowGroup }) {
 }
 
 function DesktopTable({ rows, metric, mode }: Omit<ClientTableProps, 'onMode'>) {
+  const navigate = useNavigate();
   const strong = METRIC_COLUMN[metric];
   const num = (key: 'contract' | 'pipeline' | 'total') => cn('text-right tabular', key === strong ? 'font-semibold text-ink' : 'text-muted-foreground');
   const head = (key: 'contract' | 'pipeline' | 'total') => cn('text-right', key === strong && 'text-foreground');
   const body = (r: RankedRow) => (
-    <TableRow key={r.node.id}>
+    <TableRow
+      key={r.node.id}
+      className={r.node.href ? 'cursor-pointer' : undefined}
+      onClick={(e) => {
+        if (r.node.href && rowClickTarget(e)) navigate(r.node.href);
+      }}
+    >
       <TableCell className="w-14 pl-5 tabular text-muted-foreground">{r.rank}</TableCell>
       <TableCell className="min-w-[16rem]">
         <Company row={r} />
@@ -164,14 +188,14 @@ function Money({ label, value, strong }: { label: string; value: number; strong:
 function RowCard({ row, metric }: { row: RankedRow; metric: ClientMapMetric }) {
   const strong = METRIC_COLUMN[metric];
   return (
-    <li className="flex flex-col gap-3 px-4 py-4 sm:px-5">
+    <li className={cn('flex flex-col gap-3 px-4 py-4 sm:px-5', row.node.href && 'relative transition-colors duration-150 hover:bg-subtle')}>
       <div className="flex items-start gap-3">
         <span className="mt-1 w-7 shrink-0 text-table font-semibold tabular text-muted-foreground">
           <span className="sr-only">{t('clientmap.table.rank', { rank: row.rank })}</span>
           <span aria-hidden="true">{row.rank}</span>
         </span>
         <div className="min-w-0 flex-1">
-          <Company row={row} />
+          <Company row={row} stretch />
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2 pl-10">

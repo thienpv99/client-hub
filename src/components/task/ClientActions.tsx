@@ -67,6 +67,9 @@ export function ClientActions({ task, layout, onCompleted, className }: ClientAc
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [delegateOpen, setDelegateOpen] = useState(false);
   const disabled = aff.readOnly;
+  // the card's "Xem & duyệt" only opens the drawer at the file: a view action, so "Xem như khách hàng" keeps it
+  // (the drawer's "Duyệt" / "Yêu cầu chỉnh sửa" and every other client action stay disabled there)
+  const viewOnlyPrimary = layout === 'card' && aff.primary === 'approve';
 
   async function act<T>(key: Exclude<Busy, null>, fn: () => Promise<T>, opts?: ActionOptions<T>, completes = true): Promise<boolean> {
     setBusy(key);
@@ -91,7 +94,7 @@ export function ClientActions({ task, layout, onCompleted, className }: ClientAc
   });
 
   function onPrimary() {
-    if (disabled) return;
+    if (disabled && !viewOnlyPrimary) return;
     switch (aff.primary) {
       case 'approve':
         if (layout === 'card') {
@@ -212,7 +215,7 @@ export function ClientActions({ task, layout, onCompleted, className }: ClientAc
       size={layout === 'card' ? 'touch' : 'default'}
       onClick={onPrimary}
       loading={busy === 'primary'}
-      disabled={disabled || busy !== null}
+      disabled={(disabled && !viewOnlyPrimary) || busy !== null}
       className={cn('min-w-0', layout === 'footer' ? 'order-3 flex-1 lg:flex-none' : 'w-full md:w-auto')}
     >
       {busy !== 'primary' && PrimaryIcon ? <PrimaryIcon aria-hidden="true" /> : null}

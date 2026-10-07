@@ -68,7 +68,7 @@ const auth = {
     title: 'Vào nhanh (demo)',
     description: 'Xem hệ thống từ góc nhìn của từng vai trò, không cần mật khẩu.',
     director: 'Giám đốc',
-    am: 'Account Manager',
+    am: 'Quản lý khách hàng',
     member: 'Thành viên nội bộ',
     client_owner: 'Khách – Người quyết định',
     client_member: 'Khách – Thành viên',
@@ -79,7 +79,7 @@ const auth = {
     /** role line of a demo card (the side is shown above it) */
     cardRole: {
       director: 'Giám đốc',
-      am: 'Account Manager',
+      am: 'Quản lý khách hàng',
       member: 'Thành viên',
       client_owner: 'Người quyết định',
       client_member: 'Thành viên',

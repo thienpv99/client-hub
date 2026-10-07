@@ -38,6 +38,9 @@ const components = {
     overdue: 'Có {count} việc đã quá hạn, chưa ảnh hưởng đến các mốc.',
     payment_overdue: 'Có {count} đợt thanh toán đã quá hạn.',
     waiting_client: 'Mốc {milestone} đang chờ {count} việc từ phía {salutation}. Mỗi ngày chậm, {milestone} lùi thêm 1 ngày.',
+    /** the waited-for task belongs to a colleague of the viewer (name = 'anh Minh') / to several people */
+    waiting_client_person: 'Mốc {milestone} đang chờ {count} việc từ {name} ({company}). Mỗi ngày chậm, {milestone} lùi thêm 1 ngày.',
+    waiting_client_company: 'Mốc {milestone} đang chờ {count} việc từ phía {company}. Mỗi ngày chậm, {milestone} lùi thêm 1 ngày.',
     waiting_internal: 'Mốc {milestone} đang lùi {days} ngày do New Era chậm “{task}”. New Era đang xử lý.',
     waiting_internal_hidden: 'Mốc {milestone} đang lùi {days} ngày do New Era chậm một việc chuẩn bị. New Era đang xử lý.',
     waiting_internal_risk: 'Mốc {milestone} có thể lùi do New Era chậm “{task}”. New Era đang xử lý.',
@@ -147,6 +150,20 @@ const components = {
   impact: {
     title: 'Nếu chưa làm',
     milestones: 'Mốc bị ảnh hưởng',
+    // overdue task: the consequence is happening, so the box says what has slipped (ImpactBox overdueDays)
+    overdueTitle: 'Đang ảnh hưởng',
+    /** {slips} = "UAT lùi 29/10 → 04/11", joined "A, B và C" */
+    overdueSlip: 'Đã trễ {days} ngày: mốc {slips}.',
+    /** {dates} = "29/10 → 04/11" (forecast in danger, one unbreakable group); the arrow is read as slipToSr */
+    slip: '{name} lùi {dates}',
+    slipToSr: 'sang',
+    moreMilestones: '{count} mốc khác',
+    /** held milestones exist but none has moved yet */
+    overdueOnPlan: 'Đã trễ {days} ngày, các mốc liên quan chưa bị lùi.',
+    /** no milestone held */
+    overdue: 'Đã trễ {days} ngày.',
+    /** label before the original (now past) conditional sentence, shown muted */
+    original: 'Lưu ý ban đầu:',
   },
 
   blocked: {
@@ -184,6 +201,29 @@ const components = {
     submitHint: 'Ctrl + Enter để gửi',
   },
 
+  /** SearchEmptyState: the one "nothing matches" state of every list */
+  emptySearch: {
+    title: 'Không tìm thấy {entity} nào cho “{query}”.',
+    filtered: 'Không có {entity} nào khớp với bộ lọc đang chọn.',
+    hint: 'Thử từ khóa khác hoặc bỏ bớt bộ lọc.',
+    clear: 'Bỏ lọc',
+    entity: {
+      account: 'khách hàng',
+      project: 'dự án',
+      task: 'việc',
+      lead: 'khách hàng mục tiêu',
+      target: 'công ty',
+      opportunity: 'cơ hội',
+      quote: 'báo giá',
+      contract: 'hợp đồng',
+      price: 'dịch vụ',
+      user: 'người dùng',
+      document: 'tài liệu',
+      notification: 'thông báo',
+      email: 'email',
+    },
+  },
+
   gallery: {
     title: 'Thành phần chung',
     subtitle: 'Bản xem nhanh mọi thành phần hiển thị dùng chung, với dữ liệu mẫu.',
@@ -192,7 +232,7 @@ const components = {
     actionNew: 'Tạo việc',
     kpiHint: 'Thẻ đầu tiên bấm được (lọc nhanh).',
     kpi: {
-      risk: 'Account cần chú ý',
+      risk: 'Khách hàng cần chú ý',
       overdue: 'Việc quá hạn',
       overdueSub: 'Phía khách 3 · Phía New Era 2',
       contract: 'Giá trị hợp đồng năm nay',
@@ -202,7 +242,7 @@ const components = {
       collected: 'Đã thu năm nay',
       collectedSub: 'Kế hoạch năm 6,2 tỷ ₫',
       collectedProgress: 'Đã thu 4/6 đợt',
-      pipeline: 'Pipeline đang mở',
+      pipeline: 'Cơ hội đang mở',
       pipelineSub: '12 cơ hội đang theo',
       vsLastMonth: 'so với tháng trước',
       winRate: 'Tỷ lệ thắng',

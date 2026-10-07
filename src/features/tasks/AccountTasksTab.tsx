@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { CalendarRange, Kanban, List, ListChecks, Plus, SearchX } from 'lucide-react';
+import { CalendarRange, Kanban, List, ListChecks, Plus } from 'lucide-react';
 import type { AccountDetail, ProjectView } from '@/services/contract';
 import { api } from '@/services/api';
 import { t } from '@/i18n';
@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { EmptyState } from '@/components/common/empty-state';
+import { EmptyState, SearchEmptyState } from '@/components/common/empty-state';
 import { ErrorState } from '@/components/common/error-state';
 import { CardSkeleton, ListSkeleton } from '@/components/common/skeletons';
 import { TaskFilterBar } from './filters/TaskFilterBar';
@@ -96,16 +96,7 @@ export function AccountTasksTab({ account }: AccountTasksTabProps) {
   } else if (filtered.length === 0) {
     body = (
       <Card>
-        <EmptyState
-          icon={SearchX}
-          title={t('tasks.empty.filtered')}
-          description={t('tasks.empty.filteredHint')}
-          action={
-            <Button type="button" variant="secondary" onClick={clear}>
-              {t('tasks.filters.clear')}
-            </Button>
-          }
-        />
+        <SearchEmptyState entity="task" query={filters.q} onClear={clear} />
       </Card>
     );
   } else if (view === 'kanban') {

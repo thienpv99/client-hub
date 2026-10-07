@@ -10,7 +10,6 @@ const common = {
   back: 'Quay lại',
   retry: 'Thử lại',
   loading: 'Đang tải…',
-  comingSoon: 'Phần này đang được hoàn thiện.',
   confirm: 'Xác nhận',
   edit: 'Sửa',
   delete: 'Xóa',

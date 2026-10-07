@@ -1,9 +1,12 @@
-// "Sửa cơ hội": name, value, probability, expected close, next step + date, products, owner (director only).
-import { useEffect, useId, useState } from 'react';
+// "Sửa cơ hội": name, value, probability, expected close, next step + date, products, linked quote (one of the
+// account's quotes — the opportunity page shows it in its "Báo giá" card), owner (director only).
+import { useEffect, useId, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
+import type { QuoteSummary } from '@/services/contract';
 import type { OpportunityInput, OpportunityView } from '@/services/crmContract';
 import { api } from '@/services/api';
 import { useAction } from '@/hooks/useAction';
+import { useQuery } from '@/hooks/useQuery';
 import { useViewer } from '@/hooks/useViewer';
 import { t } from '@/i18n';
 import { formatPercent } from '@/lib/format';
@@ -21,6 +24,8 @@ export interface EditOpportunityDialogProps {
   opportunity: OpportunityView;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** "quote": opened from the opportunity's "Báo giá" card ("Gắn báo giá có sẵn") — focus starts on the quote field */
+  focusField?: 'quote';
 }
 
 interface FormState {
@@ -31,6 +36,8 @@ interface FormState {
   nextStep: string;
   nextStepDate: string;
   products: string[];
+  /** '' = no quote linked */
+  quoteId: string;
   ownerId: string;
 }
 
@@ -43,11 +50,21 @@ function fromOpportunity(o: OpportunityView): FormState {
     nextStep: o.next_step ?? '',
     nextStepDate: o.next_step_date ?? '',
     products: o.products.map((p) => p.price_item_id),
+    quoteId: o.quote?.id ?? '',
     ownerId: o.owner.id,
   };
 }
 
-export function EditOpportunityDialog({ opportunity, open, onOpenChange }: EditOpportunityDialogProps) {
+/** "BG-TA-2026-02 · v2 — Giai đoạn 2 … · Đã gửi" */
+function quoteOption(q: Pick<QuoteSummary, 'code' | 'version' | 'title' | 'status'>): string {
+  return t('crm.edit.quoteOption', {
+    code: t('crm.opportunity.quoteCode', { code: q.code, version: q.version }),
+    title: q.title,
+    status: t(`enums.quoteStatus.${q.status}`),
+  });
+}
+
+export function EditOpportunityDialog({ opportunity, open, onOpenChange, focusField }: EditOpportunityDialogProps) {
   const uid = useId();
   const viewer = useViewer();
   const isDirector = viewer?.role === 'director';
@@ -56,6 +73,13 @@ export function EditOpportunityDialog({ opportunity, open, onOpenChange }: EditO
   const [touched, setTouched] = useState(false);
   const { items: priceItems, loading: priceLoading } = useActivePriceItems(open);
   const { owners } = useDealOwners(open && isDirector);
+  const quoteRef = useRef<HTMLSelectElement>(null);
+  // the account's quotes, newest version of each; the linked one stays listed even when a newer version exists
+  const accountId = opportunity.account.id;
+  const quotesQ = useQuery(() => api.listQuotes({ accountId, latestOnly: true }), [accountId], { enabled: open });
+  const linked = opportunity.quote;
+  const quotes: Pick<QuoteSummary, 'id' | 'code' | 'version' | 'title' | 'status'>[] = [...(quotesQ.data ?? [])];
+  if (linked && !quotes.some((q) => q.id === linked.id)) quotes.unshift(linked);
 
   useEffect(() => {
     if (open) {
@@ -94,6 +118,7 @@ export function EditOpportunityDialog({ opportunity, open, onOpenChange }: EditO
       next_step_date: form.nextStepDate || null,
       price_item_ids: form.products,
     };
+    if (form.quoteId !== (opportunity.quote?.id ?? '')) patch.quote_id = form.quoteId || null;
     if (isDirector && form.ownerId && form.ownerId !== opportunity.owner.id) patch.owner_id = form.ownerId;
     const result = await run(() => api.updateOpportunity(opportunity.id, patch), { success: 'common.toast.saved' });
     if (result) onOpenChange(false);
@@ -107,14 +132,29 @@ export function EditOpportunityDialog({ opportunity, open, onOpenChange }: EditO
     next: `${uid}-next`,
     nextDate: `${uid}-next-date`,
     products: `${uid}-products`,
+    quote: `${uid}-quote`,
     owner: `${uid}-owner`,
   };
+  // (the first render after opening has neither data nor `loading` yet)
+  const quotesLoading = !quotesQ.data && !quotesQ.error;
   const today = todayISO();
   const stageDefault = DEFAULT_PROBABILITY[opportunity.stage];
 
   return (
     <Dialog open={open} onOpenChange={(next) => (!pending ? onOpenChange(next) : undefined)}>
-      <DialogContent className="sm:max-w-xl">
+      <DialogContent
+        className="sm:max-w-xl"
+        onOpenAutoFocus={
+          focusField === 'quote'
+            ? (e) => {
+                const select = quoteRef.current;
+                if (!select || select.disabled) return;
+                e.preventDefault();
+                select.focus();
+              }
+            : undefined
+        }
+      >
         <DialogHeader>
           <DialogTitle>{t('crm.edit.title')}</DialogTitle>
           <DialogDescription>{t('crm.edit.description', { account: opportunity.account.name })}</DialogDescription>
@@ -162,6 +202,32 @@ export function EditOpportunityDialog({ opportunity, open, onOpenChange }: EditO
             <Label id={ids.products}>{t('crm.create.products')}</Label>
             <ProductPicker items={pickerItems} loading={priceLoading} value={form.products} onChange={(v) => set('products', v)} labelledBy={ids.products} />
           </div>
+          <FormField
+            label={t('crm.edit.quote')}
+            htmlFor={ids.quote}
+            hint={!quotesLoading && quotes.length === 0 ? t('crm.edit.quoteNoneHint', { account: opportunity.account.name }) : t('crm.edit.quoteHint')}
+          >
+            <NativeSelect
+              ref={quoteRef}
+              id={ids.quote}
+              value={form.quoteId}
+              disabled={!quotesLoading && quotes.length === 0}
+              onChange={(e) => set('quoteId', e.target.value)}
+            >
+              {quotesLoading ? (
+                <option value={form.quoteId}>{t('crm.edit.quoteLoading')}</option>
+              ) : (
+                <>
+                  <option value="">{t('crm.edit.quoteNone')}</option>
+                  {quotes.map((q) => (
+                    <option key={q.id} value={q.id}>
+                      {quoteOption(q)}
+                    </option>
+                  ))}
+                </>
+              )}
+            </NativeSelect>
+          </FormField>
           {isDirector ? (
             <FormField label={t('crm.create.owner')} htmlFor={ids.owner}>
               <NativeSelect id={ids.owner} value={form.ownerId} onChange={(e) => set('ownerId', e.target.value)}>

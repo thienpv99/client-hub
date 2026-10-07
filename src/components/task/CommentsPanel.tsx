@@ -207,7 +207,9 @@ export function CommentsPanel({ task, className }: CommentsPanelProps) {
             onClick={() => void send()}
             disabled={!canWrite || !draft.trim()}
             loading={pending}
-            variant={asNote ? 'secondary' : 'default'}
+            // never a solid primary: the drawer's footer action is the one primary of the sheet (DESIGN §4). A reply
+            // the client reads is soft blue, an internal note a quiet secondary
+            variant={asNote ? 'secondary' : 'soft'}
           >
             {!pending && <Send aria-hidden="true" />}
             {asNote ? t('task.comments.saveNote') : t('task.comments.send')}

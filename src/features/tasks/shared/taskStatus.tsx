@@ -19,16 +19,29 @@ export function statusLabel(status: TaskStatus): string {
   return t(`enums.taskStatus.${status}`);
 }
 
-/**
- * Columns a card can be moved to from the board. Only hides moves the task rules never allow (a client task is
- * moved by staff to Cần làm or Xong only); everything else — blocked tasks included — is decided by the service.
- */
-export function moveTargets(task: Pick<TaskView, 'side'>, current: TaskStatus): TaskStatus[] {
+type MoveRuleTask = Pick<TaskView, 'side' | 'blocked'>;
+
+/** statuses the task's side allows (staff move a client task to Cần làm or Xong only), the current one excluded */
+function sideTargets(task: MoveRuleTask, current: TaskStatus): TaskStatus[] {
   const all: readonly TaskStatus[] = task.side === 'client' ? ['todo', 'done'] : STATUS_ORDER;
   return all.filter((s) => s !== current);
 }
 
-export function canDropOn(task: Pick<TaskView, 'side'>, current: TaskStatus, target: TaskStatus): boolean {
+/**
+ * Columns a card can be moved to — the same rules as the service (domain `canMoveTo`): a client task goes to Cần làm
+ * or Xong only, and a blocked task only back to Cần làm until its blocker is done or it is unblocked by hand. The
+ * board, the "Chuyển sang…" menu and the drawer's status select never offer a move the service always refuses.
+ */
+export function moveTargets(task: MoveRuleTask, current: TaskStatus): TaskStatus[] {
+  return sideTargets(task, current).filter((s) => !task.blocked || s === 'todo');
+}
+
+/** moves only the blocker stands in the way of (shown disabled with the reason, never hidden) */
+export function blockedTargets(task: MoveRuleTask, current: TaskStatus): TaskStatus[] {
+  return task.blocked ? sideTargets(task, current).filter((s) => s !== 'todo') : [];
+}
+
+export function canDropOn(task: MoveRuleTask, current: TaskStatus, target: TaskStatus): boolean {
   return moveTargets(task, current).includes(target);
 }
 

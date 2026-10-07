@@ -34,10 +34,14 @@ on code structure, this file wins.
      tab writes. Agents testing at the same time can overwrite each other's data mid-test — run data checks
      synchronously (or in one `await` chain right after `api.resetDemoData()`), and expect the session to be the one
      of your own tab (sessionStorage).
-   - Self tests: `/dev/selftest` (or `runDomainTests()` · `await runRbacTests()` from `/src/dev/rbacTests` ·
+   - Self tests: `/dev/selftest` (or `runDomainTests()` · `runCrmTests()` from `/src/dev/crmTests` (CRM + client map) ·
+     `await runRbacTests()` from `/src/dev/rbacTests` ·
      `checkSeed(buildSeed(todayISO()), todayISO())` from `/src/data/seedChecks` · `await runApiSmoke()` from
-     `/src/dev/apiSmoke`, which also runs the demo scenario checks of `/src/dev/scenarioChecks` on a fresh db and
-     resets the demo data at the end).
+     `/src/dev/apiSmoke`, which also runs the demo scenario checks of `/src/dev/scenarioChecks` on a fresh db).
+     `runRbacTests` and `runApiSmoke` run on a **private in-memory copy** of the db (`db.isolated(fn)`): nothing they
+     write (test rows, the smoke test's fresh-seed reset, sweeps) reaches `localStorage`, other tabs' writes are
+     ignored meanwhile, and the tab reloads the shared data when they end — test data can never leak into another
+     tab or a client walkthrough. Run one suite at a time per tab (they switch the tab's session).
    - Transpile errors appear as `SyntaxError: Transpile error in /src/...` in `read_console_messages`.
    - Data is persisted in `localStorage['clienthub.db.v1']`. Reset with
      `localStorage.removeItem('clienthub.db.v1'); location.reload()` or
@@ -159,7 +163,7 @@ formatMoneyCompact(v: number): string        // 1,25 tỷ ₫ · 850 tr ₫ · 1
 formatNumber(v: number, digits?: number): string   // 1.234,5
 formatPercent(v: number, digits = 0): string        // 15%  (v already in %)
 formatDate(d: ISODate | ISODateTime): string        // 06/10/2026
-formatDateShort(d): string                           // 06/10
+formatDateShort(d): string                           // 06/10 (current year) · 08/01/2027 (another year)
 formatDateTime(dt: ISODateTime): string              // 06/10/2026 14:05
 formatWeekday(d): string                             // Thứ Hai
 formatRelativeDays(daysLeft: number): string         // 'hôm nay' | 'ngày mai' | 'còn 5 ngày' | 'quá hạn 3 ngày'
@@ -385,9 +389,21 @@ export function activityView(a: Activity, v: Viewer): ActivityView | null
 Client visibility: client tasks always visible to their company; internal tasks only if `client_visible`; client
 viewers see only `client_visible` milestones, `shared` comments/files/activities. Hidden blockers/chain task nodes keep
 their id but `title/label = null`; hidden MILESTONES never appear in a client chain (`graph.chain(id, visible)`), and
-`TaskDetail.dependencies` (raw ids for the internal edit form) is empty for clients. `client_member` sees tasks assigned
-to them + all visible tasks read-only, no commercial: commercial tasks (`quote_id`, `payment_schedule_id` or type
-`payment`) are hidden from a member unless assigned to them (`isCommercialTask`, in `canViewTask` and activities).
+`TaskDetail.dependencies` (raw ids for the internal edit form) is empty for clients. `client_member` (SPEC §2 "việc được
+giao cho mình và tiến độ chung") may OPEN (`canViewTask`: getTask, lists, search, comments) only the client tasks
+assigned to them or delegated by them, plus the client-visible New Era tasks; a colleague's task is NAMED only
+(`canNameTask`: blocker lists, impact chains, milestone causes, health reasons, waiting counts, task files) and opening
+it answers `not_found`. Commercial tasks (`quote_id`, `payment_schedule_id` or type `payment`) are hidden from a
+client_member AND an internal `member` unless assigned to them (`isCommercialTask`, in both rules and in activities);
+`overdue_payment` health reasons (installment, amount, days) reach only `canAccessCommercial` viewers — the others keep
+the colour. Clients get the effective health only: `HealthInfo.auto` = `value`, `overridden` false (also forced by
+sanitize), `AccountDetail.health_override` null. `ContactView.last_interaction_at/_note` (the AM's CRM log) are null for
+everyone but the director and AMs. `statusLineFor(accountId, v, { projectId })` builds the status band (client home and
+digest): the AM override still turns it into the generic sentence, and for a client viewer a `waiting_client` line
+carries `waiting_for` ({ name: 'anh Minh' | null, company }) when the waited-for task is not the viewer's own (assigned
+to them; unassigned = the decision maker's) — "… đang chờ 1 việc từ anh Minh (Cỏ Xanh)" instead of "từ phía chị".
+`activityProjectId(a)` (params.project_id, else the target's project) scopes the portal home's "Cập nhật mới" to the
+selected project (account-wide entries stay).
 Stored bell items / mails about a task are listed to a client only while that task is visible to them
 (`taskMentionVisible`, by `task_id` or the task link) — hiding a task later hides what was sent about it.
 Errors: a client asking for another company's row gets `not_found` (same as an unknown id, `noAccess(v)` in
@@ -518,6 +534,20 @@ Integration rules (feature-phase integrator):
   mail to Minh and the director), so the SPEC §6 escalation shows in the outbox on fresh data.
 - `prefers-reduced-motion`: animations last 1 ms (one iteration) and transitions 0 s (index.css).
 
+Acceptance round (foundation fixer):
+- "Nhắc khách" (`remindClientTasks`, also bulk): a bell item per task, but ONE immediate mail per person — one task →
+  that task's own mail, several → "New Era nhắc N việc cần xử lý" listing every task with its deep link
+  (`task_ids` = all of them); reminder_count + `task.reminded` per task as before.
+- Weekly digest: `buildWeeklyDigest(rv, 'upcoming')` (preview, default) is dated with the NEXT send slot — next week's
+  once this week's weekday/hour has passed — so the header never shows a past date over content that runs to today;
+  the Monday send (`sendWeeklyBulletins`) uses `'current'`.
+- Invoice numbers left blank continue the one sequence: highest numeric `invoice_no` + 1, 7 digits zero-padded
+  (`0000576`) — the format of the seeded invoices.
+- Client map groups (§13b): an AM reads the description / industry of, and may rename or rewrite, only a group holding
+  at least one company of hers (an account she manages or an open lead she owns); other groups are listed by name
+  only (to join them) and `saveEcosystem` refuses field changes on them (`forbidden`; joining keeps the stored fields).
+- `formatDateShort` / `fmtDay` (mails) add the year when it is not the current one ("08/01/2027").
+
 ## 9. Seed data (owner A) — `src/data/seed.ts`
 
 `export const SEED_VERSION = 2; export function buildSeed(today: ISODate): Omit<DbData, 'meta'>` (bump it whenever
@@ -588,7 +618,9 @@ arrows/enter), `sonner` (Toaster with tokens), `form-field` (FormField: label, h
 `EmptyState({ icon?, title, description?, action? })` · `ErrorState({ error, onRetry? })` ·
 `PageHeader({ title, description?, actions?, back? })` · `SectionCard({ title?, description?, actions?, children, className? })` ·
 `KpiCard({ label, value, sub?, tone?, icon?, onClick?, active? })` · `StageStepper({ milestones: MilestoneView[], compact? })` ·
-`ImpactChain({ nodes: ChainNode[] })` · `ImpactBox({ text, milestones: MilestoneRef[] })` ("Nếu chưa làm") ·
+`ImpactChain({ nodes: ChainNode[] })` · `ImpactBox({ text, milestones: MilestoneRef[], overdueDays?, showTags? })` ("Nếu chưa làm";
+`overdueDays` > 0 → "Đang ảnh hưởng": "Đã trễ N ngày: mốc UAT lùi 29/10 → 04/11." + the original text as a muted
+"Lưu ý ban đầu: …"; `impactBoxHasContent(props)`) ·
 `BlockedNote({ blockers: BlockerRef[] })` ("Đang chờ: … – …", lock icon) · `InternalOnlyBadge()` (lock + "Chỉ nội bộ") ·
 `InternalNoteBox({ children })` · `ActivityFeed({ items: ActivityView[], compact? })` ·
 `FilePreviewDialog({ file: FileView | null, onOpenChange })` · `FileList({ files, onPreview? })` ·
@@ -747,6 +779,7 @@ outcomes — reused by targets/projects UIs), `targets.ts`, `projects.ts`, `acti
   (accounts, open leads, ecosystem hubs), links (hub ↔ member), ecosystems, totals. Account value: contract =
   `accountMoney().contract_value`, pipeline = Σ weighted open opportunities, total = both; lead value = budget estimate
   (0 for the contract metric). A hub is drawn only when ≥2 of its members are visible to the viewer.
-- `listEcosystems()`, `saveEcosystem()` (director/AM; an AM only edits companies in their scope). Clients, view-as and
-  members → forbidden. UI: `src/features/clientmap/**` (SVG + own force simulation in `forceSim.ts`, table view,
+- `listEcosystems()`, `saveEcosystem()` (director/AM; an AM only edits companies in their scope, and only describes /
+  renames a group that holds a company of hers — other groups are listed by name only and can only be joined).
+  Clients, view-as and members → forbidden. UI: `src/features/clientmap/**` (SVG + own force simulation in `forceSim.ts`, table view,
   ecosystem panel), i18n `clientmap.ts`.

@@ -80,10 +80,10 @@ const errors = {
   salutation_required: 'Vui lòng chọn danh xưng (Anh/Chị).',
   invalid_role: 'Vai trò chưa hợp lệ.',
   invalid_decision_role: 'Vai trò phía khách chưa hợp lệ.',
-  invalid_am: 'Vui lòng chọn một Account Manager đang hoạt động.',
+  invalid_am: 'Vui lòng chọn một Quản lý khách hàng (AM) đang hoạt động.',
   exec_summary_lines: 'Tóm tắt điều hành tối đa 3 dòng.',
   cannot_change_self: 'Không thể tự đổi vai trò của chính tài khoản đang đăng nhập.',
-  cost_am_only: 'Quyền xem giá vốn chỉ cấp cho Account Manager.',
+  cost_am_only: 'Quyền xem giá vốn chỉ cấp cho Quản lý khách hàng (AM).',
 
   // settings
   invalid_settings: 'Giá trị cài đặt chưa hợp lệ.',

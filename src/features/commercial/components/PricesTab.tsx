@@ -1,9 +1,9 @@
 // "Bảng giá" tab. Everyone with commercial access reads; only the director adds / edits.
 // Cost price and margin appear only when the api returns them (director, AM with cost permission), on note tint.
 import { useMemo, useState } from 'react';
-import { PackagePlus, Pencil, Search, SearchX, Tag } from 'lucide-react';
+import { PackagePlus, Pencil, Search, Tag } from 'lucide-react';
 import type { PriceItemView } from '@/services/contract';
-import { EmptyState } from '@/components/common/empty-state';
+import { EmptyState, SearchEmptyState } from '@/components/common/empty-state';
 import { ErrorState } from '@/components/common/error-state';
 import { InternalOnlyBadge } from '@/components/common/internal-only-badge';
 import { Money } from '@/components/common/money';
@@ -123,16 +123,14 @@ export function PricesTab() {
           {items.length === 0 ? (
             <EmptyState icon={Tag} title={t('commercial.prices.empty')} />
           ) : (
-            <EmptyState
-              icon={SearchX}
-              title={t('commercial.prices.emptyFiltered')}
-              action={
-                needle ? (
-                  <Button variant="secondary" onClick={() => setSearch('')}>
-                    {t('common.clearFilters')}
-                  </Button>
-                ) : null
-              }
+            <SearchEmptyState
+              entity="price"
+              query={search}
+              icon={Tag}
+              onClear={() => {
+                setSearch('');
+                setShowInactive(true);
+              }}
             />
           )}
         </Card>

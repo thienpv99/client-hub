@@ -1,6 +1,8 @@
 // Compact task rows of the portal (delegated, submitted, New Era work, done) + the client-worded waiting counts.
 // Rows are full-bleed lines of a card list (DESIGN §4): parent `CARD_LIST`, row `LIST_ROW`.
 import type { ReactNode } from 'react';
+import { Link } from 'react-router-dom';
+import type { To } from 'react-router-dom';
 import { ChevronRight, Circle, CircleAlert, CircleDot, FolderKanban, Hourglass, Lock } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { TaskView, WaitingCounts } from '@/services/contract';
@@ -91,29 +93,84 @@ export function NewEraRowStatus({ task }: { task: TaskView }) {
   );
 }
 
+/** count + "① 1 quá hạn" of one side of the waiting line; `trailing` (link chevron) sits at the line's right end */
+function WaitingFigure({ count, overdue, trailing }: { count: number; overdue: number; trailing?: ReactNode }) {
+  return (
+    <span className="mt-0.5 flex flex-wrap items-baseline gap-x-2">
+      <span className="text-heading font-semibold tabular text-ink">{count}</span>
+      {overdue > 0 ? (
+        <span className={cn('inline-flex items-center gap-1 self-center whitespace-nowrap font-medium text-danger', SMALL)}>
+          <CircleAlert className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          <span className="tabular">{t('portal.waitingLine.overdue', { count: overdue })}</span>
+        </span>
+      ) : null}
+      {trailing ? <span className="ml-auto flex self-center">{trailing}</span> : null}
+    </span>
+  );
+}
+
+export interface ClientWaitingLineProps {
+  counts: WaitingCounts;
+  you: string;
+  /**
+   * Decision maker: the company-side figure links to the list behind it (tab "Cả công ty" of /portal/tasks), so every
+   * task it counts — colleagues' ones included — can be traced and opened. null: a plain figure (members, SPEC §2).
+   */
+  clientTo?: To | null;
+  /**
+   * Member (no `clientTo`): how many of the company-side figure are colleagues' tasks → "3 của đồng nghiệp" under
+   * it, so a figure the member cannot open task by task never reads as their own backlog. 0 / null: no line.
+   */
+  colleagues?: number | null;
+  className?: string;
+}
+
 /**
  * "Đang chờ phía anh 6 · Đang chờ New Era 4" (WaitingCountsLine worded for a client reader), as two side-by-side
  * figures so it never wraps mid-sentence in a narrow column. "phía": it counts the whole company side.
  */
-export function ClientWaitingLine({ counts, you, className }: { counts: WaitingCounts; you: string; className?: string }) {
-  const cell = (label: string, count: number, overdue: number) => (
-    <div className="min-w-0">
-      <dt className="text-micro text-muted-foreground">{label}</dt>
-      <dd className="mt-0.5 flex flex-wrap items-baseline gap-x-2">
-        <span className="text-heading font-semibold tabular text-ink">{count}</span>
-        {overdue > 0 ? (
-          <span className={cn('inline-flex items-center gap-1 self-center whitespace-nowrap font-medium text-danger', SMALL)}>
-            <CircleAlert className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-            <span className="tabular">{t('portal.waitingLine.overdue', { count: overdue })}</span>
-          </span>
-        ) : null}
-      </dd>
-    </div>
-  );
+export function ClientWaitingLine({ counts, you, clientTo = null, colleagues = null, className }: ClientWaitingLineProps) {
+  const clientLabel = t('portal.waitingLine.client', { you });
   return (
-    <dl className={cn('grid w-full grid-cols-2 gap-4', className)}>
-      {cell(t('portal.waitingLine.client', { you }), counts.waiting_client, counts.overdue_client)}
-      {cell(t('portal.waitingLine.internal'), counts.waiting_internal, counts.overdue_internal)}
-    </dl>
+    <div className={cn('grid w-full grid-cols-2 gap-4', className)}>
+      {clientTo ? (
+        // the hover fill and the 44px+ hit area bleed 8px around the figure, so it stays aligned with the other one
+        <Link
+          to={clientTo}
+          className="group -m-2 min-w-0 rounded-lg p-2 transition-colors duration-150 hover:bg-subtle"
+        >
+          {/* the label keeps the column's whole width (no chevron beside it: "Đang chờ phía anh" would be cut at
+              1024, where the column is ~123px); the chevron closes the figure line instead */}
+          <span className="block text-micro text-muted-foreground transition-colors duration-150 group-hover:text-foreground">
+            {clientLabel}
+          </span>
+          <WaitingFigure
+            count={counts.waiting_client}
+            overdue={counts.overdue_client}
+            trailing={
+              <ChevronRight
+                className="h-4 w-4 shrink-0 text-caption transition-transform duration-150 group-hover:translate-x-0.5"
+                aria-hidden="true"
+              />
+            }
+          />
+          <span className="sr-only">{t('portal.waitingLine.viewList')}</span>
+        </Link>
+      ) : (
+        <div className="min-w-0">
+          <span className="block text-micro text-muted-foreground">{clientLabel}</span>
+          <WaitingFigure count={counts.waiting_client} overdue={counts.overdue_client} />
+          {colleagues ? (
+            <span className="mt-0.5 block text-micro tabular text-muted-foreground">
+              {t('portal.waitingLine.colleagues', { count: colleagues })}
+            </span>
+          ) : null}
+        </div>
+      )}
+      <div className="min-w-0">
+        <span className="block text-micro text-muted-foreground">{t('portal.waitingLine.internal')}</span>
+        <WaitingFigure count={counts.waiting_internal} overdue={counts.overdue_internal} />
+      </div>
+    </div>
   );
 }

@@ -81,8 +81,10 @@ export function NotificationBell({ side }: NotificationBellProps) {
   const footerLabel = side === 'internal' ? t('layout.bell.viewAll') : t('layout.bell.settings');
   const FooterIcon = side === 'internal' ? ArrowRight : Settings;
 
+  // phones (sheet header shares the row with the close button): short "Đọc hết" label, full label for screen readers;
+  // the row may wrap rather than overlap (e.g. "99 chưa đọc" on a 320px screen)
   const header = (
-    <div className="flex items-center justify-between gap-3">
+    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
       <div className="flex min-w-0 items-center gap-2">
         <span className="shrink-0 whitespace-nowrap text-heading font-semibold tracking-tightish text-ink">{t('layout.bell.title')}</span>
         {unread > 0 ? (
@@ -96,12 +98,16 @@ export function NotificationBell({ side }: NotificationBellProps) {
           type="button"
           variant="ghost"
           size="sm"
-          className="-mr-2 shrink-0 px-2 text-muted-foreground hover:text-foreground"
+          className="px-2 text-muted-foreground hover:text-foreground md:-mr-2"
           loading={pending}
+          title={t('layout.bell.markAllRead')}
           onClick={() => void run(() => api.markNotificationsRead())}
         >
           {!pending ? <CheckCheck aria-hidden /> : null}
-          {t('layout.bell.markAllRead')}
+          <span className="whitespace-nowrap sm:hidden" aria-hidden>
+            {t('layout.bell.markAllReadShort')}
+          </span>
+          <span className="sr-only whitespace-nowrap sm:not-sr-only">{t('layout.bell.markAllRead')}</span>
         </Button>
       ) : null}
     </div>

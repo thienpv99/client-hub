@@ -1,5 +1,7 @@
 // Status pills of the commercial module: quote status, payment status, director approval, effective discount.
-// Built on the kit Badge (DESIGN §4): soft tint + 12px icon + word, never colour alone.
+// Built on the kit Badge (DESIGN §4): soft tint + 12px icon + word, never colour alone. Blue is for action and
+// selection only (DESIGN §1.6): states that are simply in progress (sent, invoiced, contract active) are neutral,
+// amber marks a step that is due (invoice due — New Era must invoice), green done, red overdue.
 import type { ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import {
@@ -24,11 +26,10 @@ import { cn } from '@/components/ui/cn';
 import { t } from '@/i18n';
 import { fmtPct } from '../lib';
 
-export type StatusTone = 'neutral' | 'primary' | 'success' | 'warning' | 'danger';
+export type StatusTone = 'neutral' | 'success' | 'warning' | 'danger';
 
-const VARIANT: Record<StatusTone, 'default' | 'primary' | 'success' | 'warning' | 'danger'> = {
+const VARIANT: Record<StatusTone, 'default' | 'success' | 'warning' | 'danger'> = {
   neutral: 'default',
-  primary: 'primary',
   success: 'success',
   warning: 'warning',
   danger: 'danger',
@@ -56,7 +57,7 @@ export function StatusPill({ tone, icon: Icon, children, size = 'default', class
 const QUOTE_LOOK: Record<QuoteStatus, { tone: StatusTone; icon: LucideIcon }> = {
   draft: { tone: 'neutral', icon: FileText },
   pending_approval: { tone: 'warning', icon: Clock },
-  sent: { tone: 'primary', icon: Send },
+  sent: { tone: 'neutral', icon: Send },
   accepted: { tone: 'success', icon: CircleCheck },
   changes_requested: { tone: 'warning', icon: MessageSquareWarning },
   expired: { tone: 'neutral', icon: CalendarX },
@@ -92,11 +93,17 @@ export function QuoteStatusBadge({
 
 const PAYMENT_LOOK: Record<PaymentStatus, { tone: StatusTone; icon: LucideIcon }> = {
   not_due: { tone: 'neutral', icon: CalendarClock },
-  invoice_due: { tone: 'primary', icon: FileClock },
-  invoiced: { tone: 'primary', icon: Receipt },
+  // internal: New Era has to issue the invoice now (the client only reads "Sắp xuất hóa đơn": neutral for them)
+  invoice_due: { tone: 'warning', icon: FileClock },
+  invoiced: { tone: 'neutral', icon: Receipt },
   paid: { tone: 'success', icon: CircleCheck },
   overdue: { tone: 'danger', icon: CircleAlert },
 };
+
+function paymentTone(status: PaymentStatus, audience: 'internal' | 'client'): StatusTone {
+  if (status === 'invoice_due' && audience === 'client') return 'neutral';
+  return PAYMENT_LOOK[status].tone;
+}
 
 /** internal wording from enums.paymentStatus; `audience="client"` speaks from the client's side ("Đã thanh toán") */
 export function paymentStatusLabel(status: PaymentStatus, overdueDays = 0, audience: 'internal' | 'client' = 'internal'): string {
@@ -119,7 +126,7 @@ export function PaymentStatusBadge({
 }) {
   const look = PAYMENT_LOOK[status];
   return (
-    <StatusPill tone={look.tone} icon={look.icon} size={size} className={className}>
+    <StatusPill tone={paymentTone(status, audience)} icon={look.icon} size={size} className={className}>
       {paymentStatusLabel(status, overdueDays, audience)}
     </StatusPill>
   );
@@ -128,7 +135,7 @@ export function PaymentStatusBadge({
 export function ContractStatusBadge({ status, size }: { status: ContractStatus; size?: 'default' | 'sm' }) {
   const look: { tone: StatusTone; icon: LucideIcon } =
     status === 'active'
-      ? { tone: 'primary', icon: FileText }
+      ? { tone: 'neutral', icon: FileText }
       : status === 'completed'
         ? { tone: 'success', icon: CircleCheck }
         : { tone: 'neutral', icon: FileClock };

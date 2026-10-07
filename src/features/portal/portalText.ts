@@ -37,6 +37,17 @@ export function projectSearch(projectId: string | null): string {
   return projectId ? `?${PROJECT_PARAM}=${encodeURIComponent(projectId)}` : '';
 }
 
+/** search param holding the tab of /portal/tasks (absent = "Cần xử lý") */
+export const TASKS_TAB_PARAM = 'tab';
+
+/** Link to one tab of /portal/tasks, keeping the selected project ('?project=…&tab=company'). */
+export function tasksTabLink(projectId: string | null, tab: string): { pathname: string; search: string } {
+  const params = new URLSearchParams();
+  if (projectId) params.set(PROJECT_PARAM, projectId);
+  params.set(TASKS_TAB_PARAM, tab);
+  return { pathname: '/portal/tasks', search: `?${params.toString()}` };
+}
+
 /** 'tel:' href from a display phone number ('0912 345 678' → 'tel:0912345678'). */
 export function telHref(phone: string): string {
   return `tel:${phone.replace(/[^\d+]/g, '')}`;

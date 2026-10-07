@@ -12,9 +12,8 @@ import { formatDate, formatMoneyCompact, formatPercent, formatRelativeDays } fro
 import { cn } from '@/components/ui/cn';
 import { SMALL } from '@/components/common/cx';
 import { AccountLogo } from '@/components/common/account-logo';
-import { EmptyState } from '@/components/common/empty-state';
+import { EmptyState, SearchEmptyState } from '@/components/common/empty-state';
 import { UserAvatar } from '@/components/common/user-avatar';
-import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { NativeSelect } from '@/components/ui/native-select';
@@ -246,16 +245,7 @@ export function OpportunityList({ items, today }: { items: OpportunityView[]; to
           {items.length === 0 ? (
             <EmptyState icon={Handshake} title={t('crm.list.emptyAll')} description={t('crm.list.emptyAllHint')} />
           ) : (
-            <EmptyState
-              icon={Search}
-              title={query.trim() ? t('crm.list.emptySearch', { query: query.trim() }) : t('crm.list.emptyFiltered')}
-              description={t('crm.list.emptyFilteredHint')}
-              action={
-                <Button type="button" variant="secondary" size="sm" onClick={clearFilters}>
-                  {t('crm.list.clear')}
-                </Button>
-              }
-            />
+            <SearchEmptyState entity="opportunity" query={query} icon={Handshake} onClear={clearFilters} />
           )}
         </Card>
       ) : wide ? (

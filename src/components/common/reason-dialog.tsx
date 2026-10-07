@@ -100,7 +100,7 @@ export function ReasonDialog({
       <DialogContent className="sm:max-w-lg" {...(description ? {} : { 'aria-describedby': undefined })}>
         {/* arbitrary sizes: the kit's cn() may not know the text-title token yet */}
         <DialogHeader className="text-left">
-          <DialogTitle className="text-[20px] leading-7 tracking-tightish text-ink">{title}</DialogTitle>
+          <DialogTitle className="text-title font-semibold tracking-tightish text-ink">{title}</DialogTitle>
           {description ? <DialogDescription className="text-table text-muted-foreground">{description}</DialogDescription> : null}
         </DialogHeader>
         <form onSubmit={onSubmit} className="space-y-5">

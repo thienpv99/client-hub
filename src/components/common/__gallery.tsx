@@ -212,6 +212,7 @@ function GalleryBody() {
             <ImpactChain key={i} nodes={nodes} />
           ))}
           <ImpactBox text={fx.impactText} milestones={fx.impactMilestones} />
+          <ImpactBox text={fx.impactTextOverdue} milestones={fx.impactMilestones} overdueDays={fx.impactOverdueDays} />
           <BlockedNote blockers={fx.blockers} />
         </div>
       </SectionCard>

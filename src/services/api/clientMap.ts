@@ -252,12 +252,28 @@ export function clientMapFor(v: Viewer, params: ClientMapParams = {}): ClientMap
   return assembleClientMap(metric, members, liveEcosystems());
 }
 
-/** every live group (so an AM can join an existing one), counted over the viewer's companies only */
+/**
+ * A group the viewer may read the description of and rename: the director every group; an AM a group that holds at
+ * least one company of hers (an account she manages, an open lead she owns) — never a group made only of other AMs'
+ * customers and leads (or of team-pool leads).
+ */
+function canEditGroupFields(eco: Ecosystem, v: Viewer): boolean {
+  if (v.role === 'director') return true;
+  return (
+    db.rows('account_profiles').some((p) => p.ecosystem_id === eco.id && !!db.find('accounts', p.account_id) && managesAccount(v, p.account_id)) ||
+    db.rows('leads').some((l) => l.ecosystem_id === eco.id && l.owner_id === v.user.id && isOpenLead(l.status))
+  );
+}
+
+/**
+ * Every live group (so an AM can join an existing one), counted over the viewer's companies only. A group outside an
+ * AM's reach (no company of hers in it) is listed by name only: no description, no industry.
+ */
 export function ecosystemsFor(v: Viewer): EcosystemView[] {
   assertCrmViewer(v);
   const members = mapMembers(v);
   return liveEcosystems()
-    .map((e) => ecosystemViewOf(e, members))
+    .map((e) => ecosystemViewOf(canEditGroupFields(e, v) ? e : { ...e, description: '', industry: null }, members))
     .sort((a, b) => b.contract_value + b.potential_value - (a.contract_value + a.potential_value) || a.name.localeCompare(b.name, 'vi'));
 }
 
@@ -310,17 +326,28 @@ export const clientMapApi: Pick<CrmApi, 'getClientMap' | 'listEcosystems' | 'sav
   async saveEcosystem(input) {
     const v = crmWriter();
     if (!input || typeof input !== 'object') throw invalid();
-    const name = text(input.name);
-    const shortName = text(input.short_name);
+    let name = text(input.name);
+    let shortName = text(input.short_name);
     if (!name || !shortName) throw invalid('errors.name_required');
-    const description = typeof input.description === 'string' ? input.description.trim() : '';
-    const industry = text(input.industry) || null;
+    let description = typeof input.description === 'string' ? input.description.trim() : '';
+    let industry = text(input.industry) || null;
     if (name.length > NAME_MAX || shortName.length > SHORT_NAME_MAX || description.length > DESCRIPTION_MAX || (industry?.length ?? 0) > NAME_MAX) throw invalid();
     const accountIds = idList(input.account_ids);
     const leadIds = idList(input.lead_ids);
 
     const base = input.id ? db.find('ecosystems', input.id) : undefined;
     if (input.id && !base) throw notFound();
+    if (base && !canEditGroupFields(base, v)) {
+      // an AM outside the group may JOIN it (add her companies), not rename or rewrite it: the fields stay as stored —
+      // she was listed the name only, so an empty description / industry means "unchanged"
+      const sameDescription = description === '' || description === base.description;
+      const sameIndustry = industry === null || industry === (base.industry ?? null);
+      if (name !== base.name || shortName !== base.short_name || !sameDescription || !sameIndustry) throw forbidden();
+      name = base.name;
+      shortName = base.short_name;
+      description = base.description;
+      industry = base.industry ?? null;
+    }
     const key = normalizeLabel(name);
     if (db.rows('ecosystems').some((e) => e.id !== base?.id && normalizeLabel(e.name) === key)) throw invalid();
 

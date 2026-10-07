@@ -135,7 +135,7 @@ function TabBody({ tab, viewer }: { tab: SettingsTab; viewer: Viewer }) {
     case 'templates':
       return <TemplatesTab />;
     case 'pricing':
-      return <PricingTab />;
+      return <PricingTab canViewCost={viewer.can_view_cost} />;
     case 'rules':
       return <RulesTab canEdit={isDirector} />;
     default:
@@ -156,6 +156,9 @@ export function SettingsPage() {
 
   const active: SettingsTab = tab ?? 'users';
   const readOnly = viewer.role !== 'director' && (active === 'users' || active === 'rules');
+  // a viewer without "Được xem giá vốn" is not told about cost prices they cannot open
+  const descriptionKey =
+    active === 'pricing' && !viewer.can_view_cost ? 'settings.tabs.pricing.descriptionNoCost' : `settings.tabs.${active}.description`;
 
   return (
     <div className="space-y-6 md:space-y-8">
@@ -172,7 +175,7 @@ export function SettingsPage() {
             <h2 id="settings-section-title" className={cn('text-title font-semibold tracking-tightish text-ink', !wide && 'sr-only')}>
               {t(`settings.tabs.${active}.title`)}
             </h2>
-            <p className={cn('text-table text-muted-foreground', wide && 'mt-1')}>{t(`settings.tabs.${active}.description`)}</p>
+            <p className={cn('text-table text-muted-foreground', wide && 'mt-1')}>{t(descriptionKey)}</p>
           </header>
           {readOnly ? (
             <p className="flex items-start gap-2.5 rounded-lg bg-subtle p-3 text-table text-muted-foreground ring-1 ring-inset ring-border/60">

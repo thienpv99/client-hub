@@ -41,11 +41,11 @@ const activity = {
     visibility_changed: '{actor} đã đổi chế độ hiển thị của “{file}”',
   },
   account: {
-    created: '{actor} đã tạo account {account}',
+    created: '{actor} đã tạo khách hàng {account}',
     updated: '{actor} đã cập nhật {fields}',
     /** health_label: enums.health word, logged with the activity */
     health_overridden: '{actor} đã đặt sức khỏe thủ công là “{health_label}”: {reason}',
-    am_assigned: '{actor} đã giao {am} phụ trách account',
+    am_assigned: '{actor} đã giao {am} phụ trách khách hàng',
     exec_summary_updated: '{actor} đã cập nhật tóm tắt điều hành',
   },
   contact: {

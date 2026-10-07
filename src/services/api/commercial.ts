@@ -301,12 +301,17 @@ function nextQuoteCode(accountId: ID): string {
   return `${prefix}${String(n).padStart(2, '0')}`;
 }
 
+/** e-invoice numbers ("số hóa đơn"): 7 digits, zero-padded — the format of every issued invoice */
+const INVOICE_DIGITS = 7;
+
+/** Next number of the one invoice sequence: the highest numeric number issued so far + 1 ('0000575' → '0000576'). */
 function nextInvoiceNo(): string {
-  const year = todayISO().slice(0, 4);
-  const used = new Set(db.allRows('payment_schedules').map((p) => p.invoice_no).filter((x): x is string => !!x));
-  let n = used.size + 1;
-  while (used.has(`HD-${year}-${String(n).padStart(4, '0')}`)) n += 1;
-  return `HD-${year}-${String(n).padStart(4, '0')}`;
+  let max = 0;
+  for (const p of db.allRows('payment_schedules')) {
+    const no = (p.invoice_no ?? '').trim();
+    if (/^\d+$/.test(no)) max = Math.max(max, Number(no));
+  }
+  return String(max + 1).padStart(INVOICE_DIGITS, '0');
 }
 
 /** groups by code (most recently touched group first), newest version first inside a group */

@@ -32,6 +32,8 @@ import type {
   MilestoneRef,
   MilestoneView,
   ProjectView,
+  StatusLine,
+  StatusLineWho,
   TaskActionKind,
   TaskDetail,
   TaskPermissions,
@@ -43,7 +45,8 @@ import type {
 import { todayISO } from '@/domain/clock';
 import { isOverdue } from '@/domain/dates';
 import { buildAccountGraph, launchMilestone, type AccountGraph, type ForecastInfo } from '@/domain/graph';
-import { computeHealth, type Headline } from '@/domain/health';
+import { buildStatusLine, computeHealth, type Headline } from '@/domain/health';
+import { addressName } from '@/domain/naming';
 import { actionForType, dueInfo, priorityRank } from '@/domain/taskRules';
 import { sampleFileUrl } from '@/data/sampleFiles';
 import { hasKey, t } from '@/i18n';
@@ -288,7 +291,7 @@ export function milestoneView(m: Milestone, v: Viewer): MilestoneView {
     if (ct) {
       cause = {
         task_id: ct.id,
-        task_title: canViewTask(ct, v) ? ct.title : null,
+        task_title: canNameTask(ct, v) ? ct.title : null,
         side: ct.side,
         waiting_on: ct.waiting_on,
         delay_days: f.cause_delay_days,
@@ -301,7 +304,8 @@ export function milestoneView(m: Milestone, v: Viewer): MilestoneView {
     if (cm && milestoneVisible(cm, v)) cascade_from = { milestone_id: cm.id, milestone_name: cm.name };
   }
   const accountId = accountIdOfProject(m.project_id);
-  const tasks = accountId ? accountTasks(accountId).filter((x) => x.milestone_id === m.id && canViewTask(x, v)) : [];
+  // overall progress: every task the viewer's side may know of (a client_member counts colleagues' tasks too)
+  const tasks = accountId ? accountTasks(accountId).filter((x) => x.milestone_id === m.id && canNameTask(x, v)) : [];
   const done = tasks.filter((x) => x.status === 'done').length;
   return {
     id: m.id,
@@ -373,8 +377,9 @@ export function isCommercialTask(task: Task): boolean {
 }
 
 /**
- * Client rule of a task of the viewer's own company, regardless of deletion: client tasks always, New Era tasks only
- * when client_visible; a client_member does not see commercial tasks unless they are assigned to them.
+ * What the client COMPANY may know of a task of its own account, regardless of deletion: client tasks always, New Era
+ * tasks only when client_visible; a client_member does not see commercial tasks unless they are assigned to them.
+ * This is the rule for naming a task (blockers, chains, causes, health reasons, counts, history, stored mentions).
  */
 function clientMayKnowTask(task: Task, v: Viewer): boolean {
   if (task.side !== 'client' && !task.client_visible) return false;
@@ -382,12 +387,46 @@ function clientMayKnowTask(task: Task, v: Viewer): boolean {
   return true;
 }
 
-export function canViewTask(task: Task, v: Viewer): boolean {
+/**
+ * SPEC §2 — a client_member sees "việc được giao cho mình và tiến độ chung": they may OPEN a client task only when it
+ * is assigned to them (or delegated by them), plus the client-visible New Era tasks (progress). A colleague's task is
+ * named (blockers, status band) but never opened.
+ */
+function clientMemberMayOpen(task: Task, v: Viewer): boolean {
+  if (v.role !== 'client_member' || task.side !== 'client') return true;
+  return task.assignee_id === v.user.id || task.delegated_by === v.user.id;
+}
+
+/**
+ * SPEC §2 — an internal member sees and does assigned work; the commercial module (quotes, invoices, payments) is the
+ * director's, the AM's and the decision maker's: a quote-approval / payment task is hidden unless assigned to them.
+ */
+function internalMayKnowTask(task: Task, v: Viewer): boolean {
+  return v.role !== 'member' || !isCommercialTask(task) || task.assignee_id === v.user.id;
+}
+
+function taskInReach(task: Task, v: Viewer): boolean {
   if (task.deleted_at) return false;
   const accountId = accountIdOfProject(task.project_id);
-  if (!accountId || !accessibleIds(v).has(accountId)) return false;
+  return !!accountId && accessibleIds(v).has(accountId);
+}
+
+/** The viewer may open / read this task (getTask, lists, search, comments). */
+export function canViewTask(task: Task, v: Viewer): boolean {
+  if (!taskInReach(task, v)) return false;
+  if (isClientViewer(v)) return clientMayKnowTask(task, v) && clientMemberMayOpen(task, v);
+  return internalMayKnowTask(task, v);
+}
+
+/**
+ * The viewer may read the task's NAME where it explains something else (blocker lists, impact chains, milestone
+ * causes, health reasons, waiting counts, task files): wider than canViewTask for a client_member only — a colleague's
+ * task is named ("Đang chờ: Duyệt thiết kế – Trần Quang Minh"), not opened.
+ */
+export function canNameTask(task: Task, v: Viewer): boolean {
+  if (!taskInReach(task, v)) return false;
   if (isClientViewer(v)) return clientMayKnowTask(task, v);
-  return true;
+  return internalMayKnowTask(task, v);
 }
 
 /**
@@ -481,7 +520,7 @@ function primaryAction(task: Task, v: Viewer, can: TaskPermissions, blocked: boo
 }
 
 function blockerRef(b: Task, v: Viewer, today: ISODate): BlockerRef {
-  const visible = canViewTask(b, v);
+  const visible = canNameTask(b, v);
   return {
     id: b.id,
     title: visible ? b.title : null,
@@ -544,7 +583,7 @@ export function taskView(task: Task, v: Viewer): TaskView {
     due,
     blocked,
     blocked_by: blocked ? g.blockersOf(task.id).map((b) => blockerRef(b, v, today)) : [],
-    blocks_tasks: g.blocksTasks(task.id).map((b) => ({ id: b.id, title: canViewTask(b, v) ? b.title : null, side: b.side })),
+    blocks_tasks: g.blocksTasks(task.id).map((b) => ({ id: b.id, title: canNameTask(b, v) ? b.title : null, side: b.side })),
     blocks_milestones: held.map(milestoneRef),
     is_blocking_milestone: isBlockingMilestone,
     priority_rank: priorityRank({ due, is_blocking_milestone: isBlockingMilestone }),
@@ -573,7 +612,7 @@ function chainFor(task: Task, v: Viewer): ChainNode[] {
   for (const n of raw) {
     if (n.kind === 'task') {
       const x = g.task(n.id);
-      nodes.push({ kind: 'task', id: n.id, label: x && canViewTask(x, v) ? x.title : null, state: n.state, side: x ? x.side : undefined });
+      nodes.push({ kind: 'task', id: n.id, label: x && canNameTask(x, v) ? x.title : null, state: n.state, side: x ? x.side : undefined });
       continue;
     }
     const m = g.milestone(n.id);
@@ -637,18 +676,27 @@ export function taskDetail(task: Task, v: Viewer): TaskDetail {
 
 // ───────────────────────────── health & counters ─────────────────────────────
 
+/**
+ * Reasons the viewer may read. An overdue installment (name, amount, days) belongs to the commercial module: director,
+ * AM and decision maker only — an internal member or a client_member keeps the colour, not the reason. Task reasons
+ * follow canNameTask (clients: visible tasks of visible milestones; members: no commercial task of someone else).
+ */
 function reasonVisible(r: HealthReason, v: Viewer): boolean {
-  if (!isClientViewer(v)) return true;
-  if (r.kind === 'overdue_payment') return v.role === 'client_owner';
+  if (r.kind === 'overdue_payment') return canAccessCommercial(v);
+  if (!isClientViewer(v) && v.role !== 'member') return true;
   const task = db.find('tasks', r.task_id);
-  if (!task || !canViewTask(task, v)) return false;
-  if (r.kind === 'overdue_blocking' || r.kind === 'due_soon_blocking') {
+  if (!task || !canNameTask(task, v)) return false;
+  if (isClientViewer(v) && (r.kind === 'overdue_blocking' || r.kind === 'due_soon_blocking')) {
     const m = db.find('milestones', r.milestone_id);
     return !!m && m.client_visible;
   }
   return true;
 }
 
+/**
+ * Account health as the viewer may see it. Clients get the effective colour only: `auto` = `value`, `overridden`
+ * false and no override reason (that New Era set the colour by hand, and why, is internal).
+ */
 export function healthFor(accountId: ID, v: Viewer, opts: { projectId?: ID } = {}): HealthInfo {
   const account = db.find('accounts', accountId);
   const raw = rawHealth(accountId);
@@ -664,14 +712,50 @@ export function healthFor(accountId: ID, v: Viewer, opts: { projectId?: ID } = {
     visible = visible.filter(inProject);
   }
   const override = account ? account.health_override : null;
-  const info: HealthInfo = {
-    value: override ?? auto,
+  const value = override ?? auto;
+  if (isClientViewer(v)) return { value, auto: value, overridden: false, reasons: visible };
+  return {
+    value,
     auto,
     overridden: override !== null,
+    override_reason: account ? account.health_override_reason : null,
     reasons: visible,
   };
-  if (!isClientViewer(v)) info.override_reason = account ? account.health_override_reason : null;
-  return info;
+}
+
+/**
+ * The status band sentence of an account as `v` sees it (client home, weekly digest — same headline rule). The AM's
+ * override still turns it into the neutral sentence of its tone, although a client's HealthInfo no longer says so.
+ * Client viewers: when the milestone waits on someone else's task, `waiting_for` names that person (or the company).
+ */
+export function statusLineFor(accountId: ID, v: Viewer, opts: { projectId?: ID } = {}): StatusLine {
+  const account = db.find('accounts', accountId);
+  const health = healthFor(accountId, v, opts);
+  return buildStatusLine({
+    health: health.value,
+    overridden: !!account && account.health_override !== null,
+    reasons: health.reasons,
+    headline: (milestoneId: ID) => headlineFor(milestoneId, v),
+    waitingFor: isClientViewer(v) ? (taskIds: ID[]) => waitingForOf(taskIds, v, account) : undefined,
+  });
+}
+
+/** null when every counted task is the client viewer's own (assigned to them; unassigned ones are the owner's) */
+function waitingForOf(taskIds: ID[], v: Viewer, account: Account | undefined): StatusLineWho | null {
+  const me = v.user.id;
+  const owner = v.role === 'client_owner';
+  const holders = new Set<ID | null>();
+  for (const id of taskIds) {
+    const task = db.find('tasks', id);
+    if (task) holders.add(task.assignee_id);
+  }
+  if ([...holders].every((id) => id === me || (owner && id === null))) return null;
+  const company = account ? account.short_name.trim() || account.name : '';
+  const [only] = holders.size === 1 ? [...holders] : [null];
+  const user = only ? db.find('users', only) : undefined;
+  if (!user || user.org_type !== 'client') return { name: null, company };
+  const contact = db.rows('contacts').find((c) => c.user_id === user.id);
+  return { name: addressName(user.salutation ?? (contact ? contact.salutation : null), user.full_name), company };
 }
 
 /** "Đang chờ khách / Đang chờ New Era": open, not blocked tasks by waiting_on (clients: visible tasks only). */
@@ -682,7 +766,8 @@ export function countsFor(accountId: ID, v: Viewer, opts: { projectId?: ID } = {
   for (const task of accountTasks(accountId)) {
     if (task.status === 'done' || task.waiting_on === null) continue;
     if (opts.projectId && task.project_id !== opts.projectId) continue;
-    if (isClientViewer(v) && !canViewTask(task, v)) continue;
+    // a figure, not a list: a client_member's "Đang chờ phía chị" also counts colleagues' tasks (SPEC §5.1)
+    if (isClientViewer(v) && !canNameTask(task, v)) continue;
     if (g.isBlocked(task.id)) continue;
     const overdue = isOverdue(task.due_date, today);
     if (task.waiting_on === 'client') {
@@ -748,6 +833,11 @@ export function compareContacts(a: ContactView, b: ContactView): number {
   return DECISION_ORDER[a.decision_role] - DECISION_ORDER[b.decision_role] || a.full_name.localeCompare(b.full_name, 'vi');
 }
 
+/** same rule as crmViews.isCrmViewer (not imported: crmViews depends on this module) */
+function crmViewer(v: Viewer): boolean {
+  return v.org_type === 'internal' && !v.read_only && (v.role === 'director' || v.role === 'am');
+}
+
 export function contactView(c: Contact, v: Viewer): ContactView {
   const u = c.user_id ? db.find('users', c.user_id) : undefined;
   return {
@@ -759,9 +849,9 @@ export function contactView(c: Contact, v: Viewer): ContactView {
     decision_role: c.decision_role,
     email: c.email,
     phone: c.phone,
-    // AM's interaction log (time + note, also fed by CRM touchpoints) is internal working data
-    last_interaction_at: isClientViewer(v) ? null : c.last_interaction_at,
-    last_interaction_note: isClientViewer(v) ? null : c.last_interaction_note,
+    // the AM's interaction log (time + note, also fed by CRM touchpoints) is CRM data: director / AM only
+    last_interaction_at: crmViewer(v) ? c.last_interaction_at : null,
+    last_interaction_note: crmViewer(v) ? c.last_interaction_note : null,
     user: u ? { ...toUserRef(u), status: u.status, last_login_at: u.last_login_at } : null,
   };
 }
@@ -776,7 +866,7 @@ export function accountDetail(a: Account, v: Viewer): AccountDetail {
     ...accountSummary(a, v),
     exec_summary: a.exec_summary,
     exec_summary_updated_at: a.exec_summary_updated_at,
-    health_override: a.health_override,
+    health_override: isClientViewer(v) ? null : a.health_override,
     projects: accountProjects(a.id).map((p) => projectView(p, v)),
     contacts,
     decision_makers: contacts.filter((c) => c.decision_role === 'decision_maker'),
@@ -818,12 +908,11 @@ function fileVisible(f: FileItem, v: Viewer): boolean {
   if (!accessibleIds(v).has(f.account_id)) return false;
   // contracts and payment proofs are commercial documents (no access for client_member / internal member)
   if (!canAccessCommercial(v) && (f.kind === 'proof' || f.kind === 'contract')) return false;
-  if (isClientViewer(v)) {
-    if (f.visibility !== 'shared') return false;
-    if (f.task_id) {
-      const task = db.find('tasks', f.task_id);
-      if (task && !canViewTask(task, v)) return false;
-    }
+  if (isClientViewer(v) && f.visibility !== 'shared') return false;
+  if (f.task_id) {
+    // a task's files go with the task (hidden New Era task; a member and someone else's invoice / approval task)
+    const task = db.find('tasks', f.task_id);
+    if (task && !canNameTask(task, v)) return false;
   }
   return true;
 }
@@ -921,19 +1010,56 @@ export function activityVisible(a: Activity, v: Viewer): boolean {
   if (!accessibleIds(v).has(a.account_id)) return false;
   // quotes, contracts and payments belong to the commercial module (canAccessCommercial)
   if (!canAccessCommercial(v) && COMMERCIAL_ACTION_PREFIXES.some((p) => a.action.startsWith(p))) return false;
-  if (!isClientViewer(v)) return true;
-  if (a.visibility !== 'shared') return false;
   const taskId = activityTaskId(a);
-  if (taskId) {
-    // history survives deletion, so look at soft-deleted rows too
-    const task = db.allRows('tasks').find((x) => x.id === taskId);
-    if (task && !clientMayKnowTask(task, v)) return false;
-  }
+  // history survives deletion, so look at soft-deleted rows too
+  const task = taskId ? db.allRows('tasks').find((x) => x.id === taskId) : undefined;
+  if (!isClientViewer(v)) return !task || internalMayKnowTask(task, v);
+  if (a.visibility !== 'shared') return false;
+  if (task && !clientMayKnowTask(task, v)) return false;
   if (a.target_type === 'milestone') {
     const m = db.allRows('milestones').find((x) => x.id === a.target_id);
     if (m && !m.client_visible) return false;
   }
   return true;
+}
+
+/**
+ * The project an activity is about (portal project selector): `params.project_id`, else its target's project — task,
+ * comment, milestone, project, file, quote, contract (through its quote), installment (its milestone, else its
+ * contract). null = account-wide (exec summary, contacts, users…) or unknown. Soft-deleted rows count.
+ */
+export function activityProjectId(a: Activity): ID | null {
+  const fromParams = a.params.project_id;
+  if (typeof fromParams === 'string' && fromParams) return fromParams;
+  const taskProject = (id: ID | null | undefined): ID | null => (id ? db.allRows('tasks').find((x) => x.id === id)?.project_id ?? null : null);
+  const quoteProject = (id: ID | null | undefined): ID | null => (id ? db.allRows('quotes').find((x) => x.id === id)?.project_id ?? null : null);
+  const contractProject = (id: ID | null | undefined): ID | null => quoteProject(id ? db.allRows('contracts').find((x) => x.id === id)?.quote_id : null);
+  const taskId = activityTaskId(a);
+  if (taskId) return taskProject(taskId);
+  switch (a.target_type) {
+    case 'project':
+      return a.target_id;
+    case 'milestone':
+      return db.allRows('milestones').find((m) => m.id === a.target_id)?.project_id ?? null;
+    case 'comment':
+      return taskProject(db.allRows('comments').find((c) => c.id === a.target_id)?.task_id);
+    case 'file': {
+      const f = db.allRows('files').find((x) => x.id === a.target_id);
+      return f ? f.project_id ?? taskProject(f.task_id) : null;
+    }
+    case 'quote':
+      return quoteProject(a.target_id);
+    case 'contract':
+      return contractProject(a.target_id);
+    case 'payment': {
+      const p = db.allRows('payment_schedules').find((x) => x.id === a.target_id);
+      if (!p) return null;
+      const m = p.milestone_id ? db.allRows('milestones').find((x) => x.id === p.milestone_id) : undefined;
+      return m ? m.project_id : contractProject(p.contract_id);
+    }
+    default:
+      return null;
+  }
 }
 
 /**

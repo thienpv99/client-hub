@@ -1,11 +1,10 @@
 // Weekly digest ("Bản tin tuần", SPEC §6): the model shown on /app/digest and the plain-text email body.
 // Built for a RECIPIENT viewer (not necessarily the current one), so every view is filtered as they would see it.
 
-import type { Account, Health, ID, ISODate, Stage, Task, User } from '@/domain/types';
-import type { DigestSection, HealthInfo, StatusLine, TaskView, UserRef, Viewer, WeeklyDigest } from './contract';
-import { atTime, dateOf, todayISO } from '@/domain/clock';
+import type { Account, Health, ID, ISODate, ISODateTime, Stage, Task, User } from '@/domain/types';
+import type { DigestSection, StatusLine, TaskView, UserRef, Viewer, WeeklyDigest } from './contract';
+import { atTime, dateOf, nowISO, todayISO } from '@/domain/clock';
 import { addDays, startOfWeek } from '@/domain/dates';
-import { buildStatusLine } from '@/domain/health';
 import { compareClientTasks } from '@/domain/taskRules';
 import { t } from '@/i18n';
 import { db } from './db';
@@ -15,9 +14,9 @@ import {
   canViewTask,
   clientShouldAct,
   graphForAccount,
-  headlineFor,
   healthFor,
   milestoneView,
+  statusLineFor,
   taskView,
 } from './views';
 import { addressingOf, composeEmailBody, dueRelative, fmtDate, fmtDay } from './notifyEvents';
@@ -82,16 +81,6 @@ function digestAccounts(rv: Viewer): Account[] {
   }
 }
 
-/** Status band sentence for an account, as `rv` would see it (same headline rule as the client home). */
-export function statusLineFor(rv: Viewer, health: HealthInfo): StatusLine {
-  return buildStatusLine({
-    health: health.value,
-    overridden: health.overridden,
-    reasons: health.reasons,
-    headline: (milestoneId: ID) => headlineFor(milestoneId, rv),
-  });
-}
-
 /** internal: open work waiting on New Era — own tasks, or everything for the AM / director */
 function isWaitingOnInternal(task: Task, rv: Viewer): boolean {
   if (task.waiting_on !== 'internal') return false;
@@ -136,7 +125,8 @@ function sectionFor(account: Account, rv: Viewer, today: ISODate): DigestSection
   return {
     account: accountRef(account),
     health,
-    status_line: statusLineFor(rv, health),
+    // same sentence as the client home (headline rule, override, whose task the milestone waits on)
+    status_line: statusLineFor(account.id, rv),
     done_last_week: doneLastWeek,
     waiting_on_you: waiting,
     upcoming_milestones: upcoming,
@@ -158,21 +148,36 @@ function userRefOf(v: Viewer): UserRef {
   };
 }
 
-/** The digest `rv` receives this week. */
-export function buildWeeklyDigest(rv: Viewer): WeeklyDigest {
-  const today = todayISO();
+/**
+ * The bulletin's send slot: this week's (settings weekday + hour) or, with `upcoming` once that slot has passed, next
+ * week's — a preview never carries a date in the past while its content runs to today.
+ */
+function sendSlot(today: ISODate, upcoming: boolean): { weekOf: ISODate; sendAt: ISODateTime } {
   const settings = db.settings;
-  const weekOf = startOfWeek(today);
   // weekly_digest_weekday: Monday = 1 … Sunday = 0 or 7
   const offset = (((settings.weekly_digest_weekday % 7) + 6) % 7 + 7) % 7;
   const hour = String(Math.min(23, Math.max(0, Math.floor(settings.weekly_digest_hour)))).padStart(2, '0');
+  const thisWeek = startOfWeek(today);
+  const slot = atTime(addDays(thisWeek, offset), `${hour}:00`);
+  if (!upcoming || nowISO() < slot) return { weekOf: thisWeek, sendAt: slot };
+  const nextWeek = addDays(thisWeek, 7);
+  return { weekOf: nextWeek, sendAt: atTime(addDays(nextWeek, offset), `${hour}:00`) };
+}
+
+/**
+ * The digest `rv` gets: the preview of the NEXT bulletin (`when` 'upcoming', default — the content is as of now) or the
+ * one sent in this week's slot ('current', the Monday send of notifyEngine).
+ */
+export function buildWeeklyDigest(rv: Viewer, when: 'upcoming' | 'current' = 'upcoming'): WeeklyDigest {
+  const today = todayISO();
+  const { weekOf, sendAt } = sendSlot(today, when === 'upcoming');
   const sections = digestAccounts(rv)
     .map((a) => sectionFor(a, rv, today))
     .sort((x, y) => HEALTH_ORDER[x.health.value] - HEALTH_ORDER[y.health.value] || x.account.name.localeCompare(y.account.name, 'vi'));
   return {
     recipient: userRefOf(rv),
     week_of: weekOf,
-    send_at: atTime(addDays(weekOf, offset), `${hour}:00`),
+    send_at: sendAt,
     sections,
   };
 }
@@ -200,13 +205,19 @@ export function statusLineText(line: StatusLine, isClient: boolean, pronoun: str
       return t(`${k}.overdue`, { count: line.count });
     case 'payment_overdue':
       return t(`${k}.payment_overdue`, { count: line.count });
-    case 'waiting_client':
-      return t(`${k}.waiting_client.${isClient ? 'client' : 'internal'}`, {
+    case 'waiting_client': {
+      // a client reads "từ phía anh" only for their own tasks; a colleague is named ("từ chị Lan (Cỏ Xanh)")
+      const who = isClient ? line.waiting_for : undefined;
+      const variant = !isClient ? 'internal' : !who ? 'client' : who.name ? 'person' : 'company';
+      return t(`${k}.waiting_client.${variant}`, {
         milestone: line.milestone_name,
         count: line.count,
         delay: line.delay_days,
         pronoun,
+        name: who?.name ?? '',
+        company: who?.company ?? '',
       });
+    }
     case 'waiting_internal':
       return line.task_title
         ? t(`${k}.waiting_internal`, { milestone: line.milestone_name, delay: line.delay_days, task: line.task_title })

@@ -93,6 +93,12 @@ function OpportunityBody({ opp }: { opp: OpportunityDetail }) {
   const { run, pending } = useAction();
   const close = useCloseFlow();
   const [editOpen, setEditOpen] = useState(false);
+  // "Gắn báo giá có sẵn" / "Đổi báo giá" open the same dialog with the focus on its "Báo giá" field
+  const [editFocus, setEditFocus] = useState<'quote' | undefined>(undefined);
+  const edit = (focus?: 'quote') => {
+    setEditFocus(focus);
+    setEditOpen(true);
+  };
   const [logOpen, setLogOpen] = useState(false);
   const open = isOpenStage(opp.stage);
   const closeDays = diffDays(opp.expected_close_date, today);
@@ -151,11 +157,11 @@ function OpportunityBody({ opp }: { opp: OpportunityDetail }) {
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            <Button variant="ghost" size="icon" onClick={() => setEditOpen(true)} aria-label={t('crm.opportunity.editAria')} title={t('crm.opportunity.edit')} className="md:hidden">
+            <Button variant="ghost" size="icon" onClick={() => edit()} aria-label={t('crm.opportunity.editAria')} title={t('crm.opportunity.edit')} className="md:hidden">
               <Pencil aria-hidden="true" />
             </Button>
             <div className="hidden items-center gap-2 md:flex">
-              <Button variant="ghost" onClick={() => setEditOpen(true)}>
+              <Button variant="ghost" onClick={() => edit()}>
                 <Pencil aria-hidden="true" />
                 {t('crm.opportunity.edit')}
               </Button>
@@ -259,7 +265,7 @@ function OpportunityBody({ opp }: { opp: OpportunityDetail }) {
 
         <div className="min-w-0 space-y-6">
           <DetailsCard opp={opp} />
-          <QuoteCard opp={opp} />
+          <QuoteCard opp={opp} onLink={() => edit('quote')} />
           <ContactsCard opp={opp} />
           <HistoryCard opp={opp} />
         </div>
@@ -270,7 +276,7 @@ function OpportunityBody({ opp }: { opp: OpportunityDetail }) {
         {outcomeActions(true)}
       </div>
 
-      <EditOpportunityDialog opportunity={opp} open={editOpen} onOpenChange={setEditOpen} />
+      <EditOpportunityDialog opportunity={opp} open={editOpen} onOpenChange={setEditOpen} focusField={editFocus} />
       <LogInteractionDialog open={logOpen} onOpenChange={setLogOpen} defaults={logDefaults} />
       {close.dialogs}
     </div>

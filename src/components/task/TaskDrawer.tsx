@@ -148,6 +148,7 @@ export function TaskDrawer({ task, onClose }: TaskDrawerProps) {
             chain={task.chain}
             showText={showImpactText}
             showChain={showChain}
+            overdueDays={task.due.overdue_days}
           />
         ) : null}
 

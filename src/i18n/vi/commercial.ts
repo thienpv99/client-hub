@@ -375,6 +375,8 @@ const commercial = {
     toast: {
       created: 'Đã tạo báo giá nháp.',
       saved: 'Đã lưu bản nháp.',
+      /** new quote opened from a sales opportunity */
+      linkedOpportunity: 'Đã gắn báo giá vào cơ hội bán hàng.',
     },
   },
 
@@ -566,11 +568,14 @@ const commercial = {
     readOnly: 'Đang xem như khách hàng: chỉ xem, không thao tác được.',
     accept: 'Chấp thuận',
     requestChanges: 'Đề nghị điều chỉnh',
+    /** only when no approval task carries the decision (it cannot be undone then) */
     acceptTitle: 'Chấp thuận báo giá {code} v{version}?',
-    acceptDescription: '{salutation} xác nhận chấp thuận báo giá với tổng giá trị {total} (gồm VAT). New Era sẽ nhận được thông báo ngay để chuẩn bị các bước tiếp theo.',
-    acceptNoteLabel: 'Lời nhắn cho New Era',
-    acceptNoteHint: 'Không bắt buộc.',
+    acceptDescription: '{salutation} xác nhận chấp thuận báo giá với tổng giá trị {total} (gồm VAT). Quyết định này không hoàn tác được; New Era sẽ nhận được thông báo ngay để chuẩn bị các bước tiếp theo.',
     acceptConfirm: 'Chấp thuận báo giá',
+    addNote: 'Thêm lời nhắn cho New Era',
+    acceptNoteLabel: 'Lời nhắn cho New Era',
+    acceptNoteHint: 'Không bắt buộc. Lời nhắn được gửi kèm khi {salutation} bấm “Chấp thuận”.',
+    acceptNotePlaceholder: 'Ví dụ: đề nghị xuất hóa đơn đợt 1 trong tháng này',
     changesTitle: 'Đề nghị điều chỉnh báo giá',
     changesDescription: 'New Era sẽ nhận được nội dung này và gửi lại phiên bản mới.',
     changesLabel: 'Nội dung cần điều chỉnh',

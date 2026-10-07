@@ -10,7 +10,7 @@ import { api } from '@/services/api';
 import { useAction } from '@/hooks/useAction';
 import { useQuery } from '@/hooks/useQuery';
 import { ChipFilter } from '@/components/common/chip-filter';
-import { EmptyState } from '@/components/common/empty-state';
+import { EmptyState, SearchEmptyState } from '@/components/common/empty-state';
 import { ErrorState } from '@/components/common/error-state';
 import { SectionCard } from '@/components/common/section-card';
 import { ListSkeleton } from '@/components/common/skeletons';
@@ -208,23 +208,19 @@ export function UsersTab({ viewer }: { viewer: Viewer }) {
 
       {groups.length === 0 ? (
         <Card>
-          <EmptyState
-            icon={Users}
-            title={searching ? t('settings.users.empty.search', { query: query.trim() }) : t('settings.users.empty.group')}
-            action={
-              searching || group !== 'all' ? (
-                <Button
-                  variant="secondary"
-                  onClick={() => {
-                    setQuery('');
-                    setGroup('all');
-                  }}
-                >
-                  {t('settings.users.empty.clear')}
-                </Button>
-              ) : null
-            }
-          />
+          {searching || group !== 'all' ? (
+            <SearchEmptyState
+              entity="user"
+              query={query}
+              icon={Users}
+              onClear={() => {
+                setQuery('');
+                setGroup('all');
+              }}
+            />
+          ) : (
+            <EmptyState icon={Users} title={t('settings.users.empty.group')} />
+          )}
         </Card>
       ) : (
         groups.map((g) => {

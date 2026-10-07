@@ -16,17 +16,25 @@ import { useQuery } from '@/hooks/useQuery';
 import { useViewer } from '@/hooks/useViewer';
 import { HomeProgressCard } from './HomeProgressCard';
 import { DelegatedCard, MyTasksSection, NewEraCard, SummaryCard, UpdatesCard, WaitingCard } from './HomeSections';
-import { bandMilestone } from './homeModel';
+import { bandMilestone, colleaguesWaiting } from './homeModel';
 import type { Salute } from './portalText';
-import { projectSearch, saluteOf } from './portalText';
+import { projectSearch, saluteOf, tasksTabLink } from './portalText';
 
-function greeting(home: PortalHome, salute: Salute): { title: string; sub: string | null } {
+/**
+ * The greeting's number is always the "Việc cần anh xử lý" pill right under it (one "how many" on the first screen):
+ * all due this week → "tuần này có N việc" (SPEC §5.1); only some → the total, the week figure in the subline;
+ * none this week → the total "trong thời gian tới".
+ */
+function greeting(home: Pick<PortalHome, 'my_tasks' | 'week_count'>, salute: Salute): { title: string; sub: string | null } {
   const total = home.my_tasks.length;
-  const week = home.week_count;
+  const week = Math.min(home.week_count, total);
   const params = { address: salute.address, you: salute.you };
-  if (week > 0) return { title: t('portal.home.greetingWeek', { ...params, count: week }), sub: null };
-  if (total > 0) return { title: t('portal.home.greetingLater', { ...params, count: total }), sub: t('portal.home.greetingLaterSub') };
-  return { title: t('portal.home.greetingNone', params), sub: null };
+  if (total === 0) return { title: t('portal.home.greetingNone', params), sub: null };
+  if (week === total) return { title: t('portal.home.greetingWeek', { ...params, count: total }), sub: null };
+  if (week > 0) {
+    return { title: t('portal.home.greetingTotal', { ...params, count: total }), sub: t('portal.home.greetingWeekSub', { count: week }) };
+  }
+  return { title: t('portal.home.greetingLater', { ...params, count: total }), sub: t('portal.home.greetingLaterSub') };
 }
 
 export function PortalHomePage() {
@@ -34,6 +42,9 @@ export function PortalHomePage() {
   const { projectId, projects } = usePortalProject();
   // phones: no date line above the greeting — the phone shows the date, and the 26px go to the focal block
   const showDate = useMediaQuery('(min-width: 640px)');
+  // lg: 2/3 + 1/3 columns; below: one column. Each layout renders its blocks in its own reading order, so the
+  // keyboard / screen-reader order is the visual order (WCAG 2.4.3) — no CSS `order`.
+  const twoColumns = useMediaQuery('(min-width: 1024px)');
   const query = useQuery<PortalHome>(
     () => api.getPortalHome(projectId ? { projectId } : undefined),
     [projectId, viewer?.user.id, viewer?.account_id],
@@ -54,6 +65,35 @@ export function PortalHomePage() {
   const today = todayISO();
   const { title, sub } = greeting(home, salute);
 
+  const myTasks = (
+    <MyTasksSection
+      tasks={home.my_tasks}
+      showProject={showProject}
+      salute={salute}
+      onTrack={home.health.value === 'on_track'}
+      search={search}
+    />
+  );
+  const delegated =
+    owner && home.delegated_tasks.length > 0 ? <DelegatedCard tasks={home.delegated_tasks} showProject={showProject} salute={salute} /> : null;
+  const waiting =
+    home.waiting_new_era.length > 0 ? <WaitingCard tasks={home.waiting_new_era} showProject={showProject} salute={salute} /> : null;
+  const progress = <HomeProgressCard progress={home.progress} />;
+  const newEra = (
+    <NewEraCard
+      tasks={home.new_era_working}
+      counts={home.counts}
+      salute={salute}
+      showProject={showProject}
+      // the decision maker can open every task "Đang chờ phía anh" counts, colleagues' ones included; a member
+      // (no list of colleagues' tasks) is told how many of them are colleagues'
+      waitingTo={owner ? tasksTabLink(projectId, 'company') : null}
+      colleagues={owner ? null : colleaguesWaiting(home)}
+    />
+  );
+  const updates = <UpdatesCard items={home.updates} />;
+  const summary = <SummaryCard summary={home.account.exec_summary} am={home.am} salute={salute} />;
+
   return (
     <div className="space-y-6 md:space-y-8" aria-busy={query.refreshing || undefined}>
       <div className="space-y-4 md:space-y-5">
@@ -67,31 +107,33 @@ export function PortalHomePage() {
         <StatusBand line={home.status_line} salutation={home.viewer.salutation} milestone={bandMilestone(home.status_line, home.progress)} />
       </div>
 
-      {/* phones / iPad portrait: one column, ordered by `order-*`; lg: 2/3 + 1/3 columns (SPEC 5.1) */}
-      <div className="flex flex-col gap-5 md:gap-6 lg:grid lg:grid-cols-3 lg:items-start">
-        <div className="contents lg:col-span-2 lg:flex lg:min-w-0 lg:flex-col lg:gap-6">
-          <MyTasksSection
-            className="order-1"
-            tasks={home.my_tasks}
-            showProject={showProject}
-            salute={salute}
-            onTrack={home.health.value === 'on_track'}
-            search={search}
-          />
-          {owner && home.delegated_tasks.length > 0 ? (
-            <DelegatedCard className="order-3" tasks={home.delegated_tasks} showProject={showProject} salute={salute} />
-          ) : null}
-          {home.waiting_new_era.length > 0 ? (
-            <WaitingCard className="order-4" tasks={home.waiting_new_era} showProject={showProject} salute={salute} />
-          ) : null}
+      {twoColumns ? (
+        // lg (SPEC 5.1): left 2/3 = what the client must do or follow, right 1/3 = progress, New Era, updates
+        <div className="grid grid-cols-3 items-start gap-6">
+          <div className="col-span-2 flex min-w-0 flex-col gap-6">
+            {myTasks}
+            {delegated}
+            {waiting}
+          </div>
+          <div className="flex min-w-0 flex-col gap-6">
+            {progress}
+            {newEra}
+            {updates}
+            {summary}
+          </div>
         </div>
-        <div className="contents lg:flex lg:min-w-0 lg:flex-col lg:gap-6">
-          <HomeProgressCard className="order-2" progress={home.progress} />
-          <NewEraCard className="order-5" tasks={home.new_era_working} counts={home.counts} salute={salute} showProject={showProject} />
-          <UpdatesCard className="order-6" items={home.updates} />
-          <SummaryCard className="order-7" summary={home.account.exec_summary} am={home.am} salute={salute} />
+      ) : (
+        // phones / iPad portrait: the tasks first, then where the project stands, then the rest
+        <div className="flex flex-col gap-5 md:gap-6">
+          {myTasks}
+          {progress}
+          {delegated}
+          {waiting}
+          {newEra}
+          {updates}
+          {summary}
         </div>
-      </div>
+      )}
     </div>
   );
 }

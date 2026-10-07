@@ -3,7 +3,7 @@
 import { Suspense, lazy, useId, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { Check, CircleCheck, ExternalLink, MoreHorizontal, Pencil, Play, Send, Trash2, Unlock } from 'lucide-react';
+import { Check, CircleCheck, ExternalLink, Lock, MoreHorizontal, Pencil, Play, Send, Trash2, Unlock } from 'lucide-react';
 import type { TaskDetail, TaskStatus } from '@/services/contract';
 import { api } from '@/services/api';
 import { useAction } from '@/hooks/useAction';
@@ -193,14 +193,35 @@ export function InternalTaskMenu({ task, actions }: { task: TaskDetail; actions:
   );
 }
 
-function statusOptions(task: TaskDetail): TaskStatus[] {
-  // staff move client tasks only back to "Cần làm" or to "Xong" (the client's own actions move the rest)
-  if (task.side === 'client') return ALL_STATUSES.filter((s) => s === task.status || s === 'todo' || s === 'done');
-  return ALL_STATUSES;
+interface StatusOption {
+  status: TaskStatus;
+  /** the blocker stands in the way (shown disabled with the reason under the label, never hidden) */
+  locked: boolean;
 }
 
-/** One property of the panel: label (+ hint) on the left, value / control on the right; stacks on narrow phones. */
-function PropRow({ label, hint, children }: { label: ReactNode; hint?: ReactNode; children: ReactNode }) {
+/** Same rules as the service (domain canMoveTo) and the Kanban "Chuyển sang…" menu. */
+function statusOptions(task: TaskDetail): StatusOption[] {
+  // staff move client tasks only back to "Cần làm" or to "Xong" (the client's own actions move the rest)
+  const bySide = task.side === 'client' ? ALL_STATUSES.filter((s) => s === task.status || s === 'todo' || s === 'done') : ALL_STATUSES;
+  // a blocked task only goes back to "Cần làm" until its blocker is done or it is unblocked by hand
+  return bySide.map((status) => ({ status, locked: task.blocked && status !== task.status && status !== 'todo' }));
+}
+
+/**
+ * One property of the panel: label (+ hint) on the left, value / control on the right; stacks on narrow phones.
+ * `footnote`: a reason about the control, full width under the row (never squeezed into the label column on phones).
+ */
+function PropRow({
+  label,
+  hint,
+  footnote,
+  children,
+}: {
+  label: ReactNode;
+  hint?: ReactNode;
+  footnote?: ReactNode;
+  children: ReactNode;
+}) {
   return (
     <div className="flex min-h-[52px] flex-wrap items-center justify-between gap-x-4 gap-y-2 px-3 py-2.5 sm:px-4">
       <div className="min-w-0 flex-1 basis-28">
@@ -208,6 +229,7 @@ function PropRow({ label, hint, children }: { label: ReactNode; hint?: ReactNode
         {hint ? <div className="mt-0.5 text-micro text-muted-foreground">{hint}</div> : null}
       </div>
       <div className="flex min-w-0 shrink-0 items-center gap-2">{children}</div>
+      {footnote ? <div className="-mt-1 flex basis-full items-start gap-1.5 text-micro text-muted-foreground">{footnote}</div> : null}
     </div>
   );
 }
@@ -224,8 +246,16 @@ export function InternalManagePanel({ task, actions }: { task: TaskDetail; actio
       : t('task.manage.notReminded');
   const showRemind = task.side === 'client' && task.status !== 'done' && (task.can.remind || task.reminder_count > 0);
 
+  const options = statusOptions(task);
+  // why "Đang làm" / "Xong"… are greyed out: the blocker above, and the way forward (the unblock button sits right
+  // above this panel, under the blocker note)
+  const statusHint =
+    task.blocked && task.can.change_status && options.some((o) => o.locked)
+      ? t(task.can.unblock ? 'task.manage.statusBlockedUnblock' : 'task.manage.statusBlockedWait')
+      : null;
+
   async function onStatus(value: string) {
-    const next = ALL_STATUSES.find((s) => s === value);
+    const next = options.find((o) => o.status === value && !o.locked)?.status;
     if (!next) return;
     setPendingStatus(next);
     await actions.setStatus(next);
@@ -234,7 +264,17 @@ export function InternalManagePanel({ task, actions }: { task: TaskDetail; actio
 
   return (
     <div className="divide-y divide-border/60 rounded-lg bg-subtle ring-1 ring-inset ring-border/60">
-      <PropRow label={<label htmlFor={`${id}-status`}>{t('task.manage.status')}</label>}>
+      <PropRow
+        label={<label htmlFor={`${id}-status`}>{t('task.manage.status')}</label>}
+        footnote={
+          statusHint ? (
+            <>
+              <Lock className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              <span id={`${id}-status-hint`}>{statusHint}</span>
+            </>
+          ) : undefined
+        }
+      >
         <NativeSelect
           id={`${id}-status`}
           size="sm"
@@ -242,10 +282,11 @@ export function InternalManagePanel({ task, actions }: { task: TaskDetail; actio
           value={pendingStatus ?? task.status}
           onChange={(e) => void onStatus(e.target.value)}
           disabled={!task.can.change_status || actions.busy === 'status'}
+          aria-describedby={statusHint ? `${id}-status-hint` : undefined}
         >
-          {statusOptions(task).map((s) => (
-            <option key={s} value={s}>
-              {t(`enums.taskStatus.${s}`)}
+          {options.map((o) => (
+            <option key={o.status} value={o.status} disabled={o.locked}>
+              {t(`enums.taskStatus.${o.status}`)}
             </option>
           ))}
         </NativeSelect>
@@ -331,7 +372,7 @@ export function InternalFooterActions({ task, actions }: { task: TaskDetail; act
       </div>
     );
   }
-  if (primary === 'start' || primary === 'complete') {
+  if (ownWorkAction(task)) {
     const next: TaskStatus = primary === 'start' ? 'in_progress' : 'done';
     const Icon = primary === 'start' ? Play : CircleCheck;
     return (
@@ -352,6 +393,14 @@ export function InternalFooterActions({ task, actions }: { task: TaskDetail; act
   return null;
 }
 
+/**
+ * "Bắt đầu" / "Hoàn thành" — never on a blocked task: the service refuses every move but "Cần làm" until the blocker
+ * is done (a task already started whose blocker was reopened still gets 'complete' as its primary action).
+ */
+function ownWorkAction(task: TaskDetail): boolean {
+  return (task.primary_action === 'start' || task.primary_action === 'complete') && !task.blocked;
+}
+
 export function hasInternalFooter(task: TaskDetail): boolean {
-  return (task.primary_action === 'review_submission' && task.can.review) || task.primary_action === 'start' || task.primary_action === 'complete';
+  return (task.primary_action === 'review_submission' && task.can.review) || ownWorkAction(task);
 }

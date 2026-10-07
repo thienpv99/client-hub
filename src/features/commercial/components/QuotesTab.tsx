@@ -3,11 +3,11 @@
 // live in the URL so links and "Tạo báo giá" keep the account.
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { ChevronRight, CircleCheck, Clock, FilePlus2, FileText, MessageSquareWarning, Search, SearchX, Send } from 'lucide-react';
+import { ChevronRight, CircleCheck, Clock, FilePlus2, FileText, MessageSquareWarning, Search, Send } from 'lucide-react';
 import type { QuoteStatus, QuoteSummary } from '@/services/contract';
 import { AccountLogo } from '@/components/common/account-logo';
 import { DateText } from '@/components/common/date-text';
-import { EmptyState } from '@/components/common/empty-state';
+import { EmptyState, SearchEmptyState } from '@/components/common/empty-state';
 import { ErrorState } from '@/components/common/error-state';
 import { KpiCard } from '@/components/common/kpi-card';
 import { Money } from '@/components/common/money';
@@ -206,15 +206,7 @@ export function QuotesTab() {
       {visible.length === 0 ? (
         <Card>
           {filtered ? (
-            <EmptyState
-              icon={SearchX}
-              title={t('commercial.quotes.emptyFiltered')}
-              action={
-                <Button variant="secondary" onClick={clearFilters}>
-                  {t('common.clearFilters')}
-                </Button>
-              }
-            />
+            <SearchEmptyState entity="quote" query={search} icon={FileText} onClear={clearFilters} />
           ) : (
             <EmptyState
               icon={FileText}

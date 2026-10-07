@@ -17,7 +17,7 @@ export interface UserAvatarProps {
   className?: string;
 }
 
-/** Round avatar: photo, or initials on a neutral (client) / soft blue (New Era) tone. */
+/** Round avatar: photo, or initials on one neutral tone (New Era and client alike). */
 export function UserAvatar({ user, size = 'md', ring = false, className }: UserAvatarProps) {
   const [broken, setBroken] = useState(false);
   const url = user?.avatar_url ?? null;
@@ -43,7 +43,8 @@ export function UserAvatar({ user, size = 'md', ring = false, className }: UserA
   if (url && !broken) {
     return <img src={url} alt={user.full_name} onError={() => setBroken(true)} className={cx(box, 'bg-muted object-cover')} />;
   }
-  const internal = user.org_type === 'internal';
+  // one neutral tone for everyone (DESIGN §1.6: blue is for action and selection only — a list of New Era assignees
+  // must not fill a card with blue); who is New Era / client is said by captions and the New Era mark, not the fill
   return (
     <span
       role="img"
@@ -51,10 +52,9 @@ export function UserAvatar({ user, size = 'md', ring = false, className }: UserA
       title={user.full_name}
       className={cx(
         box,
-        'inline-flex select-none items-center justify-center font-semibold leading-none',
-        internal ? 'bg-primary-soft text-primary' : 'bg-muted text-muted-foreground',
+        'inline-flex select-none items-center justify-center bg-muted font-semibold leading-none text-muted-foreground',
         // a hairline only when no ring is asked for (the stack ring replaces it)
-        !ring && (internal ? 'shadow-[inset_0_0_0_1px_rgb(var(--primary-border))]' : 'shadow-[inset_0_0_0_1px_rgb(var(--border))]'),
+        !ring && 'shadow-[inset_0_0_0_1px_rgb(var(--border))]',
         className,
       )}
     >

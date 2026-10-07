@@ -2,13 +2,12 @@
 // overdue installments — the last two filter the list), an account filter, then one card per contract.
 import { useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { CircleAlert, FileSignature, ListTodo, SearchX } from 'lucide-react';
+import { CircleAlert, FileSignature, ListTodo } from 'lucide-react';
 import type { ContractView, PaymentStatus, PaymentView } from '@/services/contract';
-import { EmptyState } from '@/components/common/empty-state';
+import { EmptyState, SearchEmptyState } from '@/components/common/empty-state';
 import { ErrorState } from '@/components/common/error-state';
 import { KpiCard } from '@/components/common/kpi-card';
 import { CardSkeleton, KpiSkeleton } from '@/components/common/skeletons';
-import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { NativeSelect } from '@/components/ui/native-select';
 import { useQuery } from '@/hooks/useQuery';
@@ -145,15 +144,7 @@ export function ContractsTab() {
       {visible.length === 0 ? (
         <Card>
           {accountId || focus ? (
-            <EmptyState
-              icon={SearchX}
-              title={t('commercial.contracts.emptyFiltered')}
-              action={
-                <Button variant="secondary" onClick={() => setParams(new URLSearchParams(), { replace: true })}>
-                  {t('common.clearFilters')}
-                </Button>
-              }
-            />
+            <SearchEmptyState entity="contract" icon={FileSignature} onClear={() => setParams(new URLSearchParams(), { replace: true })} />
           ) : (
             <EmptyState icon={FileSignature} title={t('commercial.contracts.empty')} description={t('commercial.contracts.emptyHint')} />
           )}

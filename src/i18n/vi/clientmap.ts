@@ -8,12 +8,12 @@ const clientmap = {
     label: 'Kích thước theo',
     total: 'Tổng giá trị',
     contract_value: 'Hợp đồng',
-    pipeline: 'Pipeline',
+    pipeline: 'Cơ hội',
     /** "xếp theo …" in sentences */
     lower: {
       total: 'tổng giá trị',
       contract_value: 'giá trị hợp đồng',
-      pipeline: 'pipeline gia quyền',
+      pipeline: 'giá trị cơ hội dự kiến',
     },
   },
   controls: {
@@ -39,7 +39,7 @@ const clientmap = {
     value: {
       total: 'Tổng giá trị',
       contract_value: 'Giá trị hợp đồng',
-      pipeline: 'Pipeline gia quyền',
+      pipeline: 'Giá trị cơ hội',
     },
     valueSub: '{count} công ty',
     accounts: 'Số khách hàng',
@@ -86,14 +86,15 @@ const clientmap = {
     accountNoHealth: '{name}, giá trị {value}',
     lead: '{name}, khách hàng mục tiêu, giá trị {value}, độ phù hợp {grade}',
     leadNoGrade: '{name}, khách hàng mục tiêu, giá trị {value}',
-    hub: 'Hệ sinh thái {name}, {count} công ty, tổng giá trị {value}',
+    /** {value} = the group's value in the chosen metric (not always the "Tổng giá trị" one) */
+    hub: 'Hệ sinh thái {name}, {count} công ty, giá trị cả nhóm {value}',
     currencyWord: 'đồng',
     billionWord: 'tỷ',
     millionWord: 'triệu',
   },
   tooltip: {
     contract: 'Giá trị hợp đồng',
-    pipeline: 'Pipeline gia quyền',
+    pipeline: 'Giá trị dự kiến',
     opportunities: 'Cơ hội đang mở',
     owner: 'Phụ trách',
     noOwner: 'Chưa phân công',
@@ -127,7 +128,7 @@ const clientmap = {
       kind: 'Loại',
       health: 'Sức khỏe',
       contract: 'Hợp đồng',
-      pipeline: 'Pipeline',
+      pipeline: 'Cơ hội',
       total: 'Tổng',
       owner: 'Phụ trách',
     },
@@ -144,6 +145,8 @@ const clientmap = {
     edit: 'Sửa',
     editLabel: 'Sửa hệ sinh thái {name}',
     showOnMap: 'Xem trên bản đồ',
+    /** accessible name: starts with the visible words, then the group (four such buttons in the sheet) */
+    showOnMapLabel: 'Xem trên bản đồ: {name}',
     closePanel: 'Đóng thông tin hệ sinh thái',
     contract: 'Giá trị hợp đồng',
     potential: 'Giá trị tiềm năng',

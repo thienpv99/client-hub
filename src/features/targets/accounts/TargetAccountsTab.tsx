@@ -13,7 +13,7 @@ import { CreateOpportunityDialog } from '@/components/crm/CreateOpportunityDialo
 import { FitScoreBadge } from '@/components/crm/FitScoreBadge';
 import { AccountLogo } from '@/components/common/account-logo';
 import { SMALL } from '@/components/common/cx';
-import { EmptyState } from '@/components/common/empty-state';
+import { EmptyState, SearchEmptyState } from '@/components/common/empty-state';
 import { ErrorState } from '@/components/common/error-state';
 import { HealthBadge } from '@/components/common/health-badge';
 import { Money } from '@/components/common/money';
@@ -317,22 +317,14 @@ export function TargetAccountsTab() {
           </Card>
         ) : (
           <Card>
-            <EmptyState
-              icon={Search}
-              title={t('targets.accounts.filtered')}
-              description={t('targets.accounts.filteredHint')}
-              action={
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => {
-                    setSearch('');
-                    setMinFit(0);
-                  }}
-                >
-                  {t('targets.leads.clear')}
-                </Button>
-              }
+            <SearchEmptyState
+              entity="account"
+              query={search}
+              icon={TrendingUp}
+              onClear={() => {
+                setSearch('');
+                setMinFit(0);
+              }}
             />
           </Card>
         )

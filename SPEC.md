@@ -98,7 +98,7 @@ Làm cho mobile trước (mobile-first). Desktop dùng menu trên cùng, mobile 
 - Khối "Việc cần anh/chị xử lý": danh sách thẻ, sắp xếp như mục 3. Mỗi thẻ có:
   - Tên việc bắt đầu bằng động từ: "Duyệt thiết kế màn hình Đặt hàng"
   - Hạn: "Còn 2 ngày · 15/10" hoặc "Đã quá hạn 3 ngày"
-  - Ô "Nếu chưa làm": 1–2 câu hệ quả và tag mốc bị ảnh hưởng
+  - Ô "Nếu chưa làm": 1–2 câu hệ quả và tag mốc bị ảnh hưởng. Khi việc đã quá hạn, ô đổi thành "Đang ảnh hưởng": câu đầu nói điều đang xảy ra ("Đã trễ 6 ngày: mốc UAT lùi 29/10 → 04/11."), câu hệ quả ban đầu lùi xuống thành chú thích mờ "Lưu ý ban đầu: …"
   - 1 nút chính theo loại việc, cộng 2 lựa chọn phụ: "Giao cho đồng nghiệp", "Hỏi lại New Era"
 - Khối "Tiến độ": thanh giai đoạn (stepper) đánh dấu đang ở đâu, mốc tiếp theo kèm ngày kế hoạch và dự báo.
 - Khối "New Era đang làm": 3–5 việc tuần này của New Era, việc trễ cũng hiện.

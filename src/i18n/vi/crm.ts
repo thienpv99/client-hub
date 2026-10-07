@@ -310,6 +310,8 @@ const crm = {
     quote: 'Báo giá',
     noQuote: 'Chưa có báo giá gắn với cơ hội này.',
     createQuote: 'Tạo báo giá',
+    linkQuote: 'Gắn báo giá có sẵn',
+    changeQuote: 'Đổi báo giá',
     quoteCode: '{code} · v{version}',
     quoteLine: 'Tổng {total} · hiệu lực đến {date}',
     openQuote: 'Mở báo giá',
@@ -360,6 +362,13 @@ const crm = {
     description: 'Cập nhật thông tin cơ hội với {account}.',
     probability: 'Xác suất (%)',
     probabilityHint: 'Mặc định của giai đoạn {stage}: {pct}.',
+    quote: 'Báo giá',
+    quoteNone: 'Không gắn báo giá',
+    quoteLoading: 'Đang tải báo giá…',
+    /** one option: "BG-TA-2026-02 · v2 — Cổng ngân hàng số giai đoạn 2 · Đã gửi" */
+    quoteOption: '{code} — {title} · {status}',
+    quoteHint: 'Báo giá gắn với cơ hội hiện ở thẻ “Báo giá” của trang cơ hội.',
+    quoteNoneHint: '{account} chưa có báo giá nào. Tạo báo giá ở mục Thương mại rồi gắn vào đây.',
     errors: {
       probability: 'Nhập xác suất từ 0 đến 100.',
     },

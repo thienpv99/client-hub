@@ -52,7 +52,7 @@ const projects = {
     chipsLabel: 'Lọc theo sức khỏe dự án',
     amTrigger: 'Theo AM',
     amSelected: 'AM: {name}',
-    amMenuLabel: 'Lọc theo Account Manager',
+    amMenuLabel: 'Lọc theo AM phụ trách',
     amAll: 'Tất cả AM',
     count: '{total} dự án',
     result: '{shown}/{total} dự án',

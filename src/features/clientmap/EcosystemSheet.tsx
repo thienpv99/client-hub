@@ -77,7 +77,13 @@ export function EcosystemSheet({ open, onOpenChange, onCreate, onEdit, onShowOnM
                       </Button>
                     }
                   />
-                  <Button variant="soft" size="sm" onClick={() => onShowOnMap(eco)} className="mt-4">
+                  <Button
+                    variant="soft"
+                    size="sm"
+                    onClick={() => onShowOnMap(eco)}
+                    aria-label={t('clientmap.eco.showOnMapLabel', { name: eco.name })}
+                    className="mt-4"
+                  >
                     <MapPin aria-hidden="true" />
                     {t('clientmap.eco.showOnMap')}
                   </Button>

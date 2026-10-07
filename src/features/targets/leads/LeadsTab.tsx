@@ -10,7 +10,7 @@ import { todayISO } from '@/domain/clock';
 import { api } from '@/services/api';
 import { useMediaQuery } from '@/hooks/useMedia';
 import { useQuery } from '@/hooks/useQuery';
-import { EmptyState } from '@/components/common/empty-state';
+import { EmptyState, SearchEmptyState } from '@/components/common/empty-state';
 import { ErrorState } from '@/components/common/error-state';
 import { TableSkeleton } from '@/components/common/skeletons';
 import { Button } from '@/components/ui/button';
@@ -169,16 +169,7 @@ export function LeadsTab({ people, isDirector, meId, onOpenLead, onAddLead }: Le
           </Card>
         ) : (
           <Card>
-            <EmptyState
-              icon={Search}
-              title={t('targets.leads.empty.filtered')}
-              description={t('targets.leads.empty.filteredHint')}
-              action={
-                <Button type="button" variant="secondary" onClick={clearAll}>
-                  {t('targets.leads.clear')}
-                </Button>
-              }
-            />
+            <SearchEmptyState entity="lead" query={query} icon={Target} onClear={clearAll} />
           </Card>
         )}
         {/* room under the last row for the floating bulk bar */}

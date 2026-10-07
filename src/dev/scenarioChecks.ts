@@ -118,6 +118,27 @@ export async function runScenarioChecks(): Promise<TestResult[]> {
     assert(minh.week_count > 0, 'week_count > 0');
   });
 
+  // a client_member: the band names the decision maker whose approval holds Go-live (not "từ phía chị"), and the
+  // approval itself is named but cannot be opened (SPEC §2: own tasks + overall progress)
+  await api.loginDemo('client_member');
+  const lan = await api.getPortalHome();
+  const lanApproval = await api.getTask(DESIGN_APPROVAL).then(
+    () => 'opened',
+    () => 'refused',
+  );
+  const lanOrderDev = await api.getTask(ORDER_DEV);
+  s.test('Lan: the band names anh Minh; his approval is named, not opened', () => {
+    assertEqual(kindOf(lan.status_line), 'blocked/waiting_client', 'status line');
+    assertEqual(
+      statusLineText(lan.status_line, lan.viewer.salutation),
+      'Mốc Go-live đang chờ 1 việc từ anh Minh (Cỏ Xanh). Mỗi ngày chậm, Go-live lùi thêm 1 ngày.',
+      'sentence',
+    );
+    assert(!lan.my_tasks.some((x) => x.id === DESIGN_APPROVAL), 'not in her list');
+    assertEqual(lanApproval, 'refused', 'getTask(approval of anh Minh)');
+    assertEqual(lanOrderDev.blocked_by.map((b) => [b.id, b.title]), [[DESIGN_APPROVAL, 'Duyệt thiết kế màn hình Đặt hàng']], 'named as the blocker of a progress task');
+  });
+
   const lines: [ID, string][] = [
     ['acc_thientruong', 'attention/payment_overdue'],
     ['acc_giongan', 'blocked/waiting_internal'],

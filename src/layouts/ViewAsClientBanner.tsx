@@ -45,9 +45,13 @@ export function ViewAsClientBanner({ accountName }: { accountName?: string | nul
         <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-card/80" aria-hidden>
           <Eye className="h-3.5 w-3.5" strokeWidth={2} />
         </span>
+        {/* phones: "Xem như khách" + "Chỉ đọc" + "Thoát" fit 375 without truncating; screen readers get the full line */}
         <p className="flex min-w-0 flex-1 items-center gap-2 text-table">
           <span className="truncate">
-            <span className="font-medium">{t('layout.viewAs.banner')}</span>
+            <span className="font-medium sm:hidden" aria-hidden>
+              {t('layout.viewAs.bannerShort')}
+            </span>
+            <span className="sr-only font-medium sm:not-sr-only">{t('layout.viewAs.banner')}</span>
             <span className="hidden sm:inline">
               {t('common.separator')}
               <span className="font-semibold">{name}</span>
@@ -61,7 +65,7 @@ export function ViewAsClientBanner({ accountName }: { accountName?: string | nul
           type="button"
           size="sm"
           variant="ghost"
-          className="h-8 shrink-0 text-warning hover:bg-card/70 hover:text-warning"
+          className="h-8 shrink-0 px-2.5 text-warning hover:bg-card/70 hover:text-warning"
           onClick={() => void exit()}
           loading={pending}
           aria-label={t('layout.viewAs.exitLabel')}

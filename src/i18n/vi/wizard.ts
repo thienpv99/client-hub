@@ -103,11 +103,11 @@ const wizard = {
       },
     },
     amTitle: 'Người phụ trách',
-    am: 'Account Manager',
+    am: 'Quản lý khách hàng (AM)',
     amPlaceholder: 'Chọn người phụ trách',
     amHint: 'Người phụ trách quản lý việc, báo giá và nhắc khách của khách hàng này.',
     amOption: '{name} · {role} · {count} khách hàng',
-    amSelf: 'Account Manager của khách hàng này',
+    amSelf: 'Quản lý khách hàng này (AM)',
     errors: {
       name: 'Vui lòng nhập tên công ty.',
       industry: 'Vui lòng chọn ngành.',

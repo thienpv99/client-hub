@@ -1,9 +1,10 @@
 // /portal/tasks and /portal/tasks/:taskId (email deep link → opens the task drawer straight away).
-// Segmented tabs: Cần xử lý (mine) · Đã giao (client_owner) · Chờ New Era · Đã xong (newest first), each with a count.
+// Segmented tabs: Cần xử lý (mine) · Đã giao (client_owner) · Chờ New Era · Đã xong (newest first) · Cả công ty
+// (client_owner: every open task waiting on the company side = the "Đang chờ phía anh N" figure), each with a count.
 import { useEffect, useMemo, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { CheckCheck, Hourglass, ListChecks, UserPlus } from 'lucide-react';
+import { Building2, CheckCheck, Hourglass, ListChecks, UserPlus } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { TaskView, Viewer } from '@/services/contract';
 import { api } from '@/services/api';
@@ -21,20 +22,24 @@ import { useQuery } from '@/hooks/useQuery';
 import { TASK_PARAM, useTaskDrawer } from '@/hooks/useTaskDrawer';
 import { useViewer } from '@/hooks/useViewer';
 import type { Salute } from './portalText';
-import { saluteOf } from './portalText';
+import { saluteOf, TASKS_TAB_PARAM } from './portalText';
+import { CompanyTaskList } from './CompanyTaskList';
 import { DoneTaskList } from './DoneTaskList';
 import { TaskCardList } from './TaskCards';
 import { TasksAside } from './TasksAside';
 
-type TabKey = 'mine' | 'delegated' | 'waiting' | 'done';
-const TAB_PARAM = 'tab';
-const ALL_TABS: TabKey[] = ['mine', 'delegated', 'waiting', 'done'];
+type TabKey = 'mine' | 'delegated' | 'waiting' | 'done' | 'company';
+const TAB_PARAM = TASKS_TAB_PARAM;
+const ALL_TABS: TabKey[] = ['mine', 'delegated', 'waiting', 'done', 'company'];
+/** tabs only the decision maker has */
+const OWNER_TABS: ReadonlySet<TabKey> = new Set<TabKey>(['delegated', 'company']);
 
 interface TaskLists {
   mine: TaskView[];
   delegated: TaskView[];
   waiting: TaskView[];
   done: TaskView[];
+  company: TaskView[];
 }
 
 function byCompletedDesc(a: TaskView, b: TaskView): number {
@@ -45,11 +50,13 @@ async function loadLists(viewer: Viewer, projectId: string | null): Promise<Task
   const owner = viewer.role === 'client_owner';
   const me = viewer.user.id;
   const scope = { accountId: viewer.account_id ?? undefined, projectId: projectId ?? undefined };
-  const [mine, delegated, waiting, clientTasks] = await Promise.all([
+  const [mine, delegated, waiting, clientTasks, company] = await Promise.all([
     api.listTasks({ ...scope, mine: true }),
     owner ? api.listTasks({ ...scope, delegatedByMe: true, openOnly: false }) : Promise.resolve<TaskView[]>([]),
     api.listTasks({ ...scope, side: 'client', waitingOn: 'internal' }),
     api.listTasks({ ...scope, side: 'client', openOnly: false }),
+    // what "Đang chờ phía anh N" counts (views.countsFor): open, waiting on the client, not held by an earlier task
+    owner ? api.listTasks({ ...scope, side: 'client', waitingOn: 'client' }) : Promise.resolve<TaskView[]>([]),
   ]);
   // the decision maker follows every task of the company; a member follows their own (as on the home page)
   const mineOrOwner = (x: TaskView) => owner || x.assignee?.id === me || x.delegated_by?.id === me;
@@ -62,6 +69,7 @@ async function loadLists(viewer: Viewer, projectId: string | null): Promise<Task
     ],
     waiting: waiting.filter(mineOrOwner),
     done: clientTasks.filter((x) => x.status === 'done' && mineOrOwner(x)).sort(byCompletedDesc),
+    company: company.filter((x) => !x.blocked),
   };
 }
 
@@ -70,7 +78,13 @@ function countOf(lists: TaskLists, tab: TabKey): number {
   return tab === 'delegated' ? lists.delegated.filter((x) => x.status !== 'done').length : lists[tab].length;
 }
 
-const EMPTY_ICONS: Record<TabKey, LucideIcon> = { mine: CheckCheck, delegated: UserPlus, waiting: Hourglass, done: ListChecks };
+const EMPTY_ICONS: Record<TabKey, LucideIcon> = {
+  mine: CheckCheck,
+  delegated: UserPlus,
+  waiting: Hourglass,
+  done: ListChecks,
+  company: Building2,
+};
 
 function TabEmpty({ tab, salute }: { tab: TabKey; salute: Salute }) {
   const p = { you: salute.you, You: salute.You };
@@ -135,7 +149,7 @@ export function PortalTasksPage() {
   );
   const lists = query.data ?? null;
 
-  const tabs = useMemo(() => ALL_TABS.filter((x) => x !== 'delegated' || owner), [owner]);
+  const tabs = useMemo(() => ALL_TABS.filter((x) => owner || !OWNER_TABS.has(x)), [owner]);
   const requested = params.get(TAB_PARAM) as TabKey | null;
   const active: TabKey = requested && tabs.includes(requested) ? requested : 'mine';
 
@@ -195,8 +209,9 @@ export function PortalTasksPage() {
       )
     ) : (
       <Tabs value={active} onValueChange={setTab} aria-busy={query.refreshing || undefined}>
-        {/* segmented control; phones: every tab visible at once (2×2 for the decision maker; one row of 3 for a
-            member, label and count stacked as the row is too narrow for both side by side) */}
+        {/* segmented control; phones: every tab visible at once (decision maker: two columns, "Cả công ty" on a
+            full-width last row; member: one row of 3, label and count stacked as the row is too narrow for both
+            side by side) */}
         <TabsList
           variant="segmented"
           aria-label={t('portal.tasks.tabsLabel')}
@@ -206,8 +221,10 @@ export function PortalTasksPage() {
             tabs.length > 3 ? 'grid-cols-2' : 'grid-cols-3',
           )}
         >
-          {tabs.map((tab) => {
+          {tabs.map((tab, i) => {
             const count = countOf(lists, tab);
+            // an odd last segment of the two-column grid takes the whole row instead of leaving a hole
+            const fullRow = tabs.length > 3 && tabs.length % 2 === 1 && i === tabs.length - 1;
             return (
               <TabsTrigger
                 key={tab}
@@ -215,7 +232,11 @@ export function PortalTasksPage() {
                 // no "0" pills: an empty tab says so itself, and a zero only adds noise to the switch
                 count={count > 0 ? count : null}
                 countLabel={t('portal.tasks.tabCount', { count })}
-                className={cn('min-w-0', tabs.length > 3 ? 'px-3' : 'h-auto min-h-11 flex-col gap-0.5 px-1 py-1.5 sm:h-8 sm:min-h-0 sm:flex-row sm:gap-2 sm:px-3 sm:py-0')}
+                className={cn(
+                  'min-w-0',
+                  tabs.length > 3 ? 'px-3' : 'h-auto min-h-11 flex-col gap-0.5 px-1 py-1.5 sm:h-8 sm:min-h-0 sm:flex-row sm:gap-2 sm:px-3 sm:py-0',
+                  fullRow && 'col-span-2',
+                )}
               >
                 <span className="truncate">{t(`portal.tasks.tabs.${tab}`)}</span>
               </TabsTrigger>
@@ -249,6 +270,22 @@ export function PortalTasksPage() {
             <TabEmpty tab="done" salute={salute} />
           )}
         </TabsContent>
+        {owner && viewer ? (
+          <TabsContent value="company" className="mt-4 md:mt-5">
+            {lists.company.length ? (
+              <CompanyTaskList
+                tasks={lists.company}
+                meId={viewer.user.id}
+                company={company}
+                salute={salute}
+                showProject={showProject}
+                highlightId={drawerTaskId}
+              />
+            ) : (
+              <TabEmpty tab="company" salute={salute} />
+            )}
+          </TabsContent>
+        ) : null}
       </Tabs>
     ),
   );

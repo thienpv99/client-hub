@@ -113,6 +113,8 @@ const layout = {
     title: 'Thông báo',
     unreadCount: '{count} chưa đọc',
     markAllRead: 'Đánh dấu đã đọc hết',
+    /** phones: the sheet header holds the title, the unread pill and the close button too */
+    markAllReadShort: 'Đọc hết',
     emptyTitle: 'Chưa có thông báo mới',
     empty: 'Chưa có thông báo mới. Khi có việc cần chú ý, thông báo sẽ hiện ở đây.',
     emptyDescription: 'Khi có việc cần chú ý, thông báo sẽ hiện ở đây.',
@@ -150,6 +152,8 @@ const layout = {
   },
   viewAs: {
     banner: 'Đang xem như khách hàng',
+    /** phones (< 640px) */
+    bannerShort: 'Xem như khách',
     readOnly: 'Chỉ đọc',
     exit: 'Thoát',
     exitLabel: 'Thoát chế độ xem như khách hàng',

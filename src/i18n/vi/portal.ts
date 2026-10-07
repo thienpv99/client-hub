@@ -28,11 +28,22 @@ const portal = {
     client: 'Đang chờ phía {you}',
     internal: 'Đang chờ New Era',
     overdue: '{count} quá hạn',
+    /** screen-reader tail of the decision maker's "Đang chờ phía anh" link (→ tab "Cả công ty") */
+    viewList: ', xem từng việc',
+    /**
+     * member: the part of the company-side figure colleagues hold (no list of them for a member, SPEC §2); shown
+     * right under the figure, short so it stays on one line in a 146px column at 375
+     */
+    colleagues: '{count} của đồng nghiệp',
   },
 
   home: {
     dateLine: '{weekday}, {date}',
+    /** every task is due this week (SPEC §5.1) — the count equals the "Việc cần anh xử lý" pill */
     greetingWeek: 'Chào {address}, tuần này có {count} việc cần {you} xử lý.',
+    /** only some are due this week: the greeting keeps the pill's total, the week figure goes to the subline */
+    greetingTotal: 'Chào {address}, có {count} việc cần {you} xử lý.',
+    greetingWeekSub: 'Trong đó {count} việc cần xong trong tuần này.',
     greetingLater: 'Chào {address}, có {count} việc cần {you} xử lý trong thời gian tới.',
     greetingLaterSub: 'Tuần này chưa có việc nào đến hạn.',
     greetingNone: 'Chào {address}.',
@@ -92,8 +103,18 @@ const portal = {
       delegated: 'Đã giao',
       waiting: 'Chờ New Era',
       done: 'Đã xong',
+      company: 'Cả công ty',
     },
     tabCount: '{count} việc',
+    /** decision maker: every open task waiting on the company side — the list behind "Đang chờ phía anh N" */
+    company: {
+      title: 'Đang chờ phía {company}',
+      titleNoCompany: 'Đang chờ phía công ty',
+      description: 'Mọi việc công ty đang cần xử lý, kể cả việc New Era giao thẳng cho đồng nghiệp của {you}.',
+      overdue: '{count} quá hạn',
+      yours: 'Việc của {you}',
+      delegated: '{name}, do {you} giao',
+    },
     aside: {
       title: 'Tình hình phối hợp',
       description: 'Số việc đang chờ mỗi bên xử lý.',
@@ -110,6 +131,8 @@ const portal = {
       waitingHint: 'Khi {you} gửi tài liệu, báo chuyển khoản hoặc yêu cầu chỉnh sửa, việc sẽ nằm ở đây cho đến khi New Era kiểm tra xong.',
       done: 'Chưa có việc nào hoàn thành.',
       doneHint: 'Việc đã xong sẽ được lưu ở đây, mới nhất trước.',
+      company: 'Phía công ty hiện không có việc nào đang chờ xử lý.',
+      companyHint: 'Khi New Era cần {you} hoặc đồng nghiệp duyệt, cung cấp tài liệu hay xác nhận, việc sẽ hiện ở đây kèm người phụ trách và hạn.',
     },
   },
 

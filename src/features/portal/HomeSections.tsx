@@ -2,6 +2,7 @@
 // DESIGN §4: section titles text-heading, lists inside cards are full-bleed hairline rows, no boxes in boxes.
 import { useId, useState } from 'react';
 import { Link } from 'react-router-dom';
+import type { To } from 'react-router-dom';
 import { CheckCheck, ChevronDown, ChevronRight, Mail, Phone, Send, ShieldCheck } from 'lucide-react';
 import type { ActivityView, TaskView, UserRef, WaitingCounts } from '@/services/contract';
 import { t } from '@/i18n';
@@ -155,7 +156,19 @@ export function WaitingCard({ tasks, showProject, salute, className }: { tasks: 
 
 // ───────────────────────────── New Era đang làm ─────────────────────────────
 
-export function NewEraCard({ tasks, counts, salute, showProject, className }: { tasks: TaskView[]; counts: WaitingCounts; salute: Salute; showProject: boolean; className?: string }) {
+export interface NewEraCardProps {
+  tasks: TaskView[];
+  counts: WaitingCounts;
+  salute: Salute;
+  showProject: boolean;
+  /** decision maker: where "Đang chờ phía anh N" leads (every open company-side task); null = plain figure */
+  waitingTo?: To | null;
+  /** member: how many of "Đang chờ phía chị N" colleagues hold ("3 của đồng nghiệp") */
+  colleagues?: number | null;
+  className?: string;
+}
+
+export function NewEraCard({ tasks, counts, salute, showProject, waitingTo = null, colleagues = null, className }: NewEraCardProps) {
   const { open } = useTaskDrawer();
   return (
     <SectionCard
@@ -163,7 +176,7 @@ export function NewEraCard({ tasks, counts, salute, showProject, className }: { 
       description={t('portal.home.newEra.description')}
       className={cn('overflow-hidden', className)}
       flush
-      footer={<ClientWaitingLine counts={counts} you={salute.you} className="py-0.5" />}
+      footer={<ClientWaitingLine counts={counts} you={salute.you} clientTo={waitingTo} colleagues={colleagues} className="py-0.5" />}
     >
       {tasks.length > 0 ? (
         <ul className={CARD_LIST}>

@@ -61,7 +61,7 @@ const roadmap = {
     title: 'Cách tính ngày dự báo',
     rule: 'Ngày dự báo = kế hoạch + số ngày trễ lớn nhất của việc đang chặn; các mốc sau lùi theo.',
     extra:
-      'Việc chặn gián tiếp cũng được tính, việc đã xong muộn tính đến ngày hoàn thành. Account Manager có thể điều chỉnh tay kèm lý do.',
+      'Việc chặn gián tiếp cũng được tính, việc đã xong muộn tính đến ngày hoàn thành. Giám đốc hoặc AM phụ trách có thể điều chỉnh tay kèm lý do.',
   },
 
   timeline: {
@@ -102,10 +102,10 @@ const roadmap = {
   empty: {
     noProjects: '{account} chưa có dự án nào.',
     noProjectsManager: 'Chọn một mẫu lộ trình để có ngay các mốc chuẩn, rồi chỉnh ngày theo dự án.',
-    noProjectsViewer: 'Khi Account Manager lập lộ trình, các mốc sẽ hiện ở đây.',
+    noProjectsViewer: 'Khi AM phụ trách lập lộ trình, các mốc sẽ hiện ở đây.',
     noMilestones: 'Dự án “{project}” chưa có mốc nào.',
     noMilestonesManager: 'Áp dụng một mẫu lộ trình để có ngay các mốc chuẩn, hoặc thêm từng mốc.',
-    noMilestonesViewer: 'Khi Account Manager thêm mốc, lộ trình sẽ hiện ở đây.',
+    noMilestonesViewer: 'Khi AM phụ trách thêm mốc, lộ trình sẽ hiện ở đây.',
     applyTemplate: 'Áp dụng mẫu',
   },
 

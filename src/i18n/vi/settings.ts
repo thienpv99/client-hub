@@ -35,6 +35,8 @@ const settings = {
     pricing: {
       title: 'Bảng giá',
       description: 'Đơn giá niêm yết, giá vốn và đơn giá riêng theo từng khách hàng.',
+      /** viewer without "Được xem giá vốn" */
+      descriptionNoCost: 'Đơn giá niêm yết và đơn giá riêng theo từng khách hàng.',
     },
     rules: {
       title: 'Ngưỡng và quy tắc',
@@ -44,7 +46,7 @@ const settings = {
   readOnly: {
     users:
       'Chỉ Giám đốc đổi được vai trò và quyền xem giá vốn. Danh sách gồm đội New Era và người dùng phía khách của các khách hàng mà tài khoản này phụ trách.',
-    rules: 'Chỉ Giám đốc thay đổi được các quy tắc này. Tài khoản Account Manager xem ở chế độ chỉ đọc.',
+    rules: 'Chỉ Giám đốc thay đổi được các quy tắc này. Tài khoản Quản lý khách hàng (AM) xem ở chế độ chỉ đọc.',
   },
   email: {
     required: 'Vui lòng nhập email.',
@@ -64,8 +66,8 @@ const settings = {
     },
     groupCount: '{count} người dùng',
     groupHint: {
-      internal: 'Account Manager được cấp riêng quyền xem giá vốn và biên lợi nhuận.',
-      internalReadOnly: 'Giám đốc, Account Manager và thành viên nội bộ của New Era.',
+      internal: 'Quản lý khách hàng (AM) được cấp riêng quyền xem giá vốn và biên lợi nhuận.',
+      internalReadOnly: 'Giám đốc, Quản lý khách hàng (AM) và thành viên nội bộ của New Era.',
       client: 'Người dùng phía khách chỉ thấy những gì đã chia sẻ của công ty mình.',
     },
     filter: {
@@ -118,9 +120,9 @@ const settings = {
       emailPlaceholder: 'khoa.tran',
       role: 'Vai trò',
       jobTitle: 'Chức danh',
-      jobTitlePlaceholder: 'Ví dụ: Account Manager',
+      jobTitlePlaceholder: 'Ví dụ: Quản lý khách hàng',
       roleHint: {
-        am: 'Account Manager quản lý các khách hàng được giao; quyền xem giá vốn cấp riêng sau.',
+        am: 'Quản lý khách hàng (AM) phụ trách các khách hàng được giao; quyền xem giá vốn cấp riêng sau.',
         member: 'Thành viên nội bộ xem và làm các việc được giao, không thấy giá vốn.',
         director: 'Giám đốc thấy và sửa mọi thứ, kể cả giá vốn và cài đặt hệ thống.',
       },
@@ -171,6 +173,7 @@ const settings = {
   pricing: {
     title: 'Bảng giá nằm trong mục Thương mại',
     line: 'Đơn giá dịch vụ, giá vốn và đơn giá riêng của từng khách hàng được quản lý cùng báo giá và hợp đồng.',
+    lineNoCost: 'Đơn giá dịch vụ và đơn giá riêng của từng khách hàng được quản lý cùng báo giá và hợp đồng.',
     open: 'Mở bảng giá',
   },
 

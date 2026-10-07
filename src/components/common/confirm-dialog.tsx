@@ -85,7 +85,7 @@ export function ConfirmDialog({
           ) : null}
           {/* arbitrary sizes: the kit's cn() may not know the text-title token yet */}
           <AlertDialogHeader className="min-w-0 flex-1 text-left">
-            <AlertDialogTitle className="text-[20px] leading-7 tracking-tightish text-ink">{title}</AlertDialogTitle>
+            <AlertDialogTitle className="text-title font-semibold tracking-tightish text-ink">{title}</AlertDialogTitle>
             <AlertDialogDescription className="text-table text-muted-foreground">{description}</AlertDialogDescription>
           </AlertDialogHeader>
         </div>

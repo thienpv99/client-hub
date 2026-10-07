@@ -18,7 +18,6 @@ import {
 } from '@/services/contract';
 import { dateOf, todayISO } from '@/domain/clock';
 import { addDays, endOfWeek } from '@/domain/dates';
-import { buildStatusLine } from '@/domain/health';
 import { addressName } from '@/domain/naming';
 import { paymentOverdueDays } from '@/domain/payments';
 import { compareClientTasks, dueInfo } from '@/domain/taskRules';
@@ -36,6 +35,7 @@ import {
   accountRef,
   accountSummary,
   accountTasks,
+  activityProjectId,
   activityView,
   canViewTask,
   clientShouldAct,
@@ -51,6 +51,7 @@ import {
   newestFirst,
   nonNull,
   projectView,
+  statusLineFor,
   taskDetail,
   taskMentionVisible,
   taskView,
@@ -584,21 +585,22 @@ export const readsApi: Pick<
       (x) => owner || (x.assignee !== null && x.assignee.id === me),
     );
     const newEra = pickNewEraWorking(queryTasks(v, { ...scope, side: 'internal' }), today);
+    // project selector: that project's news + the account-wide ones (no other project's events)
     const updates = db
       .rows('activities')
       .filter((a) => a.account_id === accountId && !isQuoteTaskEcho(a))
+      .filter((a) => {
+        if (!projectId) return true;
+        const of = activityProjectId(a);
+        return of === null || of === projectId;
+      })
       .sort(newestFirst)
       .map((a) => activityView(a, v))
       .filter(nonNull)
       .slice(0, 8);
 
     const health = healthFor(accountId, v, { projectId });
-    const status_line = buildStatusLine({
-      health: health.value,
-      overridden: health.overridden,
-      reasons: health.reasons,
-      headline: (milestoneId: ID) => headlineFor(milestoneId, v),
-    });
+    const status_line = statusLineFor(accountId, v, { projectId });
     const user: UserRef = {
       id: v.user.id,
       full_name: v.user.full_name,

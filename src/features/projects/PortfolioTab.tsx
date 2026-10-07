@@ -1,12 +1,11 @@
 // "Danh mục" tab: KPI filters → toolbar (search, health chips, AM, status — URL-synced) → every project with health,
 // progress, next milestone, waiting counts, people and end dates. Table from 1280px, cards below.
 import { useEffect, useRef, useState } from 'react';
-import { FolderKanban, SearchX } from 'lucide-react';
+import { FolderKanban } from 'lucide-react';
 import type { ProjectPortfolioRow } from '@/services/crmContract';
-import { EmptyState } from '@/components/common/empty-state';
+import { EmptyState, SearchEmptyState } from '@/components/common/empty-state';
 import { ErrorState } from '@/components/common/error-state';
 import { KpiSkeleton, TableSkeleton } from '@/components/common/skeletons';
-import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useMediaQuery } from '@/hooks/useMedia';
@@ -141,16 +140,7 @@ export function PortfolioTab({ rows, loading, error, onRetry, params }: Portfoli
         />
         {shown.length === 0 ? (
           <Card>
-            <EmptyState
-              icon={SearchX}
-              title={q ? t('projects.portfolio.empty.search', { query: q }) : t('projects.portfolio.empty.filtered')}
-              description={t('projects.portfolio.empty.filteredDescription')}
-              action={
-                <Button variant="secondary" onClick={clearAll}>
-                  {t('projects.filters.clear')}
-                </Button>
-              }
-            />
+            <SearchEmptyState entity="project" query={q} icon={FolderKanban} onClear={clearAll} />
           </Card>
         ) : wide ? (
           <PortfolioTable rows={shown} />

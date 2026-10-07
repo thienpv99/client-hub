@@ -34,9 +34,10 @@ const TPL = 'notifyTemplates';
 
 // ───────────────────────────── formatting ─────────────────────────────
 
-/** 'YYYY-MM-DD' → 'dd/mm' */
+/** 'YYYY-MM-DD' → 'dd/mm' in the current year, 'dd/mm/yyyy' otherwise (same rule as formatDateShort) */
 export function fmtDay(d: ISODate): string {
-  return `${d.slice(8, 10)}/${d.slice(5, 7)}`;
+  const short = `${d.slice(8, 10)}/${d.slice(5, 7)}`;
+  return d.slice(0, 4) === todayISO().slice(0, 4) ? short : `${short}/${d.slice(0, 4)}`;
 }
 
 /** 'YYYY-MM-DD' → 'dd/mm/yyyy' */

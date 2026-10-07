@@ -8,7 +8,7 @@ import { t } from '@/i18n';
 import { formatDate } from '@/lib/format';
 import { cn } from '@/components/ui/cn';
 
-type Tone = 'neutral' | 'primary' | 'success' | 'warning' | 'danger' | 'pending';
+type Tone = 'neutral' | 'success' | 'warning' | 'danger' | 'pending';
 
 interface TimelineEvent {
   key: string;
@@ -23,7 +23,6 @@ interface TimelineEvent {
 
 const TONE: Record<Tone, string> = {
   neutral: 'bg-muted text-muted-foreground',
-  primary: 'bg-primary-soft text-primary',
   success: 'bg-success-soft text-success',
   warning: 'bg-warning-soft text-warning',
   danger: 'bg-danger-soft text-danger',
@@ -59,7 +58,8 @@ export function buildTimeline(q: QuoteDetail, activities: ActivityView[]): { don
     done.push({ key: 'approved', kind: 'approved', icon: ShieldCheck, tone: 'success', title: t('commercial.timeline.approved'), who: q.director_approved_by, at: q.director_approved_at, note: q.approval_note });
   }
   if (q.sent_at) {
-    done.push({ key: 'sent', kind: 'sent', icon: Send, tone: 'primary', title: t('commercial.timeline.sent'), who: q.sent_by, at: q.sent_at });
+    // same calm tone as the "Đã gửi khách" pill: blue stays for action and selection (DESIGN §1.6)
+    done.push({ key: 'sent', kind: 'sent', icon: Send, tone: 'neutral', title: t('commercial.timeline.sent'), who: q.sent_by, at: q.sent_at });
   }
   if (q.client_decision && q.client_decided_at) {
     const accepted = q.client_decision === 'accepted';

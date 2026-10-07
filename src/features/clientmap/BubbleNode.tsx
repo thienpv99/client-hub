@@ -3,6 +3,7 @@
 // on-screen radius R:
 // - customers: soft health tint + ring + soft shadow; logo + name + value from 34px, the logo chip below;
 // - hubs (cluster centres): the group's short name in full (two lines, or a pill under the bubble), value, count;
+//   a group worth 0 in the chosen metric is a small dashed ring in muted colours (no blue fill);
 // - targets: quiet — white ghost with a thin dashed ring, initials (their short name once roomy), no value.
 import { memo } from 'react';
 import type { KeyboardEvent, MouseEvent, ReactNode } from 'react';
@@ -238,6 +239,7 @@ function LeadContent({ node, R, s }: { node: ClientMapNode; R: number; s: number
 
 function HubContent({ node, eco, R, r, s }: { node: ClientMapNode; eco: EcosystemView | undefined; R: number; r: number; s: number }) {
   const label = eco?.short_name || node.label;
+  const empty = node.value <= 0;
   const width = R * 1.5 - 8;
   const fs = clamp(R * 0.2, 13, 24);
   const name = oneLine(label, fs, 12, width, 600) ?? twoLines(label, fs, 11, width, 600);
@@ -248,7 +250,7 @@ function HubContent({ node, eco, R, r, s }: { node: ClientMapNode; eco: Ecosyste
   const nameH = name ? name.lines.length * name.size * 1.16 : 0;
   const valueH = vs * 1.2;
   const icon = 16;
-  const withIcon = name !== null && R >= 76;
+  const withIcon = name !== null && R >= 76 && !empty;
   const withCount = R >= 56 && textWidth(count, cs, 500) <= width;
   const total = (withIcon ? icon + 6 : 0) + nameH + (name ? 3 : 0) + valueH + (withCount ? 2 + cs * 1.2 : 0);
   const top = -total / 2;
@@ -264,7 +266,13 @@ function HubContent({ node, eco, R, r, s }: { node: ClientMapNode; eco: Ecosyste
         <Network x={(-icon / 2) * s} y={top * s} width={icon * s} height={icon * s} strokeWidth={2} className="text-primary" aria-hidden="true" />
       ) : null}
       {name ? <TextLines lines={name} top={nameTop} cls="fill-ink font-semibold" s={s} /> : null}
-      <text y={valueY * s} textAnchor="middle" dominantBaseline="central" fontSize={vs * s} className="tabular fill-primary font-semibold">
+      <text
+        y={valueY * s}
+        textAnchor="middle"
+        dominantBaseline="central"
+        fontSize={vs * s}
+        className={cn('tabular', empty ? 'fill-muted-foreground font-medium' : 'fill-primary font-semibold')}
+      >
         {value}
       </text>
       {withCount ? (
@@ -274,8 +282,16 @@ function HubContent({ node, eco, R, r, s }: { node: ClientMapNode; eco: Ecosyste
       ) : null}
       {name ? null : (
         <g transform={`translate(0 ${r + 15 * s})`}>
-          <rect x={(-pillW / 2) * s} y={-11 * s} width={pillW * s} height={22 * s} rx={11 * s} className="fill-card stroke-primary-border" strokeWidth={s} />
-          <text textAnchor="middle" dominantBaseline="central" fontSize={pillSize * s} className="fill-primary font-semibold">
+          <rect
+            x={(-pillW / 2) * s}
+            y={-11 * s}
+            width={pillW * s}
+            height={22 * s}
+            rx={11 * s}
+            className={cn('fill-card', empty ? 'stroke-border-strong' : 'stroke-primary-border')}
+            strokeWidth={s}
+          />
+          <text textAnchor="middle" dominantBaseline="central" fontSize={pillSize * s} className={cn('font-semibold', empty ? 'fill-muted-foreground' : 'fill-primary')}>
             {label}
           </text>
         </g>
@@ -310,7 +326,21 @@ function BubbleNodeImpl(p: BubbleNodeProps) {
   const g = Math.max(0, p.grow);
 
   let disc: ReactNode;
-  if (hub) {
+  if (hub && node.value <= 0) {
+    // a group worth nothing in this metric: a quiet dashed ring, no blue fill (mapModel keeps it small)
+    disc = (
+      <>
+        <circle r={r} className="fill-subtle" fillOpacity={0.85} filter={p.hovered ? `url(#${defs}-lift)` : undefined} />
+        <circle
+          r={r - (p.selected ? 1.5 : 1) * s}
+          fill="none"
+          className={p.selected || p.hovered ? 'stroke-primary' : 'stroke-border-strong'}
+          strokeWidth={(p.selected ? 3 : 1.5) * s}
+          strokeDasharray={p.selected ? undefined : `${4 * s} ${3 * s}`}
+        />
+      </>
+    );
+  } else if (hub) {
     disc = (
       <>
         <circle r={r} className="fill-primary-soft" filter={`url(#${defs}-${p.hovered ? 'lift' : 'soft'})`} />

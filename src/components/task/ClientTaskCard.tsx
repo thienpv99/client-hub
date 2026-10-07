@@ -1,5 +1,5 @@
 // Client task card (SPEC §1.2, §5.1, DESIGN §5 client home): verb-first title, due chip, "Nếu chưa làm" inset with
-// milestone tags and ONE primary button by type (full width on phones) with "Giao cho đồng nghiệp" / "Hỏi lại New Era"
+// milestone tags ("Đang ảnh hưởng" + what has slipped once overdue) and ONE primary button by type (full width on phones) with "Giao cho đồng nghiệp" / "Hỏi lại New Era"
 // as quiet links. A 3px left accent marks only tasks that hold a milestone and are overdue (danger) or due soon
 // (warning). Clicking the card opens the task drawer.
 // variant 'delegated': who it was handed to, its state and the delegation note; 'waiting': submitted, New Era checks.
@@ -133,7 +133,7 @@ export function ClientTaskCard({ task, showProject = false, variant = 'action' }
   } else if (variant !== 'waiting' && !done) {
     body = (
       <>
-        <ImpactBox text={task.impact_text} milestones={task.blocks_milestones} className="mt-4" />
+        <ImpactBox text={task.impact_text} milestones={task.blocks_milestones} overdueDays={task.due.overdue_days} className="mt-4" />
         {task.blocked ? <BlockedNote blockers={task.blocked_by} className="mt-3" /> : null}
       </>
     );

@@ -130,6 +130,14 @@ const notifyTemplates = {
       title: 'New Era nhắc việc: “{task}”',
       body: 'New Era nhắc {pronoun} việc “{task}” (hạn {due}, {relative}).{impact} {Pronoun} xem và xử lý giúp.',
     },
+    /** bulk "Nhắc khách (N)": one mail per person listing every task (each with its deep link) */
+    manyMail: {
+      subject: 'New Era nhắc {count} việc cần xử lý',
+      intro: 'New Era nhắc {pronoun} {count} việc đang chờ phía {pronoun}:',
+      item: '• “{task}” – hạn {due} ({relative})',
+      outro: '{Pronoun} xem và xử lý giúp. Cảm ơn {pronoun}!',
+      open: 'Xem tất cả việc: {url}',
+    },
     auto: {
       title: '{relative}: “{task}”',
       body: 'Việc “{task}” có hạn {due} ({relativeLower}).{impact}',
@@ -257,6 +265,9 @@ const notifyTemplates = {
       payment_overdue: 'Có {count} đợt thanh toán đã quá hạn.',
       waiting_client: {
         client: 'Mốc {milestone} đang chờ {count} việc từ phía {pronoun}. Mỗi ngày chậm, {milestone} lùi thêm 1 ngày.',
+        /** the waited-for task is a colleague's */
+        person: 'Mốc {milestone} đang chờ {count} việc từ {name} ({company}). Mỗi ngày chậm, {milestone} lùi thêm 1 ngày.',
+        company: 'Mốc {milestone} đang chờ {count} việc từ phía {company}. Mỗi ngày chậm, {milestone} lùi thêm 1 ngày.',
         internal: 'Mốc {milestone} đang chờ {count} việc từ phía khách, dự báo lùi {delay} ngày.',
       },
       waiting_internal: 'Mốc {milestone} đang lùi {delay} ngày do New Era chậm việc “{task}”. New Era đang xử lý.',

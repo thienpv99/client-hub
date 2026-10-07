@@ -77,12 +77,15 @@ export function formatDate(d: ISODate | ISODateTime): string {
   return `${dd}/${m}/${y}`;
 }
 
-/** '06/10' */
+/**
+ * '06/10' in the current year (Asia/Ho_Chi_Minh); another year keeps it: '08/01/2027' — a chain "18/10 → 08/01"
+ * would read backwards in time.
+ */
 export function formatDateShort(d: ISODate | ISODateTime): string {
   const day = vnDate(d);
   if (!day) return DASH;
-  const [, m, dd] = day.split('-');
-  return `${dd}/${m}`;
+  const [y, m, dd] = day.split('-');
+  return y === todayISO().slice(0, 4) ? `${dd}/${m}` : `${dd}/${m}/${y}`;
 }
 
 /** '06/10/2026 14:05' (Vietnam wall time) */

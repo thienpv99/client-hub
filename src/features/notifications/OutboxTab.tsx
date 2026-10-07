@@ -9,7 +9,7 @@ import { api } from '@/services/api';
 import { ChipFilter } from '@/components/common/chip-filter';
 import type { ChipOption } from '@/components/common/chip-filter';
 import { DateText } from '@/components/common/date-text';
-import { EmptyState } from '@/components/common/empty-state';
+import { EmptyState, SearchEmptyState } from '@/components/common/empty-state';
 import { ErrorState } from '@/components/common/error-state';
 import { SectionCard } from '@/components/common/section-card';
 import { ListSkeleton } from '@/components/common/skeletons';
@@ -220,26 +220,19 @@ export function OutboxTab({ viewer }: { viewer: Viewer }) {
 
       {visible.length === 0 ? (
         <Card>
-          <EmptyState
-            compact
-            icon={MailX}
-            title={t('notify.outbox.emptyFiltered')}
-            action={
-              filtered ? (
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => {
-                    setStatus('all');
-                    setRecipient('');
-                  }}
-                >
-                  {t('notify.outbox.clearFilters')}
-                </Button>
-              ) : null
-            }
-          />
+          {filtered ? (
+            <SearchEmptyState
+              compact
+              entity="email"
+              icon={MailX}
+              onClear={() => {
+                setStatus('all');
+                setRecipient('');
+              }}
+            />
+          ) : (
+            <EmptyState compact icon={MailX} title={t('notify.outbox.emptyFiltered')} />
+          )}
         </Card>
       ) : (
         <SectionCard

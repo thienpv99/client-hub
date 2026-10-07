@@ -4,7 +4,8 @@
 // Expected refusals are the documented ones (client dashboard, internal portal home, commercial for client_member
 // and internal member, price list for non-managers, templates / dependency check for clients, user admin for
 // non-directors, Zalo for non-managers…).
-// The session is restored and the demo data reset at the end.
+// It runs on a private copy of the db (db.isolated): its fresh-seed reset, sweeps and probes never touch the shared
+// localStorage demo data, which this tab reloads at the end. The session is restored.
 // Run in the browser: (await import('/src/dev/apiSmoke')).runApiSmoke().then(r => r.filter(x => !x.ok))
 
 import type { ID, Role } from '@/domain/types';
@@ -12,6 +13,7 @@ import { ApiError, CLIENT_SETTINGS_KEYS, type Api } from '@/services/contract';
 import type { CrmApi } from '@/services/crmContract';
 import { api } from '@/services/api';
 import { getSession, setSession } from '@/services/context';
+import { db } from '@/services/db';
 import { assert, assertEqual, AssertionError, createSuite, type TestResult } from '@/dev/testkit';
 import { runScenarioChecks } from '@/dev/scenarioChecks';
 
@@ -551,6 +553,10 @@ async function runProbes(suite: ReturnType<typeof createSuite>, role: Role, prob
 }
 
 export async function runApiSmoke(): Promise<TestResult[]> {
+  return db.isolated(runApiSmokeSuite);
+}
+
+async function runApiSmokeSuite(): Promise<TestResult[]> {
   const suite = createSuite('api');
   const saved = getSession();
   const probed = new Set<ApiMethod>();

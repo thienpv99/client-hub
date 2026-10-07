@@ -1,5 +1,14 @@
 // Pure helpers of the client home: which project leads the progress card, which milestone the status hero names.
-import type { MilestoneView, ProjectView, StatusLine } from '@/services/contract';
+import type { MilestoneView, PortalHome, ProjectView, StatusLine } from '@/services/contract';
+
+/**
+ * How many tasks of "Đang chờ phía chị N" belong to colleagues, for a member (no list of colleagues' tasks, SPEC §2):
+ * the figure then says "3 của đồng nghiệp" instead of reading as the member's own backlog. `my_tasks` is a
+ * subset of what `counts.waiting_client` counts (both: open, waiting on the client, not blocked, same project scope).
+ */
+export function colleaguesWaiting(home: Pick<PortalHome, 'counts' | 'my_tasks'>): number {
+  return Math.max(0, home.counts.waiting_client - home.my_tasks.length);
+}
 
 /**
  * The project to show first: a project still running (it has a next milestone) before a finished one, then the one

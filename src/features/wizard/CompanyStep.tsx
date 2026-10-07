@@ -208,7 +208,7 @@ export function CompanyStep({
                   <option key={m.id} value={m.id}>
                     {t('wizard.company.amOption', {
                       name: m.full_name,
-                      role: t(`enums.role.${m.role}`),
+                      role: t(`enums.roleShort.${m.role}`),
                       count: accountCount(m.id),
                     })}
                   </option>

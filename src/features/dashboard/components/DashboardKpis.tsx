@@ -9,12 +9,25 @@ import { formatMoneyCompact } from '@/lib/format';
 import type { StatusFilter } from '../portfolioModel';
 import { DotList } from './DotList';
 
-/** a status part of a context line: icon + words in the status colour */
-function StatusPart({ icon: Icon, tone, children }: { icon: LucideIcon; tone: 'danger' | 'warning' | 'success'; children: string }) {
+/**
+ * a status part of a context line: icon + words in the status colour. Short parts ("2 bị chặn") never break; `wrap`
+ * is for a whole sentence, which must wrap inside a 2-up phone tile (~130px) with the icon on its first line.
+ */
+function StatusPart({
+  icon: Icon,
+  tone,
+  wrap = false,
+  children,
+}: {
+  icon: LucideIcon;
+  tone: 'danger' | 'warning' | 'success';
+  wrap?: boolean;
+  children: string;
+}) {
   const color = tone === 'danger' ? 'text-danger' : tone === 'warning' ? 'text-warning' : 'text-success';
   return (
-    <span className={`inline-flex items-center gap-1 whitespace-nowrap font-medium ${color}`}>
-      <Icon className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} aria-hidden="true" />
+    <span className={`inline-flex gap-1 font-medium ${wrap ? 'items-start' : 'items-center whitespace-nowrap'} ${color}`}>
+      <Icon className={`h-3.5 w-3.5 shrink-0 ${wrap ? 'mt-0.5' : ''}`} strokeWidth={2.25} aria-hidden="true" />
       <span className="tabular">{children}</span>
     </span>
   );
@@ -59,7 +72,7 @@ export function DashboardKpis({ kpis, year, active, onFilter }: DashboardKpisPro
           ) : riskParts.length > 0 ? (
             <DotList items={riskParts} />
           ) : (
-            <StatusPart icon={CircleCheck} tone="success">
+            <StatusPart icon={CircleCheck} tone="success" wrap>
               {t('dashboard.kpi.risk.allClear')}
             </StatusPart>
           )

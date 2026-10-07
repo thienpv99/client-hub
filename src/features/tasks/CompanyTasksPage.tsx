@@ -5,7 +5,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { BellRing, Building2, CheckCheck, CircleAlert, Flag, ListTodo, Search, SearchX, Users, X } from 'lucide-react';
+import { BellRing, Building2, CheckCheck, CircleAlert, Flag, ListTodo, Search, Users, X } from 'lucide-react';
 import type { TaskView, UserRef } from '@/services/contract';
 import { api } from '@/services/api';
 import { t } from '@/i18n';
@@ -17,7 +17,7 @@ import { Input } from '@/components/ui/input';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { AccountLogo } from '@/components/common/account-logo';
 import { ChipFilter } from '@/components/common/chip-filter';
-import { EmptyState } from '@/components/common/empty-state';
+import { EmptyState, SearchEmptyState } from '@/components/common/empty-state';
 import { ErrorState } from '@/components/common/error-state';
 import { KpiCard } from '@/components/common/kpi-card';
 import { sideLabel } from '@/components/common/labels';
@@ -188,6 +188,7 @@ export function CompanyTasksPage() {
     const waitInternal = exceptWait.filter((x) => x.waiting_on === 'internal');
     return {
       overdue: overdue.length,
+      dueSoon: exceptFlag.filter((x) => x.due.due_soon).length,
       overdueClient: overdue.filter((x) => x.waiting_on === 'client').length,
       overdueInternal: overdue.filter((x) => x.waiting_on === 'internal').length,
       blocking: blocking.length,
@@ -205,6 +206,7 @@ export function CompanyTasksPage() {
   const allEligibleSelected = eligible.length > 0 && eligible.every((id) => selection.has(id));
   const selectedIds = [...selection];
 
+  const mine = filters.mine;
   const title = filters.mine ? t('tasks.company.mineTitle') : t('tasks.company.title');
   const description = filters.mine ? t('tasks.company.mineDescription') : t('tasks.company.description');
 
@@ -241,16 +243,7 @@ export function CompanyTasksPage() {
             }
           />
         ) : (
-          <EmptyState
-            icon={SearchX}
-            title={t('tasks.empty.filtered')}
-            description={t('tasks.empty.filteredHint')}
-            action={
-              <Button type="button" variant="secondary" onClick={clearAll}>
-                {t('tasks.filters.clear')}
-              </Button>
-            }
-          />
+          <SearchEmptyState entity="task" query={filters.q} onClear={clearAll} />
         )}
       </Card>
     );
@@ -281,23 +274,34 @@ export function CompanyTasksPage() {
     <div className={hasSelection ? 'space-y-6 pb-24 md:space-y-8' : 'space-y-6 md:space-y-8'}>
       <PageHeader title={title} description={description} />
 
-      {/* focal block: where work is stuck — each tile filters the list below */}
+      {/* focal block: where work is stuck — each tile filters the list below. "Việc của tôi" (a member's first
+          screen) keeps the two tiles about the viewer's own work: their tasks are all New Era tasks, so "Đang chờ
+          khách / Đang chờ New Era" would only repeat the list count — and the list starts above the fold at 375 */}
       {loading ? (
-        <KpiSkeleton className="grid-cols-2 gap-3 sm:gap-4" />
+        mine ? (
+          // "Đang chặn mốc" takes two lines in a 2-up phone tile: keep the default reserve so both numbers line up
+          <KpiSkeleton count={2} className={MINE_KPI_GRID} />
+        ) : (
+          <KpiSkeleton className="grid-cols-2 gap-3 sm:gap-4" />
+        )
       ) : data ? (
-        <section aria-label={t('tasks.company.kpi.label')} className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+        <section aria-label={t('tasks.company.kpi.label')} className={mine ? MINE_KPI_GRID : 'grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4'}>
           <KpiCard
             label={t('tasks.company.kpi.overdue')}
             icon={CircleAlert}
             tone={kpi.overdue > 0 ? 'danger' : 'neutral'}
             value={kpi.overdue}
             sub={
-              <Split
-                parts={[
-                  t('tasks.company.kpi.splitClient', { count: kpi.overdueClient }),
-                  t('tasks.company.kpi.splitInternal', { count: kpi.overdueInternal }),
-                ]}
-              />
+              mine ? (
+                t('tasks.company.kpi.dueSoon', { count: kpi.dueSoon })
+              ) : (
+                <Split
+                  parts={[
+                    t('tasks.company.kpi.splitClient', { count: kpi.overdueClient }),
+                    t('tasks.company.kpi.splitInternal', { count: kpi.overdueInternal }),
+                  ]}
+                />
+              )
             }
             onClick={() => toggleFlag('overdue')}
             active={filters.flag === 'overdue'}
@@ -310,22 +314,26 @@ export function CompanyTasksPage() {
             onClick={() => toggleFlag('blocking')}
             active={filters.flag === 'blocking'}
           />
-          <KpiCard
-            label={t('tasks.company.kpi.waitClient')}
-            icon={Building2}
-            value={kpi.waitClient}
-            sub={<OverdueNote count={kpi.waitClientOverdue} />}
-            onClick={() => toggleWait('client')}
-            active={filters.wait === 'client'}
-          />
-          <KpiCard
-            label={t('tasks.company.kpi.waitInternal')}
-            icon={ListTodo}
-            value={kpi.waitInternal}
-            sub={<OverdueNote count={kpi.waitInternalOverdue} />}
-            onClick={() => toggleWait('internal')}
-            active={filters.wait === 'internal'}
-          />
+          {mine ? null : (
+            <>
+              <KpiCard
+                label={t('tasks.company.kpi.waitClient')}
+                icon={Building2}
+                value={kpi.waitClient}
+                sub={<OverdueNote count={kpi.waitClientOverdue} />}
+                onClick={() => toggleWait('client')}
+                active={filters.wait === 'client'}
+              />
+              <KpiCard
+                label={t('tasks.company.kpi.waitInternal')}
+                icon={ListTodo}
+                value={kpi.waitInternal}
+                sub={<OverdueNote count={kpi.waitInternalOverdue} />}
+                onClick={() => toggleWait('internal')}
+                active={filters.wait === 'internal'}
+              />
+            </>
+          )}
         </section>
       ) : null}
 
@@ -426,6 +434,9 @@ export function CompanyTasksPage() {
     </div>
   );
 }
+
+/** "Việc của tôi": two tiles side by side at every width (the 3-KPI recipe's logic: the row is always filled) */
+const MINE_KPI_GRID = 'grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-2';
 
 /** a chip group inside the shared sideways-scrolling row (phones) / wrapping row (≥640px) */
 const CHIP_GROUP = 'max-w-none shrink-0 overflow-visible sm:max-w-full';

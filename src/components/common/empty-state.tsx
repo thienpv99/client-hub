@@ -1,7 +1,9 @@
 import { isValidElement } from 'react';
 import type { ReactNode } from 'react';
-import { Inbox } from 'lucide-react';
+import { Inbox, SearchX } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { t } from '@/i18n';
 import { cx } from './cx';
 
 export type IconProp = LucideIcon | ReactNode;
@@ -89,5 +91,58 @@ export function EmptyState({ icon, title, description, action, compact = false, 
       </div>
       {action ? <div className="mt-1 flex flex-wrap items-center justify-center gap-2">{action}</div> : null}
     </div>
+  );
+}
+
+export type SearchEntity =
+  | 'account'
+  | 'project'
+  | 'task'
+  | 'lead'
+  | 'target'
+  | 'opportunity'
+  | 'quote'
+  | 'contract'
+  | 'price'
+  | 'user'
+  | 'document'
+  | 'notification'
+  | 'email';
+
+export interface SearchEmptyStateProps {
+  /** what the list holds — named in the sentence ("Không tìm thấy khách hàng nào cho “abc”.") */
+  entity: SearchEntity;
+  /** the search text; empty → the filters alone hid everything ("Không có … nào khớp với bộ lọc đang chọn.") */
+  query?: string | null;
+  /** "Bỏ lọc": clears the search and the filters */
+  onClear?: () => void;
+  /** icon when only filters are set (a search always shows SearchX) */
+  icon?: IconProp;
+  compact?: boolean;
+  className?: string;
+}
+
+/**
+ * The one "nothing matches" state of every list (search and / or filters): same sentence, same hint, same "Bỏ lọc".
+ * The "no data at all" state stays the list's own EmptyState.
+ */
+export function SearchEmptyState({ entity, query, onClear, icon, compact = false, className }: SearchEmptyStateProps) {
+  const q = (query ?? '').trim();
+  const noun = t(`components.emptySearch.entity.${entity}`);
+  return (
+    <EmptyState
+      icon={q ? SearchX : (icon ?? SearchX)}
+      compact={compact}
+      className={className}
+      title={q ? t('components.emptySearch.title', { entity: noun, query: q }) : t('components.emptySearch.filtered', { entity: noun })}
+      description={t('components.emptySearch.hint')}
+      action={
+        onClear ? (
+          <Button type="button" variant="secondary" size={compact ? 'sm' : 'default'} onClick={onClear}>
+            {t('components.emptySearch.clear')}
+          </Button>
+        ) : undefined
+      }
+    />
   );
 }

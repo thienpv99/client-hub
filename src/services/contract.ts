@@ -143,12 +143,24 @@ export type HealthReason =
 export interface HealthInfo {
   /** effective value (override wins) */
   value: Health;
+  /** clients: = value (whether New Era set the colour by hand is internal) */
   auto: Health;
+  /** clients: always false */
   overridden: boolean;
   /** internal viewers only (stripped for clients) */
   override_reason?: string | null;
   /** most severe first; for clients only reasons about visible tasks are kept */
   reasons: HealthReason[];
+}
+
+/**
+ * Whose task(s) a waiting_client band names when they are NOT the client viewer's own (a colleague's, or several
+ * people's): "từ anh Minh (Cỏ Xanh)" (`name` = polite address) or "từ phía Cỏ Xanh" (`name` null).
+ */
+export interface StatusLineWho {
+  name: string | null;
+  /** the client company's short name */
+  company: string;
 }
 
 /** One-sentence band on the client home (section 5.1). The UI renders it with i18n + salutation. */
@@ -157,8 +169,11 @@ export type StatusLine =
   | { tone: 'attention'; kind: 'due_soon_blocking'; count: number; milestone_name: string }
   | { tone: 'attention'; kind: 'overdue'; count: number }
   | { tone: 'attention'; kind: 'payment_overdue'; count: number }
-  /** "Mốc Go-live đang chờ 1 việc từ phía anh. Mỗi ngày chậm, Go-live lùi thêm 1 ngày." */
-  | { tone: 'blocked'; kind: 'waiting_client'; count: number; milestone_name: string; delay_days: number }
+  /**
+   * "Mốc Go-live đang chờ 1 việc từ phía anh. Mỗi ngày chậm, Go-live lùi thêm 1 ngày." — `waiting_for` (client viewers
+   * only) is set when the waited-for task is not the viewer's: "… đang chờ 1 việc từ anh Minh (Cỏ Xanh). …"
+   */
+  | { tone: 'blocked'; kind: 'waiting_client'; count: number; milestone_name: string; delay_days: number; waiting_for?: StatusLineWho }
   /** "Mốc UAT đang lùi 4 ngày do New Era chậm việc …. New Era đang xử lý." */
   | { tone: 'blocked'; kind: 'waiting_internal'; milestone_name: string; delay_days: number; task_title: string | null }
   /** health set manually by the AM, or no reason visible to this viewer → neutral sentence for the tone */
@@ -465,6 +480,7 @@ export interface ContactView {
   decision_role: DecisionRole;
   email: string;
   phone: string | null;
+  /** the AM's interaction log (CRM): director / AM only — null for members and clients */
   last_interaction_at: ISODateTime | null;
   last_interaction_note: string | null;
   user: (UserRef & { status: UserStatus; last_login_at: ISODateTime | null }) | null;
@@ -485,6 +501,7 @@ export interface AccountDetail extends AccountSummary {
   exec_summary_updated_at: ISODateTime | null;
   /** internal only */
   internal_notes?: string | null;
+  /** the AM's manual health (internal): always null for clients — they get only the effective colour */
   health_override: Health | null;
   projects: ProjectView[];
   contacts: ContactView[];
@@ -865,9 +882,9 @@ export interface DigestSection {
 
 export interface WeeklyDigest {
   recipient: UserRef;
-  /** Monday of the digest week */
+  /** Monday of the digest week (of `send_at`) */
   week_of: ISODate;
-  /** 'Thứ Hai 08:00' — computed from settings */
+  /** 'Thứ Hai 08:00' — computed from settings; the preview (getWeeklyDigest) shows the NEXT send slot, never a past one */
   send_at: ISODateTime;
   sections: DigestSection[];
 }

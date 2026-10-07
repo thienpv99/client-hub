@@ -6,7 +6,7 @@ import { BellOff, CheckCheck, Inbox, TriangleAlert } from 'lucide-react';
 import type { NotificationView } from '@/services/contract';
 import { api } from '@/services/api';
 import { DateText } from '@/components/common/date-text';
-import { EmptyState } from '@/components/common/empty-state';
+import { EmptyState, SearchEmptyState } from '@/components/common/empty-state';
 import { ErrorState } from '@/components/common/error-state';
 import { ListSkeleton } from '@/components/common/skeletons';
 import { Badge } from '@/components/ui/badge';
@@ -174,26 +174,30 @@ export function InboxTab({ query, canMarkRead }: InboxTabProps) {
 
       {visible.length === 0 ? (
         <Card>
-          <EmptyState
-            compact
-            icon={read === 'unread' && !kind ? CheckCheck : BellOff}
-            title={read === 'unread' && !kind ? t('notify.inbox.emptyUnread') : t('notify.inbox.emptyFiltered')}
-            action={
-              filtered ? (
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => {
-                    setRead('all');
-                    setKind('');
-                  }}
-                >
+          {read === 'unread' && !kind ? (
+            <EmptyState
+              compact
+              icon={CheckCheck}
+              title={t('notify.inbox.emptyUnread')}
+              action={
+                <Button type="button" variant="secondary" size="sm" onClick={() => setRead('all')}>
                   {t('notify.inbox.showAll')}
                 </Button>
-              ) : null
-            }
-          />
+              }
+            />
+          ) : filtered ? (
+            <SearchEmptyState
+              compact
+              entity="notification"
+              icon={BellOff}
+              onClear={() => {
+                setRead('all');
+                setKind('');
+              }}
+            />
+          ) : (
+            <EmptyState compact icon={BellOff} title={t('notify.inbox.emptyFiltered')} />
+          )}
         </Card>
       ) : (
         grouped.map(({ group, items: list }) => (

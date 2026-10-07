@@ -140,7 +140,8 @@ card padding `p-4 md:p-5` (dense lists `px-4 py-3`). Content max width `max-w-pa
 - **Client home (mobile)**: greeting `text-title` (2 lines max) → **status hero card** (full-width, soft status tint,
   icon 24 in white circle, one sentence, milestone + forecast chip) → "Việc cần anh xử lý" (count pill) task cards:
   white card, left 3px accent ONLY for overdue-blocking (danger) / due-soon-blocking (warning), title `text-heading`,
-  due chip, "Nếu chưa làm" as an inset `bg-subtle rounded-lg p-3` with milestone tags, primary action FULL-WIDTH on
+  due chip, "Nếu chưa làm" as an inset `bg-subtle rounded-lg p-3` with milestone tags (overdue: "Đang ảnh hưởng" + what
+  has already slipped, see `ImpactBox` §7.4), primary action FULL-WIDTH on
   mobile (`w-full h-11`), secondary actions as text links below. → Tiến độ stepper card → New Era đang làm → Cập nhật.
 - **Forms / wizard**: `max-w-reading`, sections with `text-heading` titles and dividers, sticky footer bar.
 
@@ -208,7 +209,7 @@ are done. Screens compose them; they do not rebuild them. Every API below is opt
 | `FormField` | `labelAside` (right of the label row); hint + error both shown |
 | `Sheet` | `SheetHeader` (sticky) + `SheetMeta` (badges row) + `SheetBody` (scrolls) + `SheetFooter` (sticky blurred bar, primary last); `side="bottom"` has a drag-to-close handle (`showHandle`); `mobileFullScreen` |
 | `Dialog` | default `max-w-md`; phones = bottom sheet with full-width actions (primary on top); `mobileFullScreen` = full screen on phones (no handle, zoom/fade in instead of the slide-up) for flows that own the screen (first-login intro) |
-| hooks | `useMediaQuery` / `useBreakpoint` also re-check on `resize` (device emulation may not fire the MediaQueryList change event) |
+| hooks | `useMediaQuery` / `useBreakpoint` also re-check on `resize`, `orientationchange`, `visualViewport` resize, a ResizeObserver on `<html>` and one frame after mount (device emulation may fire none of the MediaQueryList events) |
 | `Avatar` | `size` xs/sm/md/lg; `AvatarGroup` (overlapping stack) |
 | `Progress` | default 6px, `size="md"` 8px |
 | `Skeleton` | `SkeletonText lines` |
@@ -224,17 +225,18 @@ are done. Screens compose them; they do not rebuild them. Every API below is opt
 | `KpiSkeleton` | `className` (grid, same as the real row), `itemClassName` (string or `(i) => …`, e.g. the 3-KPI span), `labelLines` |
 | `SectionCard` | `divided` (direct children become hairline-separated rows), `flush` (tables / media), `footer`, `headerClassName`, `as`. Header: title row (the title keeps its one-line width; actions that do not fit beside it wrap under it instead of squeezing it), then the description at full width under the row; `headerClassName` styles the title row |
 | `ErrorState` | `titleAs="h1"` when the error replaces a whole page (forbidden / not found detail pages keep their one `<h1>`) |
-| `StatusBand` | `milestone` (white chip: planned → forecast), `aside`, `showLabel`; auto "Go-live · lùi N ngày" chip for waiting_client |
+| `StatusBand` | `milestone` (white chip: planned → forecast; an on-plan chip is neutral, the band's tint is the status), `aside`, `showLabel`; auto "Go-live · lùi N ngày" chip for waiting_client; a `waiting_for` line names the colleague / company ("… từ anh Minh (Cỏ Xanh)") instead of "từ phía chị" |
 | `HealthBadge` | `variant="dot"` for dense tables; `size` sm (rows/cards) · md (headers) |
 | `DueLabel` | chip by default; `variant="text"` inside sentences / dot-separated meta; `compact` in rows |
-| `ForecastLabel` | non-compact = 2 lines (dates + delay chip, reason caption) → give it full width; `compact` in tables |
+| `ForecastLabel` | non-compact = 2 lines (dates + delay chip, reason caption) → give it full width; `compact` in tables. Only a slip is coloured: on plan = date + "· đúng kế hoạch" (muted), done = muted check — never green next to a red health badge |
 | `WaitingCountsLine` | two stat chips on their own line — no wrapper text, no separators; `compact` (12px chips, "Chờ khách 3 · Chờ New Era 2") on cards ≤ ~320px so both chips share one line |
 | `ImpactChain` | pill chain with chevrons that wraps at every width (phones too: short links share a line) |
-| `ImpactBox` / `BlockedNote` | inset `bg-subtle` panels (never bordered boxes); `MilestoneTag` export |
+| `ImpactBox` / `BlockedNote` | inset `bg-subtle` panels (never bordered boxes); `MilestoneTag` export. ImpactBox `overdueDays` (pass `task.due.overdue_days` everywhere it shows a task): above 0 the heading becomes "Đang ảnh hưởng", a generated sentence leads ("Đã trễ 6 ngày: mốc UAT lùi 29/10 → 04/11.", forecast in danger + clock icon, max 2 milestones then "và N mốc khác"), the milestones it names leave the tag row, and the original conditional `impact_text` drops to a `text-caption` footnote "Lưu ý ban đầu: …" — never a past deadline read as a live condition. `showTags={false}` when an impact chain sits under it (drawer); `impactBoxHasContent()` says whether it renders |
 | `EmptyState` / `ErrorState` | `compact` inside cards and drawers; `EmptyIcon` export; actions secondary/ghost |
+| `SearchEmptyState` | THE "nothing matches" state of every list (search and/or filters): `entity` (account, project, task, lead, opportunity, quote, contract, price, user, document, notification, email…), `query`, `onClear` → "Không tìm thấy {việc} nào cho “q”." / "Không có {việc} nào khớp với bộ lọc đang chọn." + "Thử từ khóa khác hoặc bỏ bớt bộ lọc." + "Bỏ lọc". The "no data at all" state stays the list's own `EmptyState` |
 | `ActivityFeed` | draws its own timeline rail — no dividers around items; `compact` in side columns |
 | `FileList` | `FileTypeTile`, `fileExtension`; needs ≥ 8px horizontal padding around it (hover fill bleeds `-mx-2`) |
-| `UserAvatar` / `AccountLogo` | `ring` for overlapping stacks (`flex -space-x-2`); rows = `size="sm"` (28), headers md/lg. AccountLogo `initials` = initials computed by the data layer (ClientMapNode.logo.initials) so one company shows one tile everywhere |
+| `UserAvatar` / `AccountLogo` | `ring` for overlapping stacks (`flex -space-x-2`); rows = `size="sm"` (28), headers md/lg. UserAvatar initials are one neutral tone for New Era and clients alike (blue is action/selection only — captions say who is who). AccountLogo `initials` = initials computed by the data layer (ClientMapNode.logo.initials) so one company shows one tile everywhere |
 | `ChipFilter` | 32px pills (44 on touch), scrolls + fades on phones, wraps from sm |
 | skeletons | `TableSkeleton` (cards < xl), `KpiSkeleton`, `PageSkeleton` (with status hero), `CardSkeleton`, `ListSkeleton` |
 

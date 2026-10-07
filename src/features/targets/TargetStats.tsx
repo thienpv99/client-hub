@@ -1,6 +1,7 @@
 // Three KPI tiles on top of the lead list: open targets, grade A, to contact today / overdue. The last two are
 // filters of the list below (ring when active, a second click clears). An AM sees her own targets (the unassigned
-// pool is named in the first tile).
+// pool is named in the first tile). DESIGN §7.5 3-KPI row: the first tile spans the row on phones / iPad, the two
+// filters sit side by side under it; one row of three from xl.
 import { CalendarClock, CircleAlert, Star, Target } from 'lucide-react';
 import { todayISO } from '@/domain/clock';
 import { api } from '@/services/api';
@@ -19,10 +20,14 @@ export interface TargetStatsProps {
   params: LeadParams;
 }
 
+const GRID = 'grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-3';
+const FIRST = 'col-span-2 xl:col-span-1';
+
 export function TargetStats({ isDirector, meId, params }: TargetStatsProps) {
+  // phones: the two side-by-side tiles (~165px) take short labels and context lines, so each stays on one line
   const roomy = useMediaQuery('(min-width: 640px)');
   const { data } = useQuery(() => api.listLeads({ openOnly: true }), [meId], { keepPreviousData: true });
-  if (!data) return <KpiSkeleton count={3} className="grid-cols-3 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-3" />;
+  if (!data) return <KpiSkeleton count={3} className={GRID} itemClassName={(i) => (i === 0 ? FIRST : undefined)} labelLines={1} />;
 
   const today = todayISO();
   const unassigned = data.filter((l) => l.owner === null).length;
@@ -30,31 +35,30 @@ export function TargetStats({ isDirector, meId, params }: TargetStatsProps) {
   const gradeA = scope.filter((l) => l.fit.grade === 'A').length;
   const due = scope.filter((l) => needsContact(l, today));
   const overdue = due.filter((l) => l.follow_up_overdue || (l.next_follow_up_date !== null && l.next_follow_up_date < today)).length;
-  // phones: 3 narrow tiles → short labels, no icons, only an urgent context line
-  const tile = 'p-3 sm:p-5';
 
   return (
-    <div className="grid grid-cols-3 gap-3 sm:gap-4" role="group" aria-label={t('targets.stats.label')}>
+    <div className={GRID} role="group" aria-label={t('targets.stats.label')}>
       <KpiCard
-        className={tile}
-        label={roomy ? (isDirector ? t('targets.stats.open') : t('targets.stats.openMine')) : t('targets.stats.openShort')}
-        icon={roomy ? Target : undefined}
+        className={FIRST}
+        labelLines={1}
+        label={isDirector ? t('targets.stats.open') : t('targets.stats.openMine')}
+        icon={Target}
         value={scope.length}
-        sub={roomy ? (unassigned > 0 ? t('targets.stats.unassigned', { count: unassigned }) : t('targets.stats.unassignedNone')) : undefined}
+        sub={unassigned > 0 ? t('targets.stats.unassigned', { count: unassigned }) : t('targets.stats.unassignedNone')}
       />
       <KpiCard
-        className={tile}
+        labelLines={1}
         label={t('targets.stats.gradeA')}
-        icon={roomy ? Star : undefined}
+        icon={Star}
         value={gradeA}
-        sub={roomy ? t('targets.stats.gradeASub') : undefined}
+        sub={roomy ? t('targets.stats.gradeASub') : t('targets.stats.gradeASubShort')}
         active={params.grade === 'A'}
         onClick={() => params.update({ grade: params.grade === 'A' ? null : 'A' })}
       />
       <KpiCard
-        className={tile}
+        labelLines={1}
         label={roomy ? t('targets.stats.due') : t('targets.stats.dueShort')}
-        icon={roomy ? CalendarClock : undefined}
+        icon={CalendarClock}
         tone={overdue > 0 ? 'danger' : 'neutral'}
         value={due.length}
         sub={
@@ -65,7 +69,9 @@ export function TargetStats({ isDirector, meId, params }: TargetStatsProps) {
             </span>
           ) : roomy ? (
             t('targets.stats.dueNone')
-          ) : undefined
+          ) : (
+            t('targets.stats.dueNoneShort')
+          )
         }
         active={params.due}
         onClick={() => params.update(params.due ? { due: false } : { due: true, sort: 'followup' })}
