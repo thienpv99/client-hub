@@ -54,6 +54,8 @@ const activity = {
   user: {
     invited: '{actor} đã mời {to} tham gia Client Hub',
     role_changed: '{actor} đã cập nhật quyền của {to}',
+    /** params: to, email, role (enum value) */
+    sso_provisioned: '{actor} đã tham gia Client Hub bằng tài khoản Google ({email})',
   },
   settings: {
     updated: '{actor} đã cập nhật cài đặt {section}',
@@ -68,6 +70,9 @@ const activity = {
     body: '{inviter} mời {name} cùng theo dõi dự án của {account} với New Era trên Client Hub. Đăng nhập bằng email này để bắt đầu.',
     internal_title: 'Lời mời tham gia Client Hub',
     internal_body: '{inviter} đã thêm {name} vào Client Hub của New Era. Đăng nhập bằng email công ty để bắt đầu.',
+    /** to the directors when a staff member is created by their first Google sign-in */
+    sso_title: 'Có người mới vào Client Hub bằng Google',
+    sso_body: '{name} ({email}) vừa đăng nhập lần đầu bằng tài khoản Google và có vai trò {role}. Đổi vai trò trong Cài đặt › Người dùng & vai trò.',
   },
 
   /** field names written into `fields` / `section` params of *.updated activities */

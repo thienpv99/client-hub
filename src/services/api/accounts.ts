@@ -58,6 +58,7 @@ export function userAdminView(u: User): UserAdminView {
     last_login_at: u.last_login_at,
     invited_at: u.invited_at,
     notification_pref: u.notification_pref,
+    auth_provider: u.auth_provider ?? null,
   };
 }
 

@@ -4,7 +4,10 @@ import { api } from '@/services/api';
 import { todayISO } from '@/domain/clock';
 import { t } from '@/i18n';
 
-export type SuiteId = 'domain' | 'crm' | 'rbac' | 'seed' | 'api';
+export type SuiteId = 'domain' | 'crm' | 'rbac' | 'sso' | 'seed' | 'api';
+
+/** suites that sign in as other people (the previous session is put back afterwards) */
+const SWITCHES_SESSION: ReadonlySet<SuiteId> = new Set<SuiteId>(['rbac', 'sso', 'api']);
 
 export interface CheckRow {
   suite?: string;
@@ -115,6 +118,11 @@ async function load(id: SuiteId): Promise<unknown> {
       const m = await import('@/dev/rbacTests');
       return await m.runRbacTests();
     }
+    case 'sso': {
+      // Google ID-token checks with a generated test key + loginWithGoogle on a private copy of the db
+      const m = await import('@/dev/ssoTests');
+      return await m.runSsoTests();
+    }
     case 'seed': {
       // checkSeed(data, today) returns the list of problems; [] = everything holds
       const [seed, checks] = await Promise.all([import('@/data/seed'), import('@/data/seedChecks')]);
@@ -137,7 +145,7 @@ async function load(id: SuiteId): Promise<unknown> {
 
 export async function runSuite(id: SuiteId): Promise<SuiteOutcome> {
   const start = performance.now();
-  const before = id === 'rbac' || id === 'api' ? api.getViewer() : null;
+  const before = SWITCHES_SESSION.has(id) ? api.getViewer() : null;
   let rows: CheckRow[] = [];
   let error: string | null = null;
   try {
@@ -147,6 +155,6 @@ export async function runSuite(id: SuiteId): Promise<SuiteOutcome> {
     error = errorText(err);
   }
   const outcome: SuiteOutcome = { rows, ms: Math.round(performance.now() - start), error };
-  if (id === 'rbac' || id === 'api') outcome.sessionRestored = await restoreSession(before);
+  if (SWITCHES_SESSION.has(id)) outcome.sessionRestored = await restoreSession(before);
   return outcome;
 }

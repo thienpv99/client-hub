@@ -2,7 +2,7 @@
 // columns (person · company / title + sign-in · role); narrower cards keep person + role side by side (md), and
 // phones stack them. Active accounts show only their last sign-in; "Đã mời" / "Đã khóa" get a status pill.
 import { Ban, KeyRound, Mail } from 'lucide-react';
-import type { ISODateTime, UserStatus } from '@/domain/types';
+import type { AuthProvider, ISODateTime, UserStatus } from '@/domain/types';
 import type { AccountRef, Role, UserRef } from '@/services/contract';
 import { AccountLogo } from '@/components/common/account-logo';
 import { DateText } from '@/components/common/date-text';
@@ -23,6 +23,8 @@ export interface UserRow {
   loginKnown: boolean;
   /** null = not known to this viewer */
   canViewCost: boolean | null;
+  /** 'google' = created by the first Google sign-in (director's list only; null otherwise) */
+  authProvider: AuthProvider | null;
 }
 
 const INTERNAL_ROLES: Role[] = ['director', 'am', 'member'];
@@ -133,6 +135,12 @@ export function UserListRow({
             {isSelf ? (
               <Badge size="sm" title={t('settings.users.self')}>
                 {t('settings.users.selfShort')}
+              </Badge>
+            ) : null}
+            {row.authProvider === 'google' ? (
+              <Badge size="sm" variant="outline" title={t('settings.users.googleTitle')}>
+                {t('settings.users.google')}
+                <span className="sr-only">{` (${t('settings.users.googleTitle')})`}</span>
               </Badge>
             ) : null}
           </p>

@@ -41,7 +41,16 @@ export function UserAvatar({ user, size = 'md', ring = false, className }: UserA
     );
   }
   if (url && !broken) {
-    return <img src={url} alt={user.full_name} onError={() => setBroken(true)} className={cx(box, 'bg-muted object-cover')} />;
+    // no referrer: Google profile photos (staff created by Google sign-in) are refused for some referrers
+    return (
+      <img
+        src={url}
+        alt={user.full_name}
+        referrerPolicy="no-referrer"
+        onError={() => setBroken(true)}
+        className={cx(box, 'bg-muted object-cover')}
+      />
+    );
   }
   // one neutral tone for everyone (DESIGN §1.6: blue is for action and selection only — a list of New Era assignees
   // must not fill a card with blue); who is New Era / client is said by captions and the New Era mark, not the fill

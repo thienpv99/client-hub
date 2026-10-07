@@ -62,6 +62,7 @@ async function loadAdminRows(): Promise<UserRow[]> {
         lastLoginAt: u.last_login_at,
         loginKnown: true,
         canViewCost: u.can_view_cost,
+        authProvider: u.auth_provider,
       };
     }),
   );
@@ -78,6 +79,7 @@ async function loadTeamRows(): Promise<UserRow[]> {
     lastLoginAt: null,
     loginKnown: false,
     canViewCost: null,
+    authProvider: null,
   }));
   contactLists.forEach((contacts, i) => {
     const account = accounts[i];
@@ -85,7 +87,7 @@ async function loadTeamRows(): Promise<UserRow[]> {
       if (!c.user || !account) continue;
       const status: UserStatus = c.user.status;
       const lastLoginAt: ISODateTime | null = c.user.last_login_at;
-      rows.push({ user: c.user, account, status, lastLoginAt, loginKnown: true, canViewCost: null });
+      rows.push({ user: c.user, account, status, lastLoginAt, loginKnown: true, canViewCost: null, authProvider: null });
     }
   });
   return sortRows(rows);

@@ -88,6 +88,9 @@ const settings = {
     roleFor: 'Vai trò của {name}',
     self: 'Tài khoản đang đăng nhập',
     selfShort: 'Bạn',
+    /** tag of a staff member created by their first Google sign-in */
+    google: 'Google',
+    googleTitle: 'Tự tạo khi đăng nhập lần đầu bằng Google',
     lastLogin: 'Đăng nhập',
     neverLoggedIn: 'Chưa đăng nhập lần nào',
     noTitle: 'Chưa có chức danh',

@@ -19,6 +19,8 @@ export type Salutation = 'anh' | 'chị';
 /** 'digest_and_urgent' = "chỉ nhận bản tin tuần và việc gấp" */
 export type NotificationPref = 'all' | 'digest_and_urgent';
 export type UserStatus = 'active' | 'invited' | 'disabled';
+/** how the login was created: 'google' = by the person's first Google sign-in (SSO, New Era staff only) */
+export type AuthProvider = 'password' | 'google' | 'otp';
 
 export interface User extends SoftDelete {
   id: ID;
@@ -43,6 +45,8 @@ export interface User extends SoftDelete {
   status: UserStatus;
   /** demo password for internal users (mock only — never shown) */
   password?: string;
+  /** absent on seeded / invited users; 'google' on staff created by their first Google sign-in */
+  auth_provider?: AuthProvider;
 }
 
 export type Tier = 'strategic' | 'key' | 'standard';
@@ -397,6 +401,8 @@ export type ActivityAction =
   | 'contact.updated'
   | 'user.invited'
   | 'user.role_changed'
+  /** a New Era staff member created by their first Google sign-in (actor = that person, visibility internal) */
+  | 'user.sso_provisioned'
   | 'settings.updated'
   | 'escalation.sent'
   // CRM extension (always logged with visibility 'internal'; sentences in i18n/vi/activityCrm.ts)

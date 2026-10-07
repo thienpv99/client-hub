@@ -37,6 +37,15 @@ const errors = {
   invalid_password: 'Mật khẩu chưa đúng.',
   invalid_preference: 'Lựa chọn nhận thông báo chưa hợp lệ.',
 
+  // Google sign-in (New Era staff); sso_domain_detail uses { domain }
+  sso_domain: 'Chỉ tài khoản Google của New Era mới đăng nhập được.',
+  sso_domain_detail: 'Chỉ tài khoản Google @{domain} mới đăng nhập được.',
+  sso_invalid: 'Chưa xác minh được tài khoản Google. Vui lòng thử đăng nhập lại.',
+  sso_expired: 'Phiên đăng nhập Google đã hết hạn. Vui lòng bấm đăng nhập lại.',
+  sso_unavailable: 'Đăng nhập Google tạm thời chưa dùng được. Vui lòng dùng email và mật khẩu.',
+  sso_disabled: 'Tài khoản này đang bị khóa. Vui lòng liên hệ Giám đốc New Era.',
+  sso_internal_only: 'Đăng nhập Google chỉ dành cho nhân sự New Era. Khách hàng đăng nhập bằng mã gửi qua email.',
+
   // tasks
   task_not_waiting: 'Việc này hiện không chờ thao tác nào.',
   action_not_allowed: 'Thao tác này không áp dụng cho loại việc này.',

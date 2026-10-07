@@ -11,6 +11,7 @@ import type {
   ActivityAction,
   ActivityTargetType,
   AppNotification,
+  AuthProvider,
   ClientTaskType,
   Contact,
   ContractStatus,
@@ -938,6 +939,8 @@ export interface UserAdminView extends UserRef {
   last_login_at: ISODateTime | null;
   invited_at: ISODateTime | null;
   notification_pref: NotificationPref;
+  /** 'google': created by the person's first Google sign-in (shown as a "Google" tag); null = seeded / invited */
+  auth_provider: AuthProvider | null;
 }
 
 // ───────────────────────────── The API ─────────────────────────────
@@ -956,6 +959,12 @@ export interface Api {
   requestOtp(email: string): Promise<{ sent: true; demo_code: string }>;
   verifyOtp(email: string, code: string, remember: boolean): Promise<Viewer>;
   loginWithPassword(email: string, password: string, remember: boolean): Promise<Viewer>;
+  /**
+   * New Era staff: Google ID token from the GIS button. The service verifies it itself (signature against Google's
+   * keys, iss, aud = GOOGLE_CLIENT_ID, exp, email_verified, hd AND email domain = SSO_ALLOWED_DOMAIN) and signs in the
+   * internal user with that email, or creates one (SSO_DEFAULT_ROLE) on the first sign-in. Errors: errors.sso_*.
+   */
+  loginWithGoogle(idToken: string, remember: boolean): Promise<Viewer>;
   logout(): Promise<void>;
   /** internal only: switch into a read-only client_owner view of the account */
   startViewAsClient(accountId: ID): Promise<Viewer>;

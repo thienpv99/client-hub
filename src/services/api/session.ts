@@ -1,10 +1,22 @@
-// Session: demo logins, client OTP, internal password, "Xem như khách hàng", onboarding, preferences.
+// Session: demo logins, client OTP, internal password, Google sign-in (New Era staff), "Xem như khách hàng",
+// onboarding, preferences.
 
 import type { ID, NotificationPref, Role, User } from '@/domain/types';
 import { ApiError, type Api, type DemoLogin, type Viewer } from '@/services/contract';
+import { GOOGLE_CLIENT_ID, SSO_ADMIN_EMAILS, SSO_ALLOWED_DOMAIN, SSO_DEFAULT_ROLE, type InternalRole } from '@/config/auth';
 import { nowISO } from '@/domain/clock';
+import { t } from '@/i18n';
+import {
+  createGoogleKeyFetcher,
+  GoogleTokenError,
+  verifyGoogleIdToken,
+  type KeyFetcher,
+  type VerifiedGoogleIdentity,
+} from '@/lib/googleIdToken';
+import { newId } from '@/lib/utils';
 import { assertWritable, getSession, getViewer, isManagerOf, requireViewer, setSession, toUserRef } from '@/services/context';
 import { db } from '@/services/db';
+import { logActivity, notifyUsers } from '@/services/effects';
 
 /** Demo login buttons (ARCHITECTURE §9 keeps these ids stable). */
 const DEMO_USERS: readonly { role: Role; user_id: ID }[] = [
@@ -63,6 +75,126 @@ function subtitleOf(u: User): string {
   return [u.title ?? '', company].filter(Boolean).join(' · ');
 }
 
+// ───────────────────────────── Google sign-in (New Era staff) ─────────────────────────────
+
+/** What the Google check runs against: the config (src/config/auth.ts), or a self test's client id and key. */
+export interface SsoRuntime {
+  clientId: string;
+  adminEmails: readonly string[];
+  fetchKey: KeyFetcher;
+}
+
+let googleKeys: KeyFetcher | null = null;
+let ssoTestRuntime: Partial<SsoRuntime> | null = null;
+
+/**
+ * Self tests only (src/dev/ssoTests.ts, inside db.isolated): verify against a test client id / key; null restores
+ * the config. The allowed domain is never overridable. A test runtime counts only while the db is a self test's
+ * private copy (db.isIsolated): a test key can never sign anyone into, or create anyone in, the shared data.
+ */
+export function setSsoTestRuntime(runtime: Partial<SsoRuntime> | null): void {
+  ssoTestRuntime = runtime && db.isIsolated ? runtime : null;
+}
+
+function ssoRuntime(): SsoRuntime {
+  if (!googleKeys) googleKeys = createGoogleKeyFetcher();
+  const test = db.isIsolated ? ssoTestRuntime : null;
+  return {
+    clientId: test?.clientId ?? GOOGLE_CLIENT_ID,
+    adminEmails: test?.adminEmails ?? SSO_ADMIN_EMAILS,
+    fetchKey: test?.fetchKey ?? googleKeys,
+  };
+}
+
+/** token problems → calm sign-in errors (never the token or a claim value) */
+function ssoError(err: unknown): ApiError {
+  const code = err instanceof GoogleTokenError ? err.code : null;
+  switch (code) {
+    case 'no_client_id':
+    case 'keys_unavailable':
+      return new ApiError('conflict', 'errors.sso_unavailable');
+    case 'wrong_domain':
+      return new ApiError('forbidden', 'errors.sso_domain', { domain: SSO_ALLOWED_DOMAIN });
+    case 'expired':
+      return new ApiError('unauthenticated', 'errors.sso_expired');
+    default:
+      return new ApiError('unauthenticated', 'errors.sso_invalid');
+  }
+}
+
+/** control and invisible / bidi-override characters: a Google profile name is chosen by its owner */
+const UNSAFE_NAME_CHARS = /[\u0000-\u001F\u007F-\u009F؜​-‏‪-‮⁠-⁤⁦-⁩﻿]/g;
+
+function googleDisplayName(identity: VerifiedGoogleIdentity): string {
+  const raw = identity.name ?? [identity.given_name, identity.family_name].filter(Boolean).join(' ');
+  const name = raw.replace(UNSAFE_NAME_CHARS, '').replace(/\s+/g, ' ').trim();
+  return (name || identity.email.slice(0, identity.email.indexOf('@'))).slice(0, 120);
+}
+
+/** the Google profile photo (https, googleusercontent.com only) */
+function googleAvatar(url: string | null): string | null {
+  if (!url || url.length > 2048) return null;
+  try {
+    const u = new URL(url);
+    const host = u.hostname.toLowerCase();
+    return u.protocol === 'https:' && (host === 'googleusercontent.com' || host.endsWith('.googleusercontent.com')) ? u.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+/** First Google sign-in of a verified staff email: an active internal user (default role), logged + directors told. */
+function provisionGoogleUser(identity: VerifiedGoogleIdentity, adminEmails: readonly string[]): User {
+  const role: InternalRole = adminEmails.some((e) => e.trim().toLowerCase() === identity.email) ? 'director' : SSO_DEFAULT_ROLE;
+  const fullName = googleDisplayName(identity);
+  const { result } = db.batch(() => {
+    const user: User = {
+      id: newId('u'),
+      full_name: fullName,
+      email: identity.email,
+      phone: null,
+      org_type: 'internal',
+      account_id: null,
+      role,
+      can_view_cost: role === 'director',
+      title: null,
+      salutation: null,
+      avatar_url: googleAvatar(identity.picture),
+      notification_pref: 'all',
+      onboarded_at: null,
+      invited_at: null,
+      invited_by: null,
+      last_login_at: null,
+      status: 'active',
+      deleted_at: null,
+      auth_provider: 'google',
+    };
+    db.insert('users', user);
+    logActivity({
+      account_id: null,
+      actor_id: user.id,
+      action: 'user.sso_provisioned',
+      target_type: 'user',
+      target_id: user.id,
+      params: { to: fullName, email: identity.email, role },
+      visibility: 'internal',
+    });
+    const directors = db
+      .rows('users')
+      .filter((u) => u.org_type === 'internal' && u.role === 'director' && u.status === 'active' && u.id !== user.id)
+      .map((u) => u.id);
+    notifyUsers(directors, {
+      kind: 'system',
+      title: t('activity.invite.sso_title'),
+      body: t('activity.invite.sso_body', { name: fullName, email: identity.email, role: t(`enums.role.${role}`) }),
+      link: '/app/settings',
+      account_id: null,
+    });
+    return user;
+  });
+  return result;
+}
+
 export const sessionApi: Pick<
   Api,
   | 'listDemoLogins'
@@ -70,6 +202,7 @@ export const sessionApi: Pick<
   | 'requestOtp'
   | 'verifyOtp'
   | 'loginWithPassword'
+  | 'loginWithGoogle'
   | 'logout'
   | 'startViewAsClient'
   | 'stopViewAsClient'
@@ -112,6 +245,35 @@ export const sessionApi: Pick<
     if (!user || user.org_type !== 'internal') throw new ApiError('not_found', 'errors.unknown_email');
     if ((password ?? '') !== (user.password ?? DEMO_PASSWORD)) throw new ApiError('validation', 'errors.invalid_password');
     return startSession(user, !!remember);
+  },
+
+  async loginWithGoogle(idToken, remember) {
+    const rt = ssoRuntime();
+    if (!rt.clientId.trim()) throw new ApiError('conflict', 'errors.sso_unavailable');
+    // never trust the UI: the token is verified here again (signature, issuer, audience, expiry, verified email, domain)
+    let identity: VerifiedGoogleIdentity;
+    try {
+      identity = await verifyGoogleIdToken(typeof idToken === 'string' ? idToken : '', {
+        clientId: rt.clientId,
+        allowedDomain: SSO_ALLOWED_DOMAIN,
+        now: Date.now(),
+        fetchKey: rt.fetchKey,
+      });
+    } catch (err) {
+      throw ssoError(err);
+    }
+    // every row with this email, disabled and removed ones too. A usable row wins (the director may have invited the
+    // person again after locking an old login — the password form signs in the same row); with none, a locked or
+    // removed person is refused and never re-created as a new member.
+    const same = db.allRows('users').filter((u) => u.email.trim().toLowerCase() === identity.email);
+    const usable = same.filter((u) => !u.deleted_at && u.status !== 'disabled');
+    const existing = usable.find((u) => u.org_type === 'internal') ?? usable[0];
+    if (existing) {
+      if (existing.org_type !== 'internal') throw new ApiError('forbidden', 'errors.sso_internal_only');
+      return startSession(existing, !!remember);
+    }
+    if (same.length > 0) throw new ApiError('forbidden', 'errors.sso_disabled');
+    return startSession(provisionGoogleUser(identity, rt.adminEmails), !!remember);
   },
 
   async logout() {

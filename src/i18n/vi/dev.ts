@@ -1,7 +1,8 @@
 // i18n namespace 'dev' — owner: shell (G1). Self-test page (/dev/selftest).
 const dev = {
   title: 'Tự kiểm tra hệ thống',
-  description: 'Chạy các bộ kiểm tra logic, bán hàng, phân quyền dữ liệu và dữ liệu mẫu ngay trong trình duyệt.',
+  description:
+    'Chạy các bộ kiểm tra logic, bán hàng, phân quyền dữ liệu, đăng nhập Google và dữ liệu mẫu ngay trong trình duyệt.',
   runAll: 'Chạy tất cả',
   run: 'Chạy',
   running: 'Đang chạy…',
@@ -31,6 +32,11 @@ const dev = {
       title: 'Bán hàng và bản đồ khách hàng',
       description:
         'Điểm phù hợp, phân khúc, phễu và dự báo bán hàng, khối lượng việc; bản đồ khách hàng: giá trị theo chỉ số, nhóm doanh nghiệp, phạm vi của AM.',
+    },
+    sso: {
+      title: 'Đăng nhập Google',
+      description:
+        'Kiểm tra chữ ký và các trường của mã đăng nhập Google bằng khóa thử, chỉ nhận tài khoản @newera.inc, tạo thành viên mới một lần. Chạy trên bản sao riêng.',
     },
     seed: {
       title: 'Dữ liệu mẫu',

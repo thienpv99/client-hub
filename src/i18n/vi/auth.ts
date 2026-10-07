@@ -48,6 +48,15 @@ const auth = {
   submit: 'Đăng nhập',
   submitting: 'Đang đăng nhập…',
   internalHint: 'Bản demo: dùng các thẻ Vào nhanh nếu chưa có mật khẩu.',
+  /** Google sign-in on the "Nội bộ New Era" tab (the button text itself is drawn by Google) */
+  google: {
+    groupLabel: 'Đăng nhập bằng tài khoản Google của New Era',
+    loading: 'Đang tải nút đăng nhập Google…',
+    hint: 'Dùng tài khoản Google công ty (@{domain}).',
+    divider: 'hoặc đăng nhập bằng mật khẩu',
+    loadFailed: 'Không tải được đăng nhập Google. Dùng email và mật khẩu.',
+    signingIn: 'Đang đăng nhập bằng Google…',
+  },
   otp: {
     intro: 'Khách hàng đăng nhập bằng mã gửi qua email, không cần mật khẩu.',
     request: 'Nhận mã đăng nhập',

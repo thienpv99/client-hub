@@ -1,4 +1,4 @@
-// /dev/selftest — run domain, CRM, RBAC, seed and API smoke checks in the browser (no Node on this machine).
+// /dev/selftest — run domain, CRM, RBAC, Google sign-in, seed and API smoke checks in the browser (no Node here).
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, CircleCheck, CircleX, FlaskConical, Play, TriangleAlert } from 'lucide-react';
@@ -11,7 +11,7 @@ import { useViewer } from '@/hooks/useViewer';
 import { t } from '@/i18n';
 import { runSuite, type CheckRow, type SuiteId, type SuiteOutcome } from './selfTestRunners';
 
-const SUITES: SuiteId[] = ['domain', 'crm', 'rbac', 'seed', 'api'];
+const SUITES: SuiteId[] = ['domain', 'crm', 'rbac', 'sso', 'seed', 'api'];
 
 type SuiteState = { status: 'idle' } | { status: 'running' } | { status: 'done'; outcome: SuiteOutcome };
 
@@ -136,6 +136,7 @@ export function SelfTestPage() {
     domain: { status: 'idle' },
     crm: { status: 'idle' },
     rbac: { status: 'idle' },
+    sso: { status: 'idle' },
     seed: { status: 'idle' },
     api: { status: 'idle' },
   });

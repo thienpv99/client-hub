@@ -549,6 +549,17 @@ Acceptance round (foundation fixer):
   only (to join them) and `saveEcosystem` refuses field changes on them (`forbidden`; joining keeps the stored fields).
 - `formatDateShort` / `fmtDay` (mails) add the year when it is not the current one ("08/01/2027").
 
+Google sign-in (README §3, config `src/config/auth.ts`):
+- `loginWithGoogle(idToken, remember)` (api/session.ts) always re-verifies with `verifyGoogleIdToken`
+  (`src/lib/googleIdToken.ts`, pure: RS256 + kid → Google JWKS key ≥ 2048 bits → WebCrypto signature, then iss, aud/azp,
+  exp/iat/nbf, `email_verified === true`, ASCII email, hd AND email domain = `SSO_ALLOWED_DOMAIN`). A usable row with the
+  email wins (internal first; a client row → `errors.sso_internal_only`); only locked / removed rows → `errors.sso_disabled`;
+  no row → a new internal `SSO_DEFAULT_ROLE` user (`auth_provider: 'google'`, `user.sso_provisioned`, directors' bell).
+  `SSO_ADMIN_EMAILS` applies on creation only. The token is never stored or logged.
+- `setSsoTestRuntime` (self tests) counts only while `db.isIsolated`: a test key never reaches the shared data.
+- UI (`features/auth/GoogleSignIn.tsx`): the GIS script loads only on the login page, and only where it can work
+  (client id set, online, origin in `GOOGLE_JS_ORIGINS`, secure context).
+
 ## 9. Seed data (owner A) — `src/data/seed.ts`
 
 `export const SEED_VERSION = 2; export function buildSeed(today: ISODate): Omit<DbData, 'meta'>` (bump it whenever

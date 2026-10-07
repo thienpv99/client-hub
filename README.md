@@ -51,7 +51,7 @@ Khách hàng đã duyệt bộ thiết kế mới (DESIGN.md). Tinh thần chung
 Bấm đúp để mở bằng Chrome hoặc Edge, không cần server.
 
 - Địa chỉ trong app có dạng `ClientHub-demo.html#/login`, `#/app/map`, `#/portal`.
-- Cần **kết nối mạng** để tải React, Tailwind, font và các thư viện khác từ CDN (esm.sh, cdn.tailwindcss.com, Google Fonts).
+- **Không cần mạng:** file đã nhúng sẵn React, các thư viện, Tailwind và font. Riêng nút đăng nhập Google cần mạng và chỉ hiện trên địa chỉ đã đăng ký (xem mục 3).
 - Dữ liệu demo nằm trong trình duyệt (localStorage). Muốn xóa thao tác của mình, vào menu tài khoản (Giám đốc hoặc AM) và chọn **Đặt lại dữ liệu demo**.
 
 ### 2.2 Chạy bằng Vite (máy có Node.js 18+ sạch)
@@ -132,6 +132,45 @@ Màn đăng nhập có các nút **Vào nhanh** theo vai trò:
 | `vy.lam@haidangland.vn` | Người quyết định Hải Đăng. Chị chưa đăng nhập lần nào, nên sẽ thấy 3 màn giới thiệu |
 
 "Ghi nhớ thiết bị" giữ phiên đăng nhập sau khi đóng trình duyệt. Mỗi tab giữ phiên riêng, nên có thể mở song song một tab nội bộ và một tab khách. Giám đốc và AM có nút **Xem như khách hàng** trong chi tiết account. Nút này mở đúng giao diện khách thấy, ở chế độ chỉ đọc.
+
+### Đăng nhập bằng Google (nhân sự New Era)
+
+Ở thẻ **Nội bộ New Era** có nút **Đăng nhập bằng Google**, nằm trên ô email và mật khẩu.
+
+- **Ai dùng được:** chỉ tài khoản Google Workspace của tên miền **`newera.inc`**. Khách hàng vẫn đăng nhập bằng email và mã OTP như cũ.
+- **Đã có tài khoản:** email Google trùng với một người dùng nội bộ (không phân biệt chữ hoa, chữ thường) thì vào thẳng tài khoản đó, giữ nguyên vai trò.
+- **Lần đầu đăng nhập:** chưa có tài khoản thì hệ thống tự tạo một người dùng nội bộ với vai trò **Giám đốc** (thấy toàn bộ, kể cả giá vốn), vì dữ liệu hiện là mô hình mẫu. Tên và ảnh đại diện lấy từ Google. Giám đốc nhận một thông báo, và nhật ký ghi lại. Khi dùng thật, đổi `SSO_DEFAULT_ROLE` thành `member`.
+- **Đổi vai trò:** Giám đốc vào **Cài đặt › Người dùng & vai trò**. Người tạo qua Google có nhãn **Google** cạnh tên. Muốn ai đó thành Giám đốc ngay lần đầu thì thêm email vào `SSO_ADMIN_EMAILS`.
+- **Tài khoản bị khóa:** không đăng nhập được bằng Google, và hệ thống không tạo tài khoản mới thay thế. Nếu Giám đốc đã mời lại email đó, Google đăng nhập vào tài khoản mới được mời (giống form mật khẩu).
+- **Ghi nhớ thiết bị** áp dụng cho cả đăng nhập Google.
+- **Khi nào nút ẩn:** chưa cấu hình `GOOGLE_CLIENT_ID`, máy đang offline, mở file HTML trực tiếp (`file://`), hoặc trang chạy ở địa chỉ không có trong `GOOGLE_JS_ORIGINS` (ví dụ link xem trước `….pages.dev` của Cloudflare, `127.0.0.1`), vì Google từ chối nút ở các địa chỉ chưa đăng ký. Nếu đã cấu hình mà không tải được script của Google, form hiện dòng "Không tải được đăng nhập Google. Dùng email và mật khẩu."
+- **Bảo mật:** mã đăng nhập (ID token) của Google được kiểm tra ngay trong trình duyệt trước khi tin bất kỳ thông tin nào:
+  - chữ ký RS256, đối chiếu khóa công khai của Google (RSA từ 2048 bit; khóa ghi trong mã bị bỏ qua);
+  - nơi phát hành, client ID, hạn dùng;
+  - email đã xác minh, chỉ gồm ký tự ASCII;
+  - tên miền `hd` **và** đuôi email đều phải là `newera.inc`.
+
+  Lớp dịch vụ (`loginWithGoogle`) tự kiểm tra lại, không tin giao diện. Mã đăng nhập không bao giờ được ghi lại.
+
+#### Cấu hình Google SSO
+
+1. Vào [Google Cloud Console](https://console.cloud.google.com/) và chọn (hoặc tạo) project của New Era.
+2. Mở **APIs & Services › OAuth consent screen**. Chọn **User type: Internal**, để chỉ tài khoản `newera.inc` thấy màn đồng ý.
+3. Mở **APIs & Services › Credentials › Create credentials › OAuth client ID**:
+   - Application type: **Web application**.
+   - **Authorized JavaScript origins:** `https://clienthub.nea.io.vn` và `http://localhost:8780`.
+   - Không cần Redirect URI (nút chạy ở chế độ popup).
+4. Chép **Client ID** (dạng `….apps.googleusercontent.com`) vào `GOOGLE_CLIENT_ID` trong `src/config/auth.ts`. Client ID là thông tin công khai, không phải bí mật, nên commit được. Nếu thêm địa chỉ trang ở bước 3, thêm cả vào `GOOGLE_JS_ORIGINS` (hai danh sách phải giống nhau).
+5. Đóng gói và deploy lại (mục "Deploy lên Cloudflare Pages" ở trên).
+
+Cũng trong `src/config/auth.ts`:
+
+| Biến | Mặc định | Ý nghĩa |
+|---|---|---|
+| `GOOGLE_JS_ORIGINS` | `https://clienthub.nea.io.vn`, `http://localhost:8780` | Địa chỉ trang được hiện nút Google (trùng "Authorized JavaScript origins") |
+| `SSO_ALLOWED_DOMAIN` | `newera.inc` | Tên miền Google Workspace được phép |
+| `SSO_DEFAULT_ROLE` | `director` | Vai trò của người tạo tự động (đang để Giám đốc vì dữ liệu là mẫu; đổi thành `member` khi dùng thật) |
+| `SSO_ADMIN_EMAILS` | rỗng | Email được tạo thẳng với vai trò Giám đốc |
 
 ## 4. Các màn hình (đường dẫn)
 
@@ -236,17 +275,18 @@ Mọi ngày đều tính theo hôm nay, nên tình huống luôn đúng mỗi kh
 
 ## 6. Tự kiểm tra
 
-Mở trang **/dev/selftest**. Giám đốc vào qua menu tài khoản. Bấm "Chạy tất cả" để chạy lần lượt 5 bộ kiểm tra:
+Mở trang **/dev/selftest**. Giám đốc vào qua menu tài khoản. Bấm "Chạy tất cả" để chạy lần lượt 6 bộ kiểm tra:
 
 | Bộ | Nội dung | Số kiểm tra |
 |---|---|---|
 | Logic nghiệp vụ | chặn, dự báo mốc, sức khỏe, thứ tự việc, báo giá, thanh toán, cách xưng hô | 74 |
 | Bán hàng và bản đồ khách hàng | điểm phù hợp, phân khúc, phễu, dự báo, tải việc, bản đồ (giá trị theo chỉ số, hệ sinh thái, phạm vi AM) | 37 |
 | Phân quyền dữ liệu | khách, thành viên, AM chỉ nhận đúng dữ liệu của mình; thao tác bị cấm; chế độ "xem như khách" chỉ đọc | 426 |
+| Đăng nhập Google | mã Google ký bằng khóa thử: đúng thì qua; sai client ID, sai nơi phát hành, hết hạn, email chưa xác minh, sai tên miền, sai chữ ký, `alg none`, khóa ghi trong header, khóa RSA dưới 2048 bit, email có ký tự ngoài ASCII đều bị chặn; bộ nhớ đệm khóa của Google (bản lưu giả bị bỏ qua); khóa thử không có tác dụng ngoài bản sao riêng; tạo thành viên một lần, nhận đúng người dùng có sẵn (kể cả người được mời lại sau khi bị khóa), không nâng vai trò người đã có, từ chối tài khoản khách | 40 |
 | Dữ liệu mẫu | đủ tình huống, ngày tương đối, liên kết hợp lệ, dữ liệu CRM và hệ sinh thái | 0 lỗi |
 | Gọi API tổng quát | mọi hàm đọc với từng vai trò, cộng các tình huống mẫu trên dữ liệu mới | 341 |
 
-Bộ phân quyền và bộ API chạy trên một bản sao riêng của dữ liệu, nên dữ liệu demo đang dùng không bị thay đổi. Kiểm tra kiểu toàn bộ chương trình (472 file, chế độ strict) bằng `tools/typecheck.html?auto=1` hoặc `npm run typecheck`: 0 lỗi.
+Bộ phân quyền, bộ đăng nhập Google và bộ API chạy trên một bản sao riêng của dữ liệu, nên dữ liệu demo đang dùng không bị thay đổi. Kiểm tra kiểu toàn bộ chương trình (477 file, chế độ strict) bằng `tools/typecheck.html?auto=1` hoặc `npm run typecheck`: 0 lỗi.
 
 ## 7. Cấu trúc
 
@@ -285,7 +325,7 @@ Bảng `window.__CH_NET__` ghi lại mọi phản hồi API để kiểm chứng
 - **Đăng nhập:**
   - Khách dùng OTP cố định `246810`, không gửi email thật.
   - Nội bộ dùng mật khẩu demo `newera2026`.
-  - Chưa có đăng nhập Google.
+  - Đăng nhập Google cho nhân sự `newera.inc` đã có (mục 3). Nút chỉ hiện khi đã điền `GOOGLE_CLIENT_ID`. Vì chưa có server, mã Google được kiểm tra ngay trong trình duyệt. Khi có backend thật, bước kiểm tra này chuyển lên server.
 - **Email:** chưa gửi thật. Xem trong "Thông báo → Hộp thư mô phỏng". Bản tin tuần xem trước ở `/app/digest` và `/portal/settings`.
 - **"Nhắc qua Zalo":** app copy sẵn tin nhắn rồi mở zalo.me, người dùng tự dán và gửi.
 - **Tài liệu:** file mẫu là ảnh SVG và PDF nhỏ được sinh sẵn. PDF nhúng sẵn font (DejaVu Sans) nên giữ đủ dấu tiếng Việt. File tải lên chỉ lưu trong trình duyệt.
