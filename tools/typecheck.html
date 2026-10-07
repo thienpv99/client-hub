@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Type check · client-hub</title>
+    <!--
+      In-browser `tsc --noEmit` for client-hub (no Node on this machine). Engine: ./typecheck.worker.js
+      URL params:  ?auto=1                 run on load
+                   ?only=src/features/x    report only files under this prefix (the whole program is still checked)
+                   ?extra=tools/a.tsx,...  extra root files (paths relative to client-hub/)
+                   ?loose=recharts,...     declare these packages as `declare module 'x'` (any) instead of fetching types
+      Automation:  await window.__TC_RUN__('src/features/portal')  → result;  window.__TC_RESULT__ (done:true when finished)
+    -->
+    <style>
+      :root {
+        --bg: #f6f8fc; --card: #fff; --fg: #0f172a; --muted: #64748b; --line: #e2e8f0; --accent: #1d4ed8;
+        --err: #b91c1c; --err-bg: #fef2f2; --ok: #15803d; --ok-bg: #f0fdf4; --code-bg: #f1f5f9;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0b1120; --card: #111827; --fg: #e5e7eb; --muted: #94a3b8; --line: #1f2937; --accent: #60a5fa;
+          --err: #fca5a5; --err-bg: #2a1215; --ok: #86efac; --ok-bg: #0f2a1a; --code-bg: #1e293b;
+        }
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 Inter, system-ui, -apple-system, 'Segoe UI', sans-serif; }
+      .wrap { max-width: 1100px; margin: 0 auto; padding: 20px 16px 48px; }
+      h1 { font-size: 18px; margin: 0 0 4px; font-weight: 650; }
+      .sub { color: var(--muted); font-size: 13px; margin: 0 0 16px; }
+      .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+      .bar input { width: 100%; min-width: 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--fg); font: inherit; }
+      .bar label { font-size: 12px; color: var(--muted); display: flex; flex-direction: column; gap: 2px; flex: 1 1 220px; }
+      button { padding: 8px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--fg); font: inherit; cursor: pointer; }
+      button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+      button:disabled { opacity: 0.55; cursor: default; }
+      .status { min-height: 22px; color: var(--muted); font-size: 13px; margin-bottom: 12px; display: flex; gap: 8px; align-items: center; }
+      .spin { width: 12px; height: 12px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; display: none; }
+      .running .spin { display: inline-block; }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin-bottom: 16px; }
+      .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+      .card .k { font-size: 12px; color: var(--muted); }
+      .card .v { font-size: 20px; font-weight: 650; font-variant-numeric: tabular-nums; }
+      .card.bad .v { color: var(--err); }
+      .card.good .v { color: var(--ok); }
+      details.file { background: var(--card); border: 1px solid var(--line); border-radius: 10px; margin-bottom: 8px; overflow: hidden; }
+      details.file > summary { cursor: pointer; padding: 8px 12px; display: flex; gap: 8px; align-items: center; font-family: ui-monospace, Consolas, monospace; font-size: 13px; list-style: none; }
+      details.file > summary::-webkit-details-marker { display: none; }
+      details.file > summary::before { content: '▸'; color: var(--muted); }
+      details.file[open] > summary::before { content: '▾'; }
+      .count { margin-left: auto; background: var(--err-bg); color: var(--err); border-radius: 999px; padding: 0 8px; font-size: 12px; font-weight: 600; }
+      .raw { color: var(--muted); font-size: 12px; text-decoration: none; }
+      .raw:hover { color: var(--accent); }
+      table { width: 100%; border-collapse: collapse; font-size: 13px; }
+      td { padding: 6px 12px; border-top: 1px solid var(--line); vertical-align: top; }
+      td.pos { white-space: nowrap; font-family: ui-monospace, Consolas, monospace; color: var(--muted); width: 1%; }
+      td.code { white-space: nowrap; font-family: ui-monospace, Consolas, monospace; width: 1%; }
+      td.code span { background: var(--code-bg); border-radius: 4px; padding: 1px 6px; }
+      td.msg { white-space: pre-wrap; word-break: break-word; font-family: ui-monospace, Consolas, monospace; font-size: 12.5px; }
+      .empty { background: var(--ok-bg); color: var(--ok); border-radius: 10px; padding: 14px; font-weight: 600; }
+      .error { background: var(--err-bg); color: var(--err); border-radius: 10px; padding: 14px; white-space: pre-wrap; font-family: ui-monospace, Consolas, monospace; font-size: 12.5px; }
+      .meta { margin-top: 20px; color: var(--muted); font-size: 12.5px; }
+      .meta summary { cursor: pointer; }
+      .meta code { font-family: ui-monospace, Consolas, monospace; }
+      .pkgs { columns: 2 260px; margin: 8px 0 0; padding: 0; list-style: none; font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>TypeScript check · client-hub</h1>
+      <p class="sub">tsc --strict --noEmit, run in the browser (TypeScript <span id="tsv">5.6.3</span>). Library types come from jsDelivr at the import-map versions and are cached locally.</p>
+
+      <div class="bar">
+        <label>Report only files under
+          <input id="only" placeholder="e.g. src/features/portal (empty = all)" spellcheck="false" />
+        </label>
+        <label>Filter results
+          <input id="filter" placeholder="path, TS code or message text" spellcheck="false" />
+        </label>
+      </div>
+      <div class="bar">
+        <button id="run" class="primary">Run check</button>
+        <button id="copy" disabled>Copy report</button>
+        <button id="expand">Collapse all</button>
+        <button id="clear" title="Delete the cached library type files and fetch them again">Clear type cache</button>
+      </div>
+
+      <div class="status" id="status"><span class="spin"></span><span id="statusText">Ready. Press “Run check” (or open with ?auto=1).</span></div>
+      <div class="cards" id="cards"></div>
+      <div id="results"></div>
+      <div class="meta" id="meta"></div>
+    </div>
+
+    <script type="module">
+      const $ = (id) => document.getElementById(id);
+      const params = new URLSearchParams(location.search);
+      const listParam = (k) => (params.get(k) || '').split(',').map((s) => s.trim()).filter(Boolean);
+      const normPrefix = (s) => String(s || '').trim().replace(/\\/g, '/').replace(/^\.?\/+/, '');
+      const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+
+      const state = {
+        full: null,
+        error: null,
+        only: normPrefix(params.get('only')),
+        filter: '',
+        extra: listParam('extra'),
+        loose: listParam('loose'),
+      };
+      $('only').value = state.only;
+      window.__TC_RESULT__ = { done: false, status: 'idle' };
+
+      // ---- worker plumbing
+      const worker = new Worker(new URL('./typecheck.worker.js', import.meta.url), { name: 'typecheck' });
+      const pending = new Map();
+      let seq = 0;
+      worker.onmessage = (e) => {
+        const m = e.data || {};
+        if (m.type === 'progress') return setStatus(m.text, true);
+        const p = pending.get(m.id);
+        if (!p) return;
+        pending.delete(m.id);
+        if (m.type === 'error') p.reject(new Error(m.error));
+        else p.resolve(m.result);
+      };
+      worker.onerror = (e) => {
+        for (const p of pending.values()) p.reject(new Error('Worker error: ' + (e.message || e)));
+        pending.clear();
+      };
+      const callWorker = (type, opts) =>
+        new Promise((resolve, reject) => {
+          const id = ++seq;
+          pending.set(id, { resolve, reject });
+          worker.postMessage({ type, id, opts });
+        });
+
+      function setStatus(text, running) {
+        $('statusText').textContent = text;
+        $('status').classList.toggle('running', !!running);
+        if (running) window.__TC_RESULT__ = { done: false, status: text };
+      }
+
+      // ---- result shaping
+      function shape(full, only) {
+        const byFile = {};
+        let total = 0;
+        for (const [file, list] of Object.entries(full.byFile)) {
+          if (only && file !== '(global)' && !file.startsWith(only)) continue;
+          byFile[file] = list;
+          total += list.filter((d) => d.category === 'error').length;
+        }
+        return { ...full, done: true, only: only || null, total, totalAll: full.total, byFile };
+      }
+
+      function publish() {
+        if (state.error) {
+          window.__TC_RESULT__ = { done: true, error: state.error, total: null, byFile: {}, durationMs: 0, ignoredPackages: state.loose };
+        } else if (state.full) {
+          window.__TC_RESULT__ = shape(state.full, state.only);
+        }
+        return window.__TC_RESULT__;
+      }
+
+      // ---- running (serialized)
+      let chain = Promise.resolve();
+      function runCheck(onlyPrefix, opts = {}) {
+        if (onlyPrefix !== undefined && onlyPrefix !== null) {
+          state.only = normPrefix(onlyPrefix);
+          $('only').value = state.only;
+        }
+        if (opts.extra) state.extra = [].concat(opts.extra);
+        if (opts.loose) state.loose = [].concat(opts.loose);
+        const job = chain.then(async () => {
+          $('run').disabled = true;
+          setStatus('Starting…', true);
+          try {
+            const full = await callWorker('run', { extra: state.extra, loose: state.loose });
+            state.full = full;
+            state.error = null;
+            const t = full.timings;
+            setStatus(
+              `Checked ${full.filesChecked} files in ${(full.durationMs / 1000).toFixed(1)} s ` +
+                `(sources ${(t.sourcesMs / 1000).toFixed(1)} s · types ${(t.typesMs / 1000).toFixed(1)} s, ${full.rounds} rounds, ${full.network} downloads, ${full.cacheHits} cache hits · check ${(t.checkMs / 1000).toFixed(1)} s).`,
+              false,
+            );
+          } catch (err) {
+            state.error = String(err && err.message ? err.message : err);
+            setStatus('Failed.', false);
+          } finally {
+            $('run').disabled = false;
+          }
+          const res = publish();
+          render();
+          return res;
+        });
+        chain = job.catch(() => {});
+        return job;
+      }
+      window.__TC_RUN__ = (onlyPrefix, opts) => runCheck(onlyPrefix, opts);
+
+      // ---- rendering
+      const codeLabel = (c) => (c >= 90000 ? 'TC' : 'TS') + c;
+
+      function visibleGroups() {
+        const res = publish();
+        const q = state.filter.trim().toLowerCase();
+        const groups = [];
+        for (const [file, list] of Object.entries(res.byFile || {})) {
+          const rows = q
+            ? list.filter((d) => file.toLowerCase().includes(q) || codeLabel(d.code).toLowerCase().includes(q) || d.message.toLowerCase().includes(q))
+            : list;
+          if (rows.length) groups.push([file, rows]);
+        }
+        return { res, groups };
+      }
+
+      function render() {
+        const cards = $('cards');
+        const results = $('results');
+        const meta = $('meta');
+        if (state.error) {
+          cards.innerHTML = '';
+          results.innerHTML = `<div class="error">${esc(state.error)}</div>`;
+          meta.innerHTML = '';
+          $('copy').disabled = true;
+          return;
+        }
+        if (!state.full) return;
+        const { res, groups } = visibleGroups();
+        const shown = groups.reduce((n, [, rows]) => n + rows.length, 0);
+        $('tsv').textContent = res.tsVersion;
+        const card = (k, v, cls = '') => `<div class="card ${cls}"><div class="k">${esc(k)}</div><div class="v">${esc(v)}</div></div>`;
+        cards.innerHTML =
+          card(res.only ? `Errors under ${res.only}` : 'Errors', res.total, res.total ? 'bad' : 'good') +
+          card('Files with errors', Object.keys(res.byFile).length) +
+          (res.only ? card('Errors (whole program)', res.totalAll) : '') +
+          card('Files checked', res.filesChecked) +
+          card('Run time', (res.durationMs / 1000).toFixed(1) + ' s') +
+          (state.filter.trim() ? card('Matching filter', shown) : '');
+        if (!groups.length) {
+          results.innerHTML = `<div class="empty">${res.total ? 'No diagnostics match the filter.' : 'No type errors' + (res.only ? ' under ' + esc(res.only) : '') + '.'}</div>`;
+        } else {
+          results.innerHTML = groups
+            .map(([file, rows]) => {
+              const raw = file.startsWith('(') ? '' : `<a class="raw" href="/${esc(file)}?raw" target="_blank" rel="noopener">source</a>`;
+              const trs = rows
+                .map((d) => `<tr><td class="pos">${d.line}:${d.col}</td><td class="code"><span>${codeLabel(d.code)}</span></td><td class="msg">${esc(d.message)}</td></tr>`)
+                .join('');
+              return `<details class="file" open><summary><span>${esc(file)}</span>${raw}<span class="count">${rows.length}</span></summary><table>${trs}</table></details>`;
+            })
+            .join('');
+        }
+        const pk = Object.entries(res.packages || {}).map(([n, v]) => `<li>${esc(n)}@${esc(v)}</li>`).join('');
+        const miss = (res.missingPackages || []).map((m) => `<li>${esc(m.name)} (${esc(m.range)}): ${esc(m.reason)}</li>`).join('');
+        meta.innerHTML =
+          `<details><summary>Library types: ${Object.keys(res.packages || {}).length} packages` +
+          (res.ignoredPackages.length ? ` · declared loosely (any): ${esc(res.ignoredPackages.join(', '))}` : '') +
+          ` · TypeScript ${esc(res.tsVersion)}</summary><ul class="pkgs">${pk}</ul>` +
+          (miss ? `<p>Not available:</p><ul class="pkgs">${miss}</ul>` : '') +
+          `<p>Options: strict, noEmit, jsx react-jsx, module ESNext, moduleResolution Bundler, target ES2022, lib DOM/DOM.Iterable/ES2022, verbatimModuleSyntax, isolatedModules, skipLibCheck, paths @/* → src/*, ambient <code>declare module '*.css'</code>. ` +
+          `TC99000 = source or type fetch problem; TC99001 = bare import that is not in the nobuild.html import map.</p></details>`;
+        $('copy').disabled = false;
+      }
+
+      function reportText() {
+        const { res, groups } = visibleGroups();
+        const lines = [`client-hub type check: ${res.total} error(s)${res.only ? ' under ' + res.only : ''}, ${res.filesChecked} files, TypeScript ${res.tsVersion}`];
+        for (const [file, rows] of groups) {
+          lines.push('', file);
+          for (const d of rows) lines.push(`  ${d.line}:${d.col}  ${codeLabel(d.code)}  ${d.message.replace(/\n/g, '\n      ')}`);
+        }
+        return lines.join('\n');
+      }
+
+      // ---- controls
+      $('run').addEventListener('click', () => runCheck());
+      $('only').addEventListener('change', () => {
+        state.only = normPrefix($('only').value);
+        const u = new URL(location.href);
+        if (state.only) u.searchParams.set('only', state.only);
+        else u.searchParams.delete('only');
+        history.replaceState(null, '', u);
+        render();
+      });
+      $('filter').addEventListener('input', () => {
+        state.filter = $('filter').value;
+        render();
+      });
+      $('copy').addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(reportText());
+          $('copy').textContent = 'Copied';
+        } catch {
+          $('copy').textContent = 'Copy failed';
+        }
+        setTimeout(() => ($('copy').textContent = 'Copy report'), 1500);
+      });
+      $('expand').addEventListener('click', () => {
+        const all = [...document.querySelectorAll('details.file')];
+        const open = all.some((d) => !d.open);
+        all.forEach((d) => (d.open = open));
+        $('expand').textContent = open ? 'Collapse all' : 'Expand all';
+      });
+      $('clear').addEventListener('click', async () => {
+        $('clear').disabled = true;
+        await callWorker('clear-cache');
+        $('clear').disabled = false;
+        setStatus('Type cache cleared. The next run downloads library types again.', false);
+      });
+
+      if (params.get('auto') === '1') runCheck();
+    </script>
+  </body>
+</html>

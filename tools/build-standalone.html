@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Build standalone · Client Hub</title>
+    <style>
+      body { font: 14px/1.5 ui-monospace, Consolas, monospace; margin: 24px; color: #0F172A; background: #F6F8FC; }
+      button { font: inherit; padding: 8px 16px; border-radius: 8px; border: 0; background: #1D4ED8; color: #fff; cursor: pointer; }
+      pre { white-space: pre-wrap; background: #fff; border: 1px solid #E5E9F0; border-radius: 12px; padding: 16px; }
+    </style>
+  </head>
+  <body>
+    <h1>Đóng gói bản chạy độc lập (1 file HTML)</h1>
+    <p>Gom toàn bộ <code>src/</code> (đã dịch TS/JSX sang JS) vào một file HTML mở trực tiếp được, không cần server. Thư viện vẫn tải từ CDN (cần mạng).</p>
+    <button id="run">Đóng gói</button>
+    <pre id="log"></pre>
+    <script type="module">
+      import { transform } from '/vendor/sucrase.mjs';
+
+      const OUT_NAME = 'ClientHub-demo.html';
+      const logEl = document.getElementById('log');
+      const log = (m) => { logEl.textContent += m + '\n'; };
+
+      const RUNTIME = String.raw`
+const FILES = new Set(Object.keys(MODS));
+const cache = Object.create(null);
+function normalize(path) {
+  const out = [];
+  for (const part of path.split('/')) {
+    if (part === '' || part === '.') continue;
+    if (part === '..') out.pop(); else out.push(part);
+  }
+  return '/' + out.join('/');
+}
+function resolve(from, spec) {
+  let base;
+  if (spec.startsWith('@/')) base = '/src/' + spec.slice(2);
+  else if (spec.startsWith('./') || spec.startsWith('../')) base = normalize(from.slice(0, from.lastIndexOf('/')) + '/' + spec);
+  else if (spec.startsWith('/')) base = normalize(spec);
+  else return null;
+  for (const c of [base, base + '.ts', base + '.tsx', base + '.js', base + '/index.ts', base + '/index.tsx']) if (FILES.has(c)) return c;
+  throw new Error('Không tìm thấy module ' + spec + ' (từ ' + from + ')');
+}
+function makeRequire(from) {
+  return function (spec) {
+    const id = resolve(from, spec);
+    if (id === null) {
+      if (!(spec in EXT)) throw new Error('Thiếu thư viện ' + spec);
+      return EXT[spec];
+    }
+    return load(id);
+  };
+}
+function load(id) {
+  if (cache[id]) return cache[id].exports;
+  const module = { exports: {} };
+  cache[id] = module;
+  MODS[id].call(undefined, module.exports, makeRequire(id), module);
+  return module.exports;
+}
+`;
+
+      // NB: never write the HTML comment opener literally in this inline script — it switches the HTML parser
+      // into "escaped script" mode and the element would never close.
+      const COMMENT_OPEN = new RegExp('<' + '!' + '--', 'g');
+      function escapeScript(s) {
+        return s.replace(/<\/script/gi, '<\\/script').replace(COMMENT_OPEN, '<\\u0021--');
+      }
+
+      async function text(url) {
+        const res = await fetch(url, { cache: 'no-store' });
+        if (!res.ok) throw new Error(url + ' → HTTP ' + res.status);
+        return res.text();
+      }
+
+      async function build() {
+        logEl.textContent = '';
+        const t0 = performance.now();
+        const files = await (await fetch('/__ls', { cache: 'no-store' })).json();
+        const nobuild = await text('/nobuild.html');
+        const importMap = JSON.parse(nobuild.match(/<script type="importmap">([\s\S]*?)<\/script>/)[1]);
+        delete importMap.imports['@/'];
+        const externals = Object.keys(importMap.imports).filter((k) => !k.endsWith('/'));
+        const head = nobuild.match(/<head>([\s\S]*?)<\/head>/)[1];
+        const fontLinks = (head.match(/<link[^>]+(fonts\.googleapis|fonts\.gstatic)[^>]*>/g) || []).join('\n    ');
+        const twConfig = (await text('/tailwind.config.js')).replace(/export\s+default/, 'window.tailwind.config =');
+        let favicon = '';
+        try { favicon = 'data:image/svg+xml,' + encodeURIComponent(await text('/favicon.svg')); } catch { /* optional */ }
+
+        const mods = [];
+        let css = '';
+        let count = 0;
+        for (const f of files) {
+          if (/\.(tsx?)$/.test(f)) {
+            const src = await text(f + '?raw');
+            let code;
+            try {
+              code = transform(src, { transforms: ['typescript', 'jsx', 'imports'], jsxRuntime: 'automatic', production: true, filePath: f }).code;
+            } catch (err) {
+              throw new Error('Lỗi dịch ' + f + ': ' + err.message);
+            }
+            mods.push(JSON.stringify(f) + ': function (exports, require, module) {\n' + code + '\n}');
+            count += 1;
+          } else if (f.endsWith('.css')) {
+            css += (await text(f + '?raw')).replace(/^\s*@tailwind\s+[a-z]+;\s*$/gim, '') + '\n';
+            mods.push(JSON.stringify(f) + ': function () {}');
+          }
+        }
+        log('Đã dịch ' + count + ' module.');
+
+        const html = `<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#F6F8FC" />
+    <title>Client Hub · New Era (bản demo)</title>
+    ${favicon ? `<link rel="icon" href="${favicon}" />` : ''}
+    ${fontLinks}
+    <script src="https://cdn.tailwindcss.com/3.4.16"><\/script>
+    <script>${escapeScript(twConfig.replace(/^const c =/m, 'var c ='))}<\/script>
+    <style type="text/tailwindcss">${css.replace(/<\/style/gi, '<\\/style')}</style>
+    <script type="importmap">${JSON.stringify(importMap)}<\/script>
+    <style>
+      #boot { position: fixed; inset: 0; display: grid; place-items: center; font: 15px system-ui; color: #475569; }
+      #boot-error { display: none; position: fixed; inset: 12px; z-index: 99999; overflow: auto; padding: 16px; border-radius: 12px;
+        background: #FEF2F2; color: #7F1D1D; font: 13px/1.5 ui-monospace, Consolas, monospace; border: 1px solid #FECACA; white-space: pre-wrap; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <div id="boot">Đang tải Client Hub…</div>
+    <div id="boot-error" role="alert"></div>
+    <script type="module">
+      window.__CH_STANDALONE__ = true;
+      const showError = (m) => { const el = document.getElementById('boot-error'); el.style.display = 'block'; el.textContent += m + '\\n'; };
+      try {
+        const EXT = {};
+        const NAMES = ${JSON.stringify(externals)};
+        const loaded = await Promise.all(NAMES.map((n) => import(n)));
+        NAMES.forEach((n, i) => { EXT[n] = loaded[i]; });
+        const MODS = {
+${escapeScript(mods.join(',\n'))}
+        };
+${escapeScript(RUNTIME)}
+        load('/src/main.tsx');
+        document.getElementById('boot').remove();
+      } catch (err) {
+        document.getElementById('boot')?.remove();
+        showError('Không khởi động được: ' + (err && err.stack ? err.stack : err) + '\\nCần kết nối mạng để tải thư viện (esm.sh, Tailwind CDN, Google Fonts).');
+      }
+    <\/script>
+  </body>
+</html>
+`;
+        const res = await fetch('/__save?name=' + OUT_NAME, { method: 'POST', body: html });
+        if (!res.ok) throw new Error('Lưu file thất bại: HTTP ' + res.status);
+        const info = await res.json();
+        const ms = Math.round(performance.now() - t0);
+        log('Đã lưu dist/' + OUT_NAME + ' (' + Math.round(info.bytes / 1024) + ' KB) trong ' + ms + ' ms.');
+        window.__BUILD_RESULT__ = { ok: true, bytes: info.bytes, modules: count, ms };
+      }
+
+      document.getElementById('run').addEventListener('click', () => {
+        build().catch((err) => { log('LỖI: ' + err.message); window.__BUILD_RESULT__ = { ok: false, error: err.message }; });
+      });
+      if (new URLSearchParams(location.search).has('auto')) document.getElementById('run').click();
+    </script>
+  </body>
+</html>

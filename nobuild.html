@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#F6F8FC" />
+    <title>Client Hub · New Era</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap"
+    />
+    <!--
+      No-build runtime (this machine cannot run Node):
+      - Tailwind Play CDN reads tailwind.config.js (same file the Vite build uses)
+      - sw.js transpiles /src/**/*.tsx with sucrase; the import map below mirrors package.json
+      A normal machine uses index.html + Vite instead (npm install && npm run dev).
+    -->
+    <script src="https://cdn.tailwindcss.com/3.4.16"></script>
+    <script type="importmap">
+      {
+        "imports": {
+          "react": "https://esm.sh/react@18.3.1?dev",
+          "react/jsx-runtime": "https://esm.sh/react@18.3.1/jsx-runtime?dev",
+          "react-dom": "https://esm.sh/react-dom@18.3.1?dev&external=react",
+          "react-dom/client": "https://esm.sh/react-dom@18.3.1/client?dev&external=react,react-dom",
+          "react-router-dom": "https://esm.sh/react-router-dom@6.28.0?external=react,react-dom",
+          "radix-ui": "https://esm.sh/radix-ui@1.4.3?external=react,react-dom",
+          "lucide-react": "https://esm.sh/lucide-react@0.468.0?external=react",
+          "recharts": "https://esm.sh/recharts@2.15.0?external=react,react-dom",
+          "sonner": "https://esm.sh/sonner@1.7.1?external=react,react-dom",
+          "clsx": "https://esm.sh/clsx@2.1.1",
+          "tailwind-merge": "https://esm.sh/tailwind-merge@2.5.5",
+          "class-variance-authority": "https://esm.sh/class-variance-authority@0.7.1?external=clsx",
+          "@/": "/src/"
+        }
+      }
+    </script>
+    <style>
+      #boot-error { display: none; position: fixed; inset: 12px; z-index: 99999; overflow: auto; padding: 16px; border-radius: 12px;
+        background: #FEF2F2; color: #7F1D1D; font: 13px/1.5 ui-monospace, Consolas, monospace; border: 1px solid #FECACA; white-space: pre-wrap; }
+      #boot-error.show { display: block; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <div id="boot-error" role="alert"></div>
+    <script type="module">
+      import config from '/tailwind.config.js';
+      window.tailwind.config = config;
+
+      const errBox = document.getElementById('boot-error');
+      const showError = (msg) => {
+        errBox.textContent += (errBox.textContent ? '\n\n' : '') + msg;
+        errBox.classList.add('show');
+      };
+      window.__showBootError = showError;
+      window.addEventListener('error', (e) => {
+        if (!document.getElementById('root').hasChildNodes()) showError('[error] ' + (e.error?.stack || e.message));
+      });
+      window.addEventListener('unhandledrejection', (e) => {
+        if (!document.getElementById('root').hasChildNodes()) showError('[unhandledrejection] ' + (e.reason?.stack || e.reason));
+      });
+
+      async function ensureController() {
+        if (!('serviceWorker' in navigator)) throw new Error('Trình duyệt không hỗ trợ Service Worker.');
+        const reg = await navigator.serviceWorker.register('/sw.js', { type: 'module', scope: '/' });
+        if (navigator.serviceWorker.controller) return;
+        await navigator.serviceWorker.ready;
+        if (navigator.serviceWorker.controller) return;
+        await new Promise((resolve) => {
+          navigator.serviceWorker.addEventListener('controllerchange', resolve, { once: true });
+          (reg.active || reg.waiting || reg.installing)?.postMessage('claim');
+          setTimeout(resolve, 3000);
+        });
+        if (!navigator.serviceWorker.controller) {
+          if (!sessionStorage.getItem('ch-sw-reload')) {
+            sessionStorage.setItem('ch-sw-reload', '1');
+            location.reload();
+            await new Promise(() => {});
+          }
+          throw new Error('Service Worker chưa điều khiển được trang. Hãy tải lại trang.');
+        }
+      }
+
+      try {
+        await ensureController();
+        sessionStorage.removeItem('ch-sw-reload');
+        await import('/src/main.tsx');
+      } catch (err) {
+        showError('[boot] ' + (err?.stack || err));
+      }
+    </script>
+  </body>
+</html>

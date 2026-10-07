@@ -1,0 +1,146 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Blue–white palette (section 7). Channels are "R G B" for Tailwind alpha support. */
+    --background: 246 248 252; /* #F6F8FC page */
+    --card: 255 255 255; /* #FFFFFF */
+    --foreground: 15 23 42; /* #0F172A primary text */
+    --muted-foreground: 71 85 105; /* #475569 secondary text */
+    /* captions: SPEC's #64748B darkened to #5E6E84 so 13px captions keep ≥ 4.5:1 (WCAG AA) on every tinted
+       background too (#F6F8FC 4.89, #F1F4F9 4.72, #EEF3FF 4.68, status/note softs ≥ 4.75; white 5.2) */
+    --caption: 94 110 132; /* #5E6E84 */
+    --border: 229 233 240; /* #E5E9F0 */
+    --muted: 241 244 249; /* #F1F4F9 subtle fill (hover rows, chips) */
+    --primary: 29 78 216; /* #1D4ED8 */
+    --primary-hover: 30 64 175; /* #1E40AF */
+    --primary-soft: 238 243 255; /* #EEF3FF */
+    --primary-border: 199 215 254; /* #C7D7FE */
+    --primary-foreground: 255 255 255;
+    /* Executive Calm refresh (DESIGN.md) */
+    --subtle: 248 250 252; /* #F8FAFC table headers, inset panels */
+    --sidebar: 255 255 255; /* sidebar surface (white on the #F6F8FC page) */
+    --border-strong: 213 220 230; /* #D5DCE6 inputs, dividers that must read */
+    --ink: 11 18 32; /* #0B1220 display numbers / page titles */
+    --chart-1: 29 78 216; /* #1D4ED8 */
+    --chart-2: 96 140 245; /* #608CF5 */
+    --chart-3: 165 190 250; /* #A5BEFA */
+    --chart-4: 214 225 253; /* #D6E1FD */
+    --success: 21 128 61; /* #15803D */
+    --success-soft: 236 253 243; /* #ECFDF3 */
+    --warning: 180 83 9; /* #B45309 */
+    --warning-soft: 255 247 230; /* #FFF7E6 */
+    --danger: 185 28 28; /* #B91C1C */
+    --danger-soft: 254 242 242; /* #FEF2F2 */
+    --note: 255 251 235; /* #FFFBEB internal note */
+    --note-border: 253 230 138; /* #FDE68A */
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    @apply bg-background font-sans text-body text-foreground antialiased;
+    font-feature-settings: 'cv11';
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  :focus-visible {
+    outline: 2px solid rgb(var(--primary));
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+
+  [role='button'],
+  button,
+  a {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  h1,
+  h2,
+  h3 {
+    letter-spacing: -0.01em;
+  }
+}
+
+@layer utilities {
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+  .skeleton {
+    background: linear-gradient(90deg, rgb(var(--muted)) 0px, rgb(236 240 246) 120px, rgb(var(--muted)) 240px);
+    background-size: 800px 100%;
+    animation: shimmer 1.4s linear infinite;
+    border-radius: 8px;
+  }
+  .scrollbar-thin {
+    scrollbar-width: thin;
+  }
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  /* Edge fade of a horizontal scroller (tab strips, chip rows) while content is cut off on that side — the cue that
+     it scrolls. `useScrollFade` (components/ui/use-scroll-fade.ts) keeps data-fade up to date. */
+  .scroll-fade-x[data-fade='end'] {
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent);
+  }
+  .scroll-fade-x[data-fade='start'] {
+    -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 40px), transparent);
+    mask-image: linear-gradient(to left, #000 calc(100% - 40px), transparent);
+  }
+  .scroll-fade-x[data-fade='both'] {
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 40px, #000 calc(100% - 40px), transparent);
+    mask-image: linear-gradient(to right, transparent, #000 40px, #000 calc(100% - 40px), transparent);
+  }
+}
+
+/* Touch screens — phones AND iPad (SPEC §7: 44px tap targets; iPad is the C-level device). The kit switches to
+   compact desktop sizes from md (768px); on a coarse pointer these opt-in classes keep every control 44px.
+   Plain CSS after the utilities (and !important) so it wins over md:h-8 / md:min-h-0. */
+@media (pointer: coarse) {
+  .touch-tap {
+    min-height: 44px !important;
+  }
+  .touch-tap-square {
+    min-height: 44px !important;
+    min-width: 44px !important;
+  }
+}
+
+/* Reduced motion: animations end at once (Radix still gets its animationend) and nothing transitions. A 0s
+   duration matters: transition-property defaults to `all`, so any non-zero duration here would start a transition
+   on EVERY property change of EVERY element (e.g. when the Tailwind CDN adds a class's rule after first paint). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0s !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media print {
+  body {
+    background: #fff;
+  }
+  .no-print {
+    display: none !important;
+  }
+}

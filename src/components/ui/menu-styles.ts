@@ -1,0 +1,14 @@
+// Shared look of floating menus (DropdownMenu, Select, Command lists) — DESIGN.md §4: rounded-xl panel with
+// shadow-pop, 8px item radius, 36px items with the mouse (44px on phones), 16px icons in the secondary colour.
+
+export const menuPanelBase =
+  'z-50 overflow-hidden rounded-xl border border-border/70 bg-popover p-1.5 text-popover-foreground shadow-pop data-[state=open]:animate-pop-in data-[state=closed]:animate-fade-out';
+
+// touch-tap (index.css): 44px rows on every touch screen, iPad included
+export const menuItemBase =
+  'touch-tap relative flex min-h-tap cursor-default select-none items-center gap-2.5 rounded-lg px-2.5 py-2 text-table text-foreground outline-none transition-colors duration-100 focus:bg-muted data-[highlighted]:bg-muted data-[disabled]:pointer-events-none data-[disabled]:opacity-50 md:min-h-9 md:py-1.5 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0';
+
+/** Group heading inside a menu (12px, secondary colour). */
+export const menuLabelBase = 'px-2.5 pb-1 pt-2 text-micro font-medium text-muted-foreground';
+
+export const menuSeparatorBase = '-mx-1.5 my-1.5 h-px bg-border/70';
