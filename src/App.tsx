@@ -1,5 +1,5 @@
 // Routes (ARCHITECTURE §12). Owner G1.
-import { BrowserRouter, HashRouter, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, HashRouter, MemoryRouter, Route, Routes } from 'react-router-dom';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Toaster } from '@/components/ui/sonner';
 import { PortalProjectProvider } from '@/hooks/usePortalProject';
@@ -35,7 +35,22 @@ import { ProjectsPage } from '@/features/projects/ProjectsPage';
 import { ClientMapPage } from '@/features/clientmap/ClientMapPage';
 
 // The single-file demo (tools/build-standalone.html) opens from file:// where only hash URLs work.
-const Router = (window as { __CH_STANDALONE__?: boolean }).__CH_STANDALONE__ ? HashRouter : BrowserRouter;
+// Pages injected through an iframe srcdoc (some file previewers) live at about:srcdoc, where URLs and pushState
+// throw — keep the routing in memory there.
+function canUseHistory(): boolean {
+  try {
+    if (window.location.protocol === 'about:') return false;
+    window.history.replaceState(window.history.state, '');
+    return true;
+  } catch {
+    return false;
+  }
+}
+const Router = !canUseHistory()
+  ? MemoryRouter
+  : (window as { __CH_STANDALONE__?: boolean }).__CH_STANDALONE__
+    ? HashRouter
+    : BrowserRouter;
 
 export function App() {
   return (

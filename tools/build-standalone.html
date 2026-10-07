@@ -6,22 +6,76 @@
     <style>
       body { font: 14px/1.5 ui-monospace, Consolas, monospace; margin: 24px; color: #0F172A; background: #F6F8FC; }
       button { font: inherit; padding: 8px 16px; border-radius: 8px; border: 0; background: #1D4ED8; color: #fff; cursor: pointer; }
+      a { color: #1D4ED8; margin-left: 12px; }
       pre { white-space: pre-wrap; background: #fff; border: 1px solid #E5E9F0; border-radius: 12px; padding: 16px; }
     </style>
   </head>
   <body>
     <h1>Đóng gói bản chạy độc lập (1 file HTML)</h1>
-    <p>Gom toàn bộ <code>src/</code> (đã dịch TS/JSX sang JS) vào một file HTML mở trực tiếp được, không cần server. Thư viện vẫn tải từ CDN (cần mạng).</p>
-    <button id="run">Đóng gói</button>
+    <p id="desc"></p>
+    <p><button id="run">Đóng gói</button><a id="switch" href="#"></a></p>
     <pre id="log"></pre>
     <script type="module">
       import { transform } from '/vendor/sucrase.mjs';
 
-      const OUT_NAME = 'ClientHub-demo.html';
+      // Modes:
+      //  - standalone (default): everything inlined — app modules, every import-map package (vendored from esm.sh with
+      //    ?bundle&target=es2022, the whole module graph crawled), Tailwind Play CDN and the Be Vietnam Pro woff2 files.
+      //    The output makes no network request, so it works offline, in sandboxed file previewers and on any static host.
+      //  - cdn (?mode=cdn): the old output — app modules inlined, libraries from esm.sh via an import map, Tailwind and
+      //    fonts from their CDNs (needs network). Written to a separate file so it never overwrites the standalone one.
+      const params = new URLSearchParams(location.search);
+      const MODE = params.get('mode') === 'cdn' ? 'cdn' : 'standalone';
+      const OUT_NAME = MODE === 'cdn' ? 'ClientHub-demo-cdn.html' : 'ClientHub-demo.html';
+
+      const TAILWIND_CDN = 'https://cdn.tailwindcss.com/3.4.16';
+      // cdn.tailwindcss.com sends no CORS headers, so the browser cannot fetch it: the builder reads this byte-for-byte
+      // copy of TAILWIND_CDN first. Refresh it with PowerShell:
+      //   Invoke-WebRequest https://cdn.tailwindcss.com/3.4.16 -OutFile client-hub/vendor/tailwindcss-play-3.4.16.js
+      const TAILWIND_LOCAL = '/vendor/tailwindcss-play-3.4.16.js';
+      const FONT_CSS = 'https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap';
+      const FONT_SUBSETS = ['vietnamese', 'latin-ext', 'latin'];
+      // Vendor modules get their (sucrase-generated) require calls renamed to this, so a library's own `require`
+      // variable (esm.sh injects `var require = …` into CJS conversions) can never shadow the registry's loader, and
+      // `typeof require` inside a library stays "undefined" exactly as in a real ES module.
+      const VENDOR_REQ = '__ch_import__';
+
       const logEl = document.getElementById('log');
       const log = (m) => { logEl.textContent += m + '\n'; };
+      const kb = (n) => (n / 1024).toFixed(n < 10240 ? 1 : 0) + ' KB';
+      const has = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
 
-      const RUNTIME = String.raw`
+      document.getElementById('desc').textContent = MODE === 'cdn'
+        ? 'Chế độ CDN: gom src/ vào một file HTML; thư viện, Tailwind và phông vẫn tải từ CDN (cần mạng). Kết quả: dist/' + OUT_NAME + '.'
+        : 'Chế độ độc lập: gom src/, thư viện (React, Radix, Recharts…), Tailwind và phông Be Vietnam Pro vào một file HTML — không cần mạng, mở được trong trình xem file. Kết quả: dist/' + OUT_NAME + '.';
+      const sw = document.getElementById('switch');
+      sw.textContent = MODE === 'cdn' ? '→ chế độ độc lập (mặc định)' : '→ chế độ CDN (?mode=cdn)';
+      sw.href = MODE === 'cdn' ? location.pathname : location.pathname + '?mode=cdn';
+
+      // URL resolution shared by the builder (crawl) and the generated runtime, so both agree on every module id.
+      const RESOLVE_URL_SRC = String.raw`
+function resolveUrl(parent, spec) {
+  if (/^[a-z][a-z0-9+.-]*:/i.test(spec)) return spec;
+  const m = /^([a-z][a-z0-9+.-]*:)(\/\/[^/?#]*)([^?#]*)/i.exec(parent);
+  if (!m) throw new Error('Không phân giải được ' + spec + ' từ ' + parent);
+  if (spec.startsWith('//')) return m[1] + spec;
+  if (spec.charAt(0) === '/') return m[1] + m[2] + spec;
+  const cut = spec.search(/[?#]/);
+  const path = cut < 0 ? spec : spec.slice(0, cut);
+  const out = [];
+  const parts = (m[3].slice(0, m[3].lastIndexOf('/') + 1) + path).split('/');
+  for (let i = 0; i < parts.length; i++) {
+    if (parts[i] === '..') out.pop();
+    else if (parts[i] !== '.' && parts[i] !== '') out.push(parts[i]);
+  }
+  const joined = out.join('/');
+  const dir = joined !== '' && /(^|\/)\.{0,2}$/.test(path);
+  return m[1] + m[2] + '/' + joined + (dir ? '/' : '') + (cut < 0 ? '' : spec.slice(cut));
+}
+`;
+      const resolveUrl = new Function(RESOLVE_URL_SRC + '\nreturn resolveUrl;')();
+
+      const RUNTIME_CDN = String.raw`
 const FILES = new Set(Object.keys(MODS));
 const cache = Object.create(null);
 function normalize(path) {
@@ -60,11 +114,63 @@ function load(id) {
 }
 `;
 
+      // Self-contained registry. Ids: app modules = '/src/…' paths; vendor modules = absolute URLs
+      // (https://esm.sh/…). Bare specifiers (from app or vendor code) go through BARE (import-map key → vendor id).
+      const RUNTIME_STANDALONE = String.raw`
+const hasOwn = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+const cache = Object.create(null);
+${RESOLVE_URL_SRC}
+function normalize(path) {
+  const out = [];
+  for (const part of path.split('/')) {
+    if (part === '' || part === '.') continue;
+    if (part === '..') out.pop(); else out.push(part);
+  }
+  return '/' + out.join('/');
+}
+function resolve(from, spec) {
+  let id;
+  if (from.charAt(0) === '/') {
+    let base = null;
+    if (spec.startsWith('@/')) base = '/src/' + spec.slice(2);
+    else if (spec.startsWith('./') || spec.startsWith('../')) base = normalize(from.slice(0, from.lastIndexOf('/')) + '/' + spec);
+    else if (spec.charAt(0) === '/') base = normalize(spec);
+    if (base !== null) {
+      for (const c of [base, base + '.ts', base + '.tsx', base + '.js', base + '/index.ts', base + '/index.tsx']) if (hasOwn(MODS, c)) return c;
+      throw new Error('Không tìm thấy module ' + spec + ' (từ ' + from + ')');
+    }
+  } else if (/^(\.{0,2}\/|[a-z][a-z0-9+.-]*:)/i.test(spec)) {
+    id = resolveUrl(from, spec);
+  }
+  if (id === undefined) {
+    if (!hasOwn(BARE, spec)) throw new Error('Thiếu thư viện ' + spec + ' (từ ' + from + ')');
+    id = BARE[spec];
+  }
+  if (hasOwn(ALIAS, id)) id = ALIAS[id];
+  if (!hasOwn(MODS, id)) throw new Error('Không tìm thấy module ' + id + ' (từ ' + from + ')');
+  return id;
+}
+function makeRequire(from) {
+  return function (spec) { return load(resolve(from, spec)); };
+}
+function load(id) {
+  const hit = cache[id];
+  if (hit) return hit.exports;
+  const module = { exports: {} };
+  cache[id] = module;
+  MODS[id].call(undefined, module.exports, makeRequire(id), module);
+  return module.exports;
+}
+`;
+
       // NB: never write the HTML comment opener literally in this inline script — it switches the HTML parser
       // into "escaped script" mode and the element would never close.
       const COMMENT_OPEN = new RegExp('<' + '!' + '--', 'g');
       function escapeScript(s) {
         return s.replace(/<\/script/gi, '<\\/script').replace(COMMENT_OPEN, '<\\u0021--');
+      }
+      function escapeStyle(s) {
+        return s.replace(/<\/style/gi, '<\\/style');
       }
 
       async function text(url) {
@@ -73,23 +179,46 @@ function load(id) {
         return res.text();
       }
 
-      async function build() {
-        logEl.textContent = '';
-        const t0 = performance.now();
-        const files = await (await fetch('/__ls', { cache: 'no-store' })).json();
-        const nobuild = await text('/nobuild.html');
-        const importMap = JSON.parse(nobuild.match(/<script type="importmap">([\s\S]*?)<\/script>/)[1]);
-        delete importMap.imports['@/'];
-        const externals = Object.keys(importMap.imports).filter((k) => !k.endsWith('/'));
-        const head = nobuild.match(/<head>([\s\S]*?)<\/head>/)[1];
-        const fontLinks = (head.match(/<link[^>]+(fonts\.googleapis|fonts\.gstatic)[^>]*>/g) || []).join('\n    ');
-        const twConfig = (await text('/tailwind.config.js')).replace(/export\s+default/, 'window.tailwind.config =');
-        let favicon = '';
-        try { favicon = 'data:image/svg+xml,' + encodeURIComponent(await text('/favicon.svg')); } catch { /* optional */ }
+      // Remote fetch with a couple of retries (esm.sh builds some files on first request).
+      async function fetchOk(url) {
+        let lastErr;
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          try {
+            const res = await fetch(url);
+            if (res.ok) return res;
+            lastErr = new Error(url + ' → HTTP ' + res.status);
+            if (res.status < 500 && res.status !== 429) break;
+          } catch (err) {
+            lastErr = new Error(url + ' → ' + (err && err.message ? err.message : err));
+          }
+          await new Promise((r) => setTimeout(r, 500 * attempt));
+        }
+        throw lastErr;
+      }
 
+      // Throws a clear error when transformed code cannot run as a registry function body.
+      function assertCompiles(id, code, args) {
+        try {
+          new Function(...args, code);
+        } catch (err) {
+          let tla = false;
+          try {
+            const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+            new AsyncFunction(...args, code);
+            tla = true;
+          } catch { /* a real syntax error */ }
+          throw new Error(tla
+            ? id + ' dùng top-level await — không gói được vào registry đồng bộ (cần bản không dùng top-level await).'
+            : 'Lỗi cú pháp sau khi dịch ' + id + ': ' + err.message);
+        }
+      }
+
+      async function collectApp() {
+        const files = await (await fetch('/__ls', { cache: 'no-store' })).json();
         const mods = [];
         let css = '';
         let count = 0;
+        let bytes = 0;
         for (const f of files) {
           if (/\.(tsx?)$/.test(f)) {
             const src = await text(f + '?raw');
@@ -99,16 +228,197 @@ function load(id) {
             } catch (err) {
               throw new Error('Lỗi dịch ' + f + ': ' + err.message);
             }
+            if (MODE === 'standalone') assertCompiles(f, code, ['exports', 'require', 'module']);
             mods.push(JSON.stringify(f) + ': function (exports, require, module) {\n' + code + '\n}');
             count += 1;
+            bytes += code.length;
           } else if (f.endsWith('.css')) {
             css += (await text(f + '?raw')).replace(/^\s*@tailwind\s+[a-z]+;\s*$/gim, '') + '\n';
             mods.push(JSON.stringify(f) + ': function () {}');
           }
         }
-        log('Đã dịch ' + count + ' module.');
+        return { mods, css, count, bytes };
+      }
 
-        const html = `<!doctype html>
+      async function loadCommon() {
+        const nobuild = await text('/nobuild.html');
+        const importMap = JSON.parse(nobuild.match(/<script type="importmap">([\s\S]*?)<\/script>/)[1]);
+        delete importMap.imports['@/'];
+        const head = nobuild.match(/<head>([\s\S]*?)<\/head>/)[1];
+        const twConfig = (await text('/tailwind.config.js'))
+          .replace(/export\s+default/, 'window.tailwind.config =')
+          .replace(/^const c =/m, 'var c =');
+        let favicon = '';
+        try { favicon = 'data:image/svg+xml,' + encodeURIComponent(await text('/favicon.svg')); } catch { /* optional */ }
+        return { importMap, head, twConfig, favicon };
+      }
+
+      // ---------- vendor (import map → inlined esm.sh module graph) ----------
+
+      // Import-map URL → esm.sh bundle URL: drop `dev`, add `bundle` + `target=es2022`, keep `external=`.
+      // react/jsx-runtime also gets external=react so the whole page shares ONE React instance.
+      function vendorEntryUrl(key, mapUrl) {
+        const cut = mapUrl.indexOf('?');
+        const base = cut < 0 ? mapUrl : mapUrl.slice(0, cut);
+        if (!/^https:\/\/esm\.sh\//.test(base)) throw new Error('Import map "' + key + '" không trỏ tới esm.sh (' + mapUrl + ') — chế độ độc lập chỉ hỗ trợ esm.sh.');
+        const q = (cut < 0 ? [] : mapUrl.slice(cut + 1).split('&'))
+          .filter(Boolean)
+          .map((p) => { const i = p.indexOf('='); return i < 0 ? [p, ''] : [p.slice(0, i), p.slice(i + 1)]; })
+          .filter(([k]) => k !== 'dev' && k !== 'bundle' && k !== 'target');
+        if (key === 'react/jsx-runtime') {
+          const ext = q.find(([k]) => k === 'external');
+          if (!ext) q.push(['external', 'react']);
+          else if (!ext[1].split(',').includes('react')) ext[1] = ext[1] ? ext[1] + ',react' : 'react';
+        }
+        q.push(['bundle', ''], ['target', 'es2022']);
+        return base + '?' + q.map(([k, v]) => (v === '' ? k : k + '=' + v)).join('&');
+      }
+
+      // ESM source → registry function body (sucrase 'imports'), plus the specifiers it imports.
+      function transformVendor(id, src) {
+        if (src.includes(VENDOR_REQ)) throw new Error(id + ' chứa sẵn "' + VENDOR_REQ + '" — không viết lại an toàn được.');
+        if (/\brequire\('/.test(src)) throw new Error(id + " chứa require('…') — không phân biệt được với import đã dịch.");
+        let code = src
+          .replace(/^\/\/# sourceMappingURL=.*$/gm, '')
+          .replace(/\bimport\.meta\.url\b/g, JSON.stringify(id))
+          .replace(/\bimport\.meta\b/g, '({ url: ' + JSON.stringify(id) + ' })');
+        try {
+          code = transform(code, { transforms: ['imports'], disableESTransforms: true, filePath: id }).code;
+        } catch (err) {
+          throw new Error('Lỗi dịch thư viện ' + id + ': ' + err.message);
+        }
+        const deps = [];
+        // static imports / export-from / side-effect imports: sucrase emits require('<spec>')
+        code = code.replace(/\brequire\('((?:[^'\\\r\n]|\\.)*)'\)/g, (all, spec) => {
+          deps.push(spec);
+          return VENDOR_REQ + "('" + spec + "')";
+        });
+        // dynamic import("…"): sucrase emits Promise.resolve().then(() => _interopRequireWildcard(require(<arg>)))
+        const DYN = /Promise\.resolve\(\)\.then\(\(\) => (?:_interopRequireWildcard\d*\()?require\(/g;
+        let out = '';
+        let last = 0;
+        let m;
+        while ((m = DYN.exec(code))) {
+          const argAt = m.index + m[0].length;
+          const lit = /^\s*(["'])((?:(?!\1)[^\\\r\n])*)\1\s*\)/.exec(code.slice(argAt, argAt + 4096));
+          if (!lit) throw new Error(id + ' dùng import() với đường dẫn tính lúc chạy — không đóng gói được.');
+          deps.push(lit[2]);
+          out += code.slice(last, argAt - 'require('.length) + VENDOR_REQ + '(';
+          last = argAt;
+        }
+        code = out + code.slice(last);
+        assertCompiles(id, code, ['exports', VENDOR_REQ]);
+        return { code, deps: [...new Set(deps)] };
+      }
+
+      async function vendorize(importMap) {
+        const BARE = {};
+        for (const [key, url] of Object.entries(importMap.imports)) {
+          if (key.endsWith('/')) throw new Error('Import map có tiền tố "' + key + '" — chế độ độc lập chưa hỗ trợ.');
+          BARE[key] = vendorEntryUrl(key, url);
+        }
+        const mods = new Map();
+        const ALIAS = {};
+        const visits = new Map();
+        const resolveSpec = (parent, spec) => {
+          if (/^(\.{0,2}\/|[a-z][a-z0-9+.-]*:)/i.test(spec)) return resolveUrl(parent, spec);
+          if (has(BARE, spec)) return BARE[spec];
+          throw new Error(parent + ' import "' + spec + '" — thư viện này không có trong import map của nobuild.html nên không đóng gói được.');
+        };
+        const visit = (id, from) => {
+          if (!visits.has(id)) {
+            visits.set(id, (async () => {
+              let res;
+              try {
+                res = await fetchOk(id);
+              } catch (err) {
+                throw new Error(err.message + (from ? ' (import từ ' + from + ')' : ''));
+              }
+              let mid = id;
+              if (res.redirected && res.url && res.url !== id) { mid = res.url; ALIAS[id] = mid; }
+              if (mods.has(mid)) return;
+              const { code, deps } = transformVendor(mid, await res.text());
+              mods.set(mid, code);
+              log('  + ' + mid.replace(/^https:\/\/esm\.sh/, '') + ' (' + kb(code.length) + ')');
+              await Promise.all(deps.map((spec) => visit(resolveSpec(mid, spec), mid)));
+            })());
+          }
+          return visits.get(id);
+        };
+        await Promise.all(Object.values(BARE).map((id) => visit(id, null)));
+
+        const ids = [...mods.keys()].sort();
+        const reactCopies = ids.filter((id) => /\/react@[^/]+\/(?:[^?]*\/)?react(?:\.bundle)?\.m?js(?:\?|$)/.test(id));
+        if (reactCopies.length > 1) throw new Error('Có ' + reactCopies.length + ' bản React trong gói thư viện:\n  ' + reactCopies.join('\n  '));
+        if (reactCopies.length === 0) log('  (cảnh báo) không nhận ra module React nào trong gói thư viện.');
+        let bytes = 0;
+        const entries = ids.map((id) => {
+          const code = mods.get(id);
+          bytes += code.length;
+          return JSON.stringify(id) + ': function (exports, ' + VENDOR_REQ + ') {\n' + code + '\n}';
+        });
+        return { BARE, ALIAS, entries, count: ids.length, bytes, ids };
+      }
+
+      // ---------- Tailwind + fonts ----------
+
+      async function loadTailwind() {
+        for (const src of [TAILWIND_LOCAL, TAILWIND_CDN]) {
+          try {
+            const res = await fetch(src, src === TAILWIND_LOCAL ? { cache: 'no-store' } : undefined);
+            if (!res.ok) continue;
+            const js = await res.text();
+            if (js.length > 100000 && js.includes('text/tailwindcss')) return { js, src };
+          } catch { /* try the next source */ }
+        }
+        throw new Error('Không lấy được Tailwind Play CDN 3.4.16 (' + TAILWIND_CDN + ' không cho CORS). Tải bản sao bằng PowerShell:\n'
+          + '  Invoke-WebRequest ' + TAILWIND_CDN + ' -OutFile client-hub/vendor/tailwindcss-play-3.4.16.js');
+      }
+
+      function blobToDataUrl(blob) {
+        return new Promise((resolve, reject) => {
+          const fr = new FileReader();
+          fr.onload = () => resolve(fr.result);
+          fr.onerror = () => reject(fr.error);
+          fr.readAsDataURL(blob);
+        });
+      }
+
+      // Google Fonts CSS → keep vietnamese / latin-ext / latin faces, woff2 inlined as data: URLs.
+      async function inlineFonts() {
+        const css = await (await fetchOk(FONT_CSS)).text();
+        const faces = [];
+        const re = /\/\*\s*([a-z0-9-]+)\s*\*\/\s*(@font-face\s*\{[^}]*\})/gi;
+        let m;
+        while ((m = re.exec(css))) if (FONT_SUBSETS.includes(m[1].toLowerCase())) faces.push(m[2]);
+        if (!faces.length) throw new Error('Google Fonts không trả về @font-face nào cho ' + FONT_SUBSETS.join(', ') + '.');
+        const URL_RE = /url\((['"]?)(https:\/\/fonts\.gstatic\.com\/[^'")]+)\1\)/;
+        const urls = [...new Set(faces.map((f) => {
+          const u = URL_RE.exec(f);
+          if (!u) throw new Error('@font-face không có URL fonts.gstatic.com:\n' + f);
+          return u[2];
+        }))];
+        let bytes = 0;
+        const data = new Map(await Promise.all(urls.map(async (u) => {
+          const blob = await (await fetchOk(u)).blob();
+          bytes += blob.size;
+          return [u, await blobToDataUrl(new Blob([blob], { type: 'font/woff2' }))];
+        })));
+        const out = faces.map((f) => f.replace(URL_RE, (all, q, u) => 'url(' + data.get(u) + ')'));
+        return { css: out.join('\n'), faces: faces.length, files: urls.length, bytes };
+      }
+
+      // ---------- HTML ----------
+
+      const BOOT_STYLE = `
+      #boot { position: fixed; inset: 0; display: grid; place-items: center; font: 15px system-ui; color: #475569; }
+      #boot-error { display: none; position: fixed; inset: 12px; z-index: 99999; overflow: auto; padding: 16px; border-radius: 12px;
+        background: #FEF2F2; color: #7F1D1D; font: 13px/1.5 ui-monospace, Consolas, monospace; border: 1px solid #FECACA; white-space: pre-wrap; }`;
+
+      function htmlCdn({ importMap, head, twConfig, favicon, app }) {
+        const externals = Object.keys(importMap.imports).filter((k) => !k.endsWith('/'));
+        const fontLinks = (head.match(/<link[^>]+(fonts\.googleapis|fonts\.gstatic)[^>]*>/g) || []).join('\n    ');
+        return `<!doctype html>
 <html lang="vi">
   <head>
     <meta charset="UTF-8" />
@@ -117,14 +427,11 @@ function load(id) {
     <title>Client Hub · New Era (bản demo)</title>
     ${favicon ? `<link rel="icon" href="${favicon}" />` : ''}
     ${fontLinks}
-    <script src="https://cdn.tailwindcss.com/3.4.16"><\/script>
-    <script>${escapeScript(twConfig.replace(/^const c =/m, 'var c ='))}<\/script>
-    <style type="text/tailwindcss">${css.replace(/<\/style/gi, '<\\/style')}</style>
+    <script src="${TAILWIND_CDN}"><\/script>
+    <script>${escapeScript(twConfig)}<\/script>
+    <style type="text/tailwindcss">${escapeStyle(app.css)}</style>
     <script type="importmap">${JSON.stringify(importMap)}<\/script>
-    <style>
-      #boot { position: fixed; inset: 0; display: grid; place-items: center; font: 15px system-ui; color: #475569; }
-      #boot-error { display: none; position: fixed; inset: 12px; z-index: 99999; overflow: auto; padding: 16px; border-radius: 12px;
-        background: #FEF2F2; color: #7F1D1D; font: 13px/1.5 ui-monospace, Consolas, monospace; border: 1px solid #FECACA; white-space: pre-wrap; }
+    <style>${BOOT_STYLE}
     </style>
   </head>
   <body>
@@ -140,9 +447,9 @@ function load(id) {
         const loaded = await Promise.all(NAMES.map((n) => import(n)));
         NAMES.forEach((n, i) => { EXT[n] = loaded[i]; });
         const MODS = {
-${escapeScript(mods.join(',\n'))}
+${escapeScript(app.mods.join(',\n'))}
         };
-${escapeScript(RUNTIME)}
+${escapeScript(RUNTIME_CDN)}
         load('/src/main.tsx');
         document.getElementById('boot').remove();
       } catch (err) {
@@ -153,18 +460,106 @@ ${escapeScript(RUNTIME)}
   </body>
 </html>
 `;
+      }
+
+      function htmlStandalone({ twConfig, favicon, app, vendor, tailwind, fonts }) {
+        return `<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#F6F8FC" />
+    <title>Client Hub · New Era (bản demo)</title>
+    ${favicon ? `<link rel="icon" href="${favicon}" />` : ''}
+    <style>
+${escapeStyle(fonts.css)}
+    </style>
+    <script>/* Tailwind Play CDN 3.4.16 (${TAILWIND_CDN}) */
+${escapeScript(tailwind.js)}
+<\/script>
+    <script>${escapeScript(twConfig)}<\/script>
+    <style type="text/tailwindcss">${escapeStyle(app.css)}</style>
+    <style>${BOOT_STYLE}
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <div id="boot">Đang tải Client Hub…</div>
+    <div id="boot-error" role="alert"></div>
+    <script type="module">
+      window.__CH_STANDALONE__ = true;
+      const showError = (m) => { const el = document.getElementById('boot-error'); el.style.display = 'block'; el.textContent += m + '\\n'; };
+      try {
+        const MODS = {
+${escapeScript(app.mods.concat(vendor.entries).join(',\n'))}
+        };
+        const BARE = ${escapeScript(JSON.stringify(vendor.BARE))};
+        const ALIAS = ${escapeScript(JSON.stringify(vendor.ALIAS))};
+${escapeScript(RUNTIME_STANDALONE)}
+        load('/src/main.tsx');
+        document.getElementById('boot').remove();
+      } catch (err) {
+        document.getElementById('boot')?.remove();
+        showError('Không khởi động được: ' + (err && err.stack ? err.stack : err));
+      }
+    <\/script>
+  </body>
+</html>
+`;
+      }
+
+      // ---------- build ----------
+
+      async function build() {
+        logEl.textContent = '';
+        window.__BUILD_RESULT__ = undefined;
+        const t0 = performance.now();
+        log('Chế độ: ' + MODE + ' → dist/' + OUT_NAME);
+        const common = await loadCommon();
+        const app = await collectApp();
+        log('Đã dịch ' + app.count + ' module ứng dụng (' + kb(app.bytes) + ').');
+
+        let html;
+        const result = { ok: true, mode: MODE, modules: app.count, vendorModules: 0 };
+        if (MODE === 'cdn') {
+          html = htmlCdn({ ...common, app });
+        } else {
+          log('Tải thư viện từ esm.sh (bundle, es2022)…');
+          const vendor = await vendorize(common.importMap);
+          for (const [key, id] of Object.entries(vendor.BARE)) log('  ' + key + ' → ' + id);
+          if (Object.keys(vendor.ALIAS).length) log('  chuyển hướng: ' + JSON.stringify(vendor.ALIAS));
+          log('Thư viện: ' + vendor.count + ' module (' + kb(vendor.bytes) + ').');
+          const tailwind = await loadTailwind();
+          log('Tailwind: ' + kb(tailwind.js.length) + ' (từ ' + tailwind.src + ').');
+          const fonts = await inlineFonts();
+          log('Phông Be Vietnam Pro: ' + fonts.faces + ' @font-face, ' + fonts.files + ' tệp woff2 (' + kb(fonts.bytes) + ', nhúng base64 ' + kb(fonts.css.length) + ').');
+          html = htmlStandalone({ ...common, app, vendor, tailwind, fonts });
+          for (const host of ['esm.sh', 'cdn.tailwindcss.com', 'fonts.googleapis.com', 'fonts.gstatic.com']) {
+            const refs = html.split('https://' + host).length - 1;
+            if (refs) log('  (ghi chú) chuỗi https://' + host + ' xuất hiện ' + refs + ' lần trong file — chỉ là id/chú thích, không phải request.');
+          }
+          Object.assign(result, {
+            vendorModules: vendor.count, vendorBytes: vendor.bytes, appBytes: app.bytes,
+            tailwindBytes: tailwind.js.length, fontBytes: fonts.bytes, fontCssBytes: fonts.css.length,
+          });
+        }
+
         const res = await fetch('/__save?name=' + OUT_NAME, { method: 'POST', body: html });
         if (!res.ok) throw new Error('Lưu file thất bại: HTTP ' + res.status);
         const info = await res.json();
         const ms = Math.round(performance.now() - t0);
-        log('Đã lưu dist/' + OUT_NAME + ' (' + Math.round(info.bytes / 1024) + ' KB) trong ' + ms + ' ms.');
-        window.__BUILD_RESULT__ = { ok: true, bytes: info.bytes, modules: count, ms };
+        if (MODE === 'standalone') {
+          log('Tổng: ứng dụng ' + kb(result.appBytes) + ' · thư viện ' + result.vendorModules + ' module ' + kb(result.vendorBytes)
+            + ' · Tailwind ' + kb(result.tailwindBytes) + ' · phông ' + kb(result.fontCssBytes) + ' (base64).');
+        }
+        log('Đã lưu dist/' + OUT_NAME + ' (' + kb(info.bytes) + ') trong ' + ms + ' ms.');
+        window.__BUILD_RESULT__ = { ...result, bytes: info.bytes, ms };
       }
 
       document.getElementById('run').addEventListener('click', () => {
         build().catch((err) => { log('LỖI: ' + err.message); window.__BUILD_RESULT__ = { ok: false, error: err.message }; });
       });
-      if (new URLSearchParams(location.search).has('auto')) document.getElementById('run').click();
+      if (params.has('auto')) document.getElementById('run').click();
     </script>
   </body>
 </html>
