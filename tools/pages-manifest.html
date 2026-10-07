@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Pages manifest · Client Hub</title>
+    <style>
+      body { font: 14px/1.5 ui-monospace, Consolas, monospace; margin: 24px; color: #0F172A; background: #F6F8FC; }
+      pre { white-space: pre-wrap; background: #fff; border: 1px solid #E5E9F0; border-radius: 12px; padding: 16px; }
+    </style>
+  </head>
+  <body>
+    <h1>Mã băm cho Cloudflare Pages</h1>
+    <p>Tính mã băm (BLAKE3 của base64 + đuôi file, 32 ký tự hex — cách wrangler làm) cho <code>dist/ClientHub-demo.html</code>
+      và lưu vào <code>dist/pages-manifest.json</code> để <code>tools/deploy-cloudflare.ps1</code> dùng.</p>
+    <pre id="log"></pre>
+    <script type="module">
+      const log = (m) => { document.getElementById('log').textContent += m + '\n'; };
+      async function run() {
+        const { blake3 } = await import('https://esm.sh/@noble/hashes@1.5.0/blake3');
+        const file = 'ClientHub-demo.html';
+        const buf = new Uint8Array(await (await fetch('/dist/' + file, { cache: 'no-store' })).arrayBuffer());
+        let bin = '';
+        for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode.apply(null, buf.subarray(i, i + 0x8000));
+        const b64 = btoa(bin);
+        const hash = Array.from(blake3(new TextEncoder().encode(b64 + 'html')))
+          .map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 32);
+        const manifest = { source: 'dist/' + file, path: '/index.html', bytes: buf.length, hash, contentType: 'text/html' };
+        const res = await fetch('/__save?name=pages-manifest.json', { method: 'POST', body: JSON.stringify(manifest, null, 2) });
+        if (!res.ok) throw new Error('save failed: HTTP ' + res.status);
+        log(JSON.stringify(manifest, null, 2));
+        log('Đã lưu dist/pages-manifest.json');
+        window.__PAGES_MANIFEST__ = manifest;
+      }
+      run().catch((e) => { log('LỖI: ' + e.message); window.__PAGES_MANIFEST__ = { error: e.message }; });
+    </script>
+  </body>
+</html>
