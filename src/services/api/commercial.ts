@@ -8,6 +8,7 @@ import type { AccountPriceView, Api, PaymentView, PriceItemView, QuoteInput, Vie
 import { ApiError } from '@/services/contract';
 import { nowISO, todayISO } from '@/domain/clock';
 import { addDays, isValidISODate } from '@/domain/dates';
+import { isOpenStage } from '@/domain/crm';
 import { effectivePaymentStatus, isReceivable } from '@/domain/payments';
 import { t } from '@/i18n';
 import { formatPercent } from '@/lib/format';
@@ -575,6 +576,17 @@ export const commercialApi: CommercialApi = {
       };
       db.insert('quotes', next);
       for (const line of quoteLinesOf(q.id)) db.insert('quote_lines', { ...line, id: newId('ql'), quote_id: next.id });
+      // an open deal follows its quote to the newest version (its stage, stage date and history stay as they are);
+      // a won / lost deal keeps the version it was closed on
+      const versionIds = new Set(
+        db
+          .rows('quotes')
+          .filter((x) => x.code === q.code && x.account_id === q.account_id && x.id !== next.id)
+          .map((x) => x.id),
+      );
+      for (const o of db.rows('opportunities')) {
+        if (o.quote_id && versionIds.has(o.quote_id) && isOpenStage(o.stage)) db.update('opportunities', o.id, { quote_id: next.id, updated_at: at });
+      }
       logQuote(next, v.user.id, 'quote.version_created', { from_version: q.version });
       return next.id;
     });

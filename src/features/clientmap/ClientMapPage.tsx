@@ -1,5 +1,6 @@
-// /app/map — "Bản đồ khách hàng" (director + AM). Each customer is a bubble sized by its value; lines join the
-// companies of one ecosystem (business group) through the group's hub. The "Bảng" view is the accessible ranking.
+// /app/map — "Bản đồ khách hàng" (director + AM). Each company (customer or target) is a bubble sized by its value on
+// one shared scale; lines join the companies of one ecosystem (business group) through the group's hub, sized on a
+// scale of its own (the subtitle and legend say so). The "Bảng" view is the accessible ranking.
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Network } from 'lucide-react';

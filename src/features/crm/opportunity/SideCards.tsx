@@ -3,9 +3,12 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import type { LucideIcon } from 'lucide-react';
-import { ArrowRight, CalendarX, CircleCheck, Clock, FilePlus2, FileText, Link2, Mail, MessageSquareWarning, Phone, Repeat2, Send } from 'lucide-react';
+import { ArrowRight, CalendarX, CircleCheck, Clock, CopyPlus, FilePlus2, FileText, Link2, Mail, MessageSquareWarning, Phone, Repeat2, Send } from 'lucide-react';
 import type { QuoteStatus } from '@/domain/types';
+import type { QuoteSummary } from '@/services/contract';
 import type { OpportunityDetail } from '@/services/crmContract';
+import { api } from '@/services/api';
+import { useQuery } from '@/hooks/useQuery';
 import { t } from '@/i18n';
 import { formatDate, formatMoney } from '@/lib/format';
 import { cn } from '@/components/ui/cn';
@@ -82,11 +85,26 @@ const QUOTE_LOOK: Record<QuoteStatus, { icon: LucideIcon; variant: 'default' | '
 };
 
 /**
+ * The newest version of the linked quote when it is newer than the one the deal points at, else null. The deal is
+ * normally moved to each new version by the service; this covers deals linked before that, or a link set by hand.
+ * Any failure (no access, quote gone) just shows nothing.
+ */
+function useNewerVersion(quote: QuoteSummary | null): QuoteSummary | null {
+  const id = quote?.id ?? '';
+  const detail = useQuery(() => api.getQuote(id), [id], { enabled: id !== '' });
+  if (!quote || !detail.data || detail.data.id !== quote.id) return null;
+  const newest = (detail.data.versions ?? []).reduce<QuoteSummary | null>((best, v) => (!best || v.version > best.version ? v : best), null);
+  return newest && newest.id !== quote.id && newest.version > quote.version ? newest : null;
+}
+
+/**
  * The deal's quote. `onLink` opens the edit dialog on its "Báo giá" field: link one of the account's quotes (empty
- * card) or switch to another one / a newer version (linked card).
+ * card) or switch to another one / a newer version (linked card). A newer version of the linked quote is announced
+ * with a link to it ("Đã có phiên bản v3 →").
  */
 export function QuoteCard({ opp, onLink }: { opp: OpportunityDetail; onLink?: () => void }) {
   const quote = opp.quote;
+  const newer = useNewerVersion(quote);
   if (!quote) {
     return (
       <SectionCard title={t('crm.opportunity.quote')}>
@@ -142,6 +160,19 @@ export function QuoteCard({ opp, onLink }: { opp: OpportunityDetail; onLink?: ()
       <p className={cn('mt-1 tabular text-muted-foreground', SMALL)}>
         {t('crm.opportunity.quoteLine', { total: formatMoney(quote.grand_total), date: formatDate(quote.valid_until) })}
       </p>
+      {newer ? (
+        <Link
+          to={crmPaths.quote(newer.id)}
+          className="touch-tap mt-3 flex min-h-10 w-full items-center gap-2 rounded-lg bg-primary-soft px-3 py-2 text-table font-medium text-primary ring-1 ring-inset ring-primary-border transition-shadow hover:ring-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        >
+          <CopyPlus className="h-4 w-4 shrink-0" aria-hidden="true" />
+          <span className="min-w-0 flex-1">
+            {t('crm.opportunity.newerVersion', { version: newer.version })}
+            <span className="font-normal text-muted-foreground"> · {t(`enums.quoteStatus.${newer.status}`)}</span>
+          </span>
+          <ArrowRight className="h-4 w-4 shrink-0" aria-hidden="true" />
+        </Link>
+      ) : null}
     </SectionCard>
   );
 }

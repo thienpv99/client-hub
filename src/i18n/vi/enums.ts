@@ -10,9 +10,9 @@ const taskSide = {
 
 const priceUnit = {
   month: 'tháng',
-  user: 'user',
+  user: 'người dùng',
   package: 'gói',
-  manday: 'man-day',
+  manday: 'ngày công',
 };
 
 const taskAction = {

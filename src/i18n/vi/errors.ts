@@ -28,6 +28,8 @@ const errors = {
   invalid_transition: 'Không thể chuyển việc sang trạng thái này.',
   hidden_blocker: 'việc chuẩn bị của New Era',
   this_task: 'Việc này',
+  /** a task in a dependency cycle the viewer may not name (cycle → { path }) */
+  other_task: 'một việc khác',
 
   // sign-in
   unknown_email: 'Không tìm thấy tài khoản với email này.',

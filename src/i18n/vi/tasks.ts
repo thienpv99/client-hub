@@ -1,5 +1,6 @@
 // i18n namespace 'tasks' — owner: feature: task-views. Nested keys, Vietnamese text, {param} placeholders.
-// Account Tasks tab (Kanban / Danh sách / Timeline), company-wide tasks page, task form, TaskRow.
+// Account Tasks tab (Kanban / Danh sách / Dòng thời gian), company-wide tasks page, task form, TaskRow.
+// "Dòng thời gian" is the one name of the Gantt-like view everywhere (Dự án, Lộ trình, Việc); the URL value stays 'timeline'.
 const tasks = {
   create: 'Tạo việc',
 
@@ -7,7 +8,7 @@ const tasks = {
     label: 'Kiểu xem',
     kanban: 'Kanban',
     list: 'Danh sách',
-    timeline: 'Timeline',
+    timeline: 'Dòng thời gian',
   },
 
   filters: {
@@ -29,7 +30,7 @@ const tasks = {
     moreTitle: 'Lọc thêm',
     clearMore: 'Bỏ các lọc này',
     search: 'Tìm việc',
-    searchPlaceholder: 'Tìm việc, người phụ trách, mốc…',
+    searchPlaceholder: 'Tìm việc, người làm, mốc…',
     clear: 'Bỏ lọc',
     optionCount: '{label} ({count})',
     showing: 'Đang hiện {shown}/{total} việc',
@@ -89,7 +90,7 @@ const tasks = {
   },
 
   timeline: {
-    label: 'Timeline các việc theo mốc',
+    label: 'Dòng thời gian các việc theo mốc',
     taskColumn: 'Việc',
     today: 'Hôm nay',
     shift: '+{days} ngày',
@@ -101,7 +102,7 @@ const tasks = {
       task: 'Thời gian làm việc',
       overdue: 'Phần quá hạn',
     },
-    doneHidden: '{count} việc đã xong từ trước không hiện trên timeline.',
+    doneHidden: '{count} việc đã xong từ trước không hiện trên dòng thời gian.',
     agenda: {
       overdue: 'Đã quá hạn',
       thisWeek: 'Tuần này · {from} – {to}',
@@ -235,7 +236,7 @@ const tasks = {
     byAccount: 'Khách hàng',
     byAssignee: 'Người phụ trách',
     searchLabel: 'Tìm việc',
-    searchPlaceholder: 'Tìm việc, khách hàng, người làm…',
+    searchPlaceholder: 'Tìm việc, khách hàng…',
     mineFilter: 'Việc của tôi',
     mine: 'Của tôi',
     waitingFilter: 'Đang chờ ai',

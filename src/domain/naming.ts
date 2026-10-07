@@ -23,10 +23,27 @@ function firstLetter(word: string): string {
   return (chars[0] ?? '').toUpperCase();
 }
 
-/** 'Trần Quang Minh' → 'Minh' (Vietnamese names put the given name last). */
+/**
+ * Given names that double as a salutation ('Anh'): a person called 'Trần Đức Anh' is addressed by the compound
+ * ('anh Đức Anh'), never 'anh Anh'.
+ */
+const COMPOUND_LAST = new Set(['anh']);
+/** Gender-marking middle names that are never part of how a person is called ('Nguyễn Văn Anh' → 'Anh'). */
+const MARKER_MIDDLE = new Set(['văn', 'thị'].map((s) => s.normalize('NFC')));
+
+/**
+ * 'Trần Quang Minh' → 'Minh' (Vietnamese names put the given name last).
+ * A last word that reads as a salutation keeps the word before it: 'Trần Đức Anh' → 'Đức Anh'.
+ */
 export function givenName(fullName: string): string {
   const ws = words(fullName);
-  return ws.length > 0 ? ws[ws.length - 1] ?? '' : '';
+  if (ws.length === 0) return '';
+  const last = ws[ws.length - 1] ?? '';
+  const before = ws[ws.length - 2] ?? '';
+  if (ws.length >= 3 && COMPOUND_LAST.has(last.toLowerCase()) && !MARKER_MIDDLE.has(before.toLowerCase())) {
+    return `${before} ${last}`;
+  }
+  return last;
 }
 
 /** 'anh Minh' / 'chị Lan'; without a salutation the full name is used. */

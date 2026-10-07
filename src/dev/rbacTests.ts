@@ -831,6 +831,39 @@ async function runRbacSuite(): Promise<TestResult[]> {
           assert(!listed.some((x) => f.memberCommercialTaskIds.includes(x.id)), 'commercial tasks of others not listed');
           for (const id of f.memberCommercialTaskIds) await expectCode(api.getTask(id), ['not_found', 'forbidden'], `getTask(${id})`);
         });
+
+        // checkDependencies names the tasks of a cycle: someone else's quote-approval / payment task is refused when
+        // passed in, and named neutrally when a cycle through existing dependencies runs over it
+        await suite.testAsync('member · checkDependencies never names someone else’s quote-approval or payment task', async () => {
+          const hiddenId = f.memberCommercialTaskIds[0];
+          assert(hiddenId, 'fixture: a commercial task on the member’s accounts');
+          for (const id of f.memberCommercialTaskIds) {
+            await expectCode(api.checkDependencies({ blocks_task_ids: [id], blocked_by_task_ids: [id] }), ['validation', 'forbidden'], `self-cycle on ${id}`);
+            await expectCode(api.checkDependencies({ blocks_task_ids: [], blocked_by_task_ids: [id] }), ['validation', 'forbidden'], `blocked by ${id}`);
+          }
+          // the dependencies written below are rolled back, so the later suites see the seed's graph
+          const local = db.dump();
+          try {
+            await api.loginDemo('director');
+            const hidden = await api.getTask(hiddenId);
+            const plain = (await api.listTasks({ accountId: hidden.account.id, openOnly: false })).filter(
+              (x) => x.status !== 'done' && x.quote_id === null && x.payment_schedule_id === null && x.type !== 'payment',
+            );
+            const [x, y] = plain;
+            assert(x && y, 'fixture: two ordinary tasks on the same account');
+            // x → hidden → y: x's only outgoing edge is the hidden task, so a cycle through x runs over it
+            await api.updateTask(x.id, { blocks_task_ids: [hiddenId], impact_text: x.impact_text || 'Kiểm thử phụ thuộc.' });
+            await api.updateTask(y.id, { blocked_by_task_ids: [hiddenId] });
+            await api.loginDemo('member');
+            const res = await api.checkDependencies({ blocks_task_ids: [x.id], blocked_by_task_ids: [y.id] });
+            assert(!res.ok && Array.isArray(res.path) && res.path.length >= 4, 'the cycle is reported');
+            assert(!JSON.stringify(res).includes(hidden.title), 'the hidden task is not named');
+            assert(res.path?.includes(x.title) === true, 'a task the member may open is still named');
+          } finally {
+            restoreSnapshot(local);
+            await api.loginDemo('member');
+          }
+        });
       }
 
       if (role.who === 'view-as-client') {

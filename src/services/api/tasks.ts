@@ -32,6 +32,7 @@ import {
   accessibleIds,
   accountIdOfProject,
   accountTasks,
+  canNameTask,
   canViewTask,
   commentView,
   fieldLabels,
@@ -337,8 +338,12 @@ function validateTaskInput(input: TaskInput, v: Viewer, selfId: ID): { accountId
   };
 }
 
-/** titles forming a cycle if `selfId`'s task-to-task edges were replaced by the given ones, else null */
-function cyclePath(accountId: ID, selfId: ID, selfTitle: string, blocks: ID[], blockedBy: ID[]): string[] | null {
+/**
+ * Titles forming a cycle if `selfId`'s task-to-task edges were replaced by the given ones, else null. A task the
+ * viewer may not name (a member and someone else's quote-approval / payment task) is a neutral "một việc khác" —
+ * a cycle runs through existing dependencies too, so it can reach tasks whose ids the viewer never passed in.
+ */
+function cyclePath(accountId: ID, selfId: ID, selfTitle: string, blocks: ID[], blockedBy: ID[], v: Viewer): string[] | null {
   if (blocks.includes(selfId) || blockedBy.includes(selfId)) return [selfTitle];
   const taskIds = new Set(accountTasks(accountId).map((x) => x.id));
   const existing = db
@@ -350,11 +355,15 @@ function cyclePath(accountId: ID, selfId: ID, selfTitle: string, blocks: ID[], b
   ];
   const path = findCycle(existing, proposed);
   if (!path) return null;
-  return path.map((id) => (id === selfId ? selfTitle : db.find('tasks', id)?.title ?? id));
+  return path.map((id) => {
+    if (id === selfId) return selfTitle;
+    const task = db.find('tasks', id);
+    return task && canNameTask(task, v) ? task.title : t('errors.other_task');
+  });
 }
 
-function assertNoCycle(accountId: ID, selfId: ID, selfTitle: string, blocks: ID[], blockedBy: ID[]): void {
-  const path = cyclePath(accountId, selfId, selfTitle, blocks, blockedBy);
+function assertNoCycle(accountId: ID, selfId: ID, selfTitle: string, blocks: ID[], blockedBy: ID[], v: Viewer): void {
+  const path = cyclePath(accountId, selfId, selfTitle, blocks, blockedBy, v);
   if (path) throw new ApiError('cycle', 'errors.cycle', { path });
 }
 
@@ -685,7 +694,7 @@ export const tasksApi: Pick<
     assertWritable(v);
     const id = newId('t');
     const { accountId, clean } = validateTaskInput(input, v, id);
-    assertNoCycle(accountId, id, clean.title, clean.blocks_task_ids, clean.blocked_by_task_ids);
+    assertNoCycle(accountId, id, clean.title, clean.blocks_task_ids, clean.blocked_by_task_ids, v);
     const at = nowISO();
     db.batch(() => {
       const row: Task = {
@@ -764,7 +773,7 @@ export const tasksApi: Pick<
     };
     const { accountId: target, clean } = validateTaskInput(merged, v, task.id);
     if (target !== accountId) throw invalid('errors.dependency_scope');
-    assertNoCycle(accountId, task.id, clean.title, clean.blocks_task_ids, clean.blocked_by_task_ids);
+    assertNoCycle(accountId, task.id, clean.title, clean.blocks_task_ids, clean.blocked_by_task_ids, v);
 
     const fields: Partial<Task> = {};
     const changed: string[] = [];
@@ -1119,18 +1128,19 @@ export const tasksApi: Pick<
       selfId = task.id;
       selfTitle = task.title;
     }
-    // every id must be a task of ONE account the caller can read — the cycle path names tasks by title
+    // every id must be a task of ONE account the caller can read, and a task the caller may open (a member never
+    // passes someone else's quote-approval / payment task) — the cycle path names tasks by title
     const readable = accessibleIds(v);
     for (const id of [...blocks, ...blockedBy]) {
       const other = db.find('tasks', id);
       const otherAccount = other ? accountIdOfProject(other.project_id) : null;
-      if (!otherAccount || !readable.has(otherAccount) || (accountId !== null && otherAccount !== accountId)) {
+      if (!other || !otherAccount || !readable.has(otherAccount) || !canViewTask(other, v) || (accountId !== null && otherAccount !== accountId)) {
         throw invalid('errors.dependency_scope');
       }
       accountId = otherAccount;
     }
     if (!accountId) return { ok: true };
-    const path = cyclePath(accountId, selfId, selfTitle, blocks, blockedBy);
+    const path = cyclePath(accountId, selfId, selfTitle, blocks, blockedBy, v);
     return path ? { ok: false, path } : { ok: true };
   },
 };

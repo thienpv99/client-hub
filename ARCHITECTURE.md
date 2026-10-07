@@ -350,7 +350,8 @@ export function isReceivable(status: PaymentStatus): boolean                    
 
 ### `src/domain/naming.ts`
 ```ts
-export function givenName(fullName: string): string            // 'Trần Quang Minh' → 'Minh'
+export function givenName(fullName: string): string            // 'Trần Quang Minh' → 'Minh'; 3+ words ending in 'Anh'
+                                                               // keep two ('Trần Đức Anh' → 'Đức Anh') unless after Văn/Thị
 export function addressName(s: Salutation | null, fullName: string): string   // 'anh Minh' (no salutation → full name)
 export function initials(name: string): string                 // 'Cỏ Xanh Retail' → 'CX', 'Trần Quang Minh' → 'QM'
 ```

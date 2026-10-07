@@ -7,7 +7,7 @@ import { formatMoneyCompact } from '@/lib/format';
 import { cn } from '@/components/ui/cn';
 
 /** who the task waits on now (a client task the client already answered waits on New Era) */
-function waitsOnClient(r: { side: TaskSide; waiting_on: WaitingOn | null }): boolean {
+export function waitsOnClient(r: { side: TaskSide; waiting_on: WaitingOn | null }): boolean {
   return (r.waiting_on ?? r.side) === 'client';
 }
 

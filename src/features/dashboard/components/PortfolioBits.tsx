@@ -1,6 +1,7 @@
 // Small display pieces shared by the portfolio table (≥1280) and the portfolio cards (<1280).
-import { CircleAlert } from 'lucide-react';
-import type { AccountSummary, UserRef, WaitingCounts } from '@/services/contract';
+import { CircleAlert, Clock, OctagonX } from 'lucide-react';
+import type { AccountSummary, HealthReason, UserRef, WaitingCounts } from '@/services/contract';
+import { healthReasonText, waitsOnClient } from '@/features/account/HealthReasons';
 import { ForecastLabel } from '@/components/common/forecast-label';
 import { Money } from '@/components/common/money';
 import { UserAvatar } from '@/components/common/user-avatar';
@@ -118,17 +119,90 @@ export function ReceivableValue({
   );
 }
 
-/** Milestone name (+ project) and the compact "08/10 → 14/10 · lùi 6 ngày". */
+type HoldingReason = Extract<HealthReason, { kind: 'overdue_blocking' | 'due_soon_blocking' }>;
+
+/**
+ * The milestone a late (or nearly due) task is holding, for an account that is not on track: a red "Đang bị chặn"
+ * card must say what it is blocked on (Gió Ngàn: the next milestone Phát triển is on plan, while an overdue task
+ * holds UAT). The api sorts the reasons most severe first.
+ */
+function holdingReason(a: AccountSummary): HoldingReason | null {
+  if (a.health.value === 'on_track') return null;
+  return (
+    a.health.reasons.find((x): x is HoldingReason => x.kind === 'overdue_blocking' || x.kind === 'due_soon_blocking') ??
+    null
+  );
+}
+
+/** "do “Hoàn thiện tích hợp dữ liệu SCADA” chờ New Era, quá hạn 4 ngày" / "“Duyệt quy trình …” còn 2 ngày đến hạn" */
+function holdingDetail(r: HoldingReason): string {
+  if (r.kind === 'overdue_blocking') {
+    return t(waitsOnClient(r) ? 'dashboard.portfolio.held.overdueClient' : 'dashboard.portfolio.held.overdueInternal', {
+      task: r.task_title,
+      days: r.overdue_days,
+    });
+  }
+  return r.days_left <= 0
+    ? t('dashboard.portfolio.held.dueToday', { task: r.task_title })
+    : t('dashboard.portfolio.held.dueSoon', { task: r.task_title, days: r.days_left });
+}
+
+/** status colour + icon: overdue = danger, due soon = warning (always with the words beside it) */
+function holdingLook(r: HoldingReason) {
+  return r.kind === 'overdue_blocking' ? { Icon: OctagonX, tone: 'text-danger' } : { Icon: Clock, tone: 'text-warning' };
+}
+
+/** Another milestone than the next one is held: "⛔ Mốc UAT đang bị giữ" + the task line under it. */
+function HeldMilestone({ reason: r }: { reason: HoldingReason }) {
+  const { Icon, tone } = holdingLook(r);
+  const title = r.kind === 'overdue_blocking' ? 'dashboard.portfolio.held.title' : 'dashboard.portfolio.held.titleSoon';
+  return (
+    <span className="flex min-w-0 items-start gap-1.5" title={healthReasonText(r)}>
+      <Icon className={cn('mt-[3px] h-3.5 w-3.5 shrink-0', tone)} strokeWidth={2.25} aria-hidden="true" />
+      <span className="flex min-w-0 flex-col gap-0.5">
+        <span className={cn('break-words font-medium', tone)}>{t(title, { milestone: r.milestone_name })}</span>
+        <span className={cn('line-clamp-2 break-words text-muted-foreground', SMALL)}>{holdingDetail(r)}</span>
+      </span>
+    </span>
+  );
+}
+
+/** The next milestone itself is the held one: the task line under its dates. */
+function HoldingCause({ reason: r }: { reason: HoldingReason }) {
+  const { Icon, tone } = holdingLook(r);
+  return (
+    <span className={cn('flex min-w-0 items-start gap-1.5 text-muted-foreground', SMALL)} title={healthReasonText(r)}>
+      <Icon className={cn('mt-0.5 h-3.5 w-3.5 shrink-0', tone)} strokeWidth={2.25} aria-hidden="true" />
+      <span className="line-clamp-2 min-w-0 break-words">{holdingDetail(r)}</span>
+    </span>
+  );
+}
+
+/**
+ * Milestone name (+ project) and the compact "08/10 → 14/10 · lùi 6 ngày". An account that is not on track also says
+ * which task holds which milestone: under the dates when it is the next milestone, else above it.
+ */
 export function NextMilestoneInfo({ account, showProject = false }: { account: AccountSummary; showProject?: boolean }) {
   const m = account.next_milestone;
-  if (!m) return <span className="text-muted-foreground">{t('dashboard.portfolio.noMilestone')}</span>;
-  return (
+  const reason = holdingReason(account);
+  const heldIsNext = reason !== null && m !== null && reason.milestone_id === m.id;
+  const next = m ? (
     <div className="flex min-w-0 flex-col gap-0.5">
       <span className="line-clamp-2 min-w-0 break-words font-medium text-foreground" title={`${m.name} · ${m.project_name}`}>
         {m.name}
         {showProject ? <span className="font-normal text-muted-foreground"> · {m.project_name}</span> : null}
       </span>
       <ForecastLabel milestone={m} compact />
+      {heldIsNext && reason ? <HoldingCause reason={reason} /> : null}
+    </div>
+  ) : reason ? null : (
+    <span className="text-muted-foreground">{t('dashboard.portfolio.noMilestone')}</span>
+  );
+  if (!reason || heldIsNext) return next;
+  return (
+    <div className="flex min-w-0 flex-col gap-2">
+      <HeldMilestone reason={reason} />
+      {next}
     </div>
   );
 }

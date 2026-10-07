@@ -23,7 +23,7 @@ import { buildCrm } from './seed/crm';
  * (2: internal notes no longer carry cost / margin figures · 3: CRM / targeting tables and prospect accounts ·
  *  4: ecosystems (business groups of the client map) + their member leads)
  */
-export const SEED_VERSION = 4;
+export const SEED_VERSION = 5;
 
 export function buildSeed(today: ISODate): Omit<DbData, 'meta'> {
   const c = makeCtx(today);

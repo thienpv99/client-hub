@@ -77,9 +77,21 @@ export function EditOpportunityDialog({ opportunity, open, onOpenChange, focusFi
   // the account's quotes, newest version of each; the linked one stays listed even when a newer version exists
   const accountId = opportunity.account.id;
   const quotesQ = useQuery(() => api.listQuotes({ accountId, latestOnly: true }), [accountId], { enabled: open });
+  // the account's other deals: a quote one of them already uses is marked in its option
+  const dealsQ = useQuery(() => api.listOpportunities({ accountId }), [accountId], { enabled: open });
   const linked = opportunity.quote;
   const quotes: Pick<QuoteSummary, 'id' | 'code' | 'version' | 'title' | 'status'>[] = [...(quotesQ.data ?? [])];
   if (linked && !quotes.some((q) => q.id === linked.id)) quotes.unshift(linked);
+  /** quote code → name of another deal of the account linked to it (any version) */
+  const usedBy = new Map<string, string>();
+  for (const o of dealsQ.data ?? []) if (o.id !== opportunity.id && o.quote) usedBy.set(o.quote.code, o.name);
+  /** extra words after an option: an older version than the one listed, or a quote another deal uses */
+  const optionNote = (q: Pick<QuoteSummary, 'id' | 'code' | 'version'>): string | null => {
+    const newest = quotes.find((x) => x.code === q.code && x.version > q.version);
+    if (newest) return t('crm.edit.quoteOlder', { version: newest.version });
+    const deal = usedBy.get(q.code);
+    return deal ? t('crm.edit.quoteUsedBy', { name: deal }) : null;
+  };
 
   useEffect(() => {
     if (open) {
@@ -219,11 +231,14 @@ export function EditOpportunityDialog({ opportunity, open, onOpenChange, focusFi
               ) : (
                 <>
                   <option value="">{t('crm.edit.quoteNone')}</option>
-                  {quotes.map((q) => (
-                    <option key={q.id} value={q.id}>
-                      {quoteOption(q)}
-                    </option>
-                  ))}
+                  {quotes.map((q) => {
+                    const note = optionNote(q);
+                    return (
+                      <option key={q.id} value={q.id}>
+                        {note ? t('crm.edit.quoteOptionNote', { option: quoteOption(q), note }) : quoteOption(q)}
+                      </option>
+                    );
+                  })}
                 </>
               )}
             </NativeSelect>

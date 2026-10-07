@@ -4,7 +4,7 @@ Web app quản lý khách hàng của New Era. Một nơi gom đủ dự án, vi
 
 - **Nội bộ New Era** (Giám đốc, AM, thành viên):
   - Tổng quan theo ngoại lệ, danh mục và chi tiết khách hàng.
-  - Việc dạng Kanban / Danh sách / Timeline, lộ trình và ngày dự báo.
+  - Việc dạng Kanban / Danh sách / Dòng thời gian, lộ trình và ngày dự báo.
   - Thương mại: báo giá có phiên bản và duyệt chiết khấu, hợp đồng, lịch thanh toán, phải thu.
   - Bán hàng (phễu cơ hội, dự báo), khách hàng mục tiêu (điểm phù hợp, phân khúc, bán thêm), bản đồ khách hàng theo hệ sinh thái.
   - Danh mục dự án và tải việc; thông báo, nhắc khách, leo thang, bản tin tuần.
@@ -148,14 +148,14 @@ Màn đăng nhập có các nút **Vào nhanh** theo vai trò:
 
 ### Bản đồ khách hàng (`/app/map`)
 
-Mỗi công ty là một bong bóng. Bong bóng càng lớn thì giá trị càng cao.
+Mỗi công ty là một bong bóng. Khách hàng và khách hàng mục tiêu dùng chung một thang: bong bóng càng lớn thì giá trị càng cao. Vòng hệ sinh thái thể hiện tổng giá trị cả nhóm, theo thang riêng.
 
 - **Đo kích thước theo 3 cách:**
   - *Tổng giá trị*: giá trị hợp đồng cộng giá trị cơ hội dự kiến.
   - *Hợp đồng*.
   - *Cơ hội*: tổng giá trị đang mở, nhân theo xác suất.
 - **Hệ sinh thái** (nhóm doanh nghiệp, ví dụ một tập đoàn và các công ty con) là một nút trung tâm, nối với các thành viên. Cả khách hàng hiện có và khách hàng mục tiêu đều có thể là thành viên. Cụm này cho thấy cơ hội bán chéo trong cùng một nhóm.
-- **Bộ lọc:** bật hoặc tắt khách hàng mục tiêu, lọc theo AM phụ trách. Có thể chuyển giữa chế độ xem **Bản đồ** và **Bảng** (bảng xếp hạng).
+- **Bộ lọc:** mặc định bản đồ chỉ hiện khách hàng; bật "Khách mục tiêu" để thêm các công ty đang tiếp cận (ngân sách dự kiến của họ lớn nên sẽ chiếm nhiều diện tích). Lọc theo AM phụ trách. Có thể chuyển giữa chế độ xem **Bản đồ** và **Bảng** (bảng xếp hạng).
 - **Quản lý hệ sinh thái:** tạo, đổi tên, thêm hoặc bớt thành viên.
 - **Phạm vi của AM:** AM chỉ thấy công ty mình phụ trách và khách mục tiêu chưa có người nhận. Một nhóm chỉ hiện nút trung tâm khi AM thấy ít nhất 2 thành viên của nhóm đó. AM chỉ được sửa mô tả hoặc đổi tên nhóm có công ty của mình.
 
@@ -205,13 +205,13 @@ Mọi ngày đều tính theo hôm nay, nên tình huống luôn đúng mỗi kh
 - **59 lần tương tác:** 20 cuộc gọi, 19 cuộc họp, 10 email, 7 demo, 1 Zalo, 2 ghi chú.
 - **4 phân khúc đã lưu:** "Bán lẻ & phân phối phía Nam quy mô lớn", "Ngân hàng – tài chính", "Khách hiện hữu có thể bán thêm", "Sản xuất miền Bắc doanh thu > 200 tỷ".
 - **1 chân dung khách hàng lý tưởng (ICP)** mặc định. Mỗi account có 1 hồ sơ (tỉnh, quy mô, doanh thu, nguồn, nhãn) để chấm điểm phù hợp.
-- **4 hệ sinh thái, tổng 13 công ty thành viên:**
-  - Tập đoàn Cỏ Xanh: 4 thành viên. Chia giữa 2 AM, có 1 công ty chưa có người nhận.
-  - Tập đoàn Tài chính Thịnh An: 3 thành viên.
-  - Tập đoàn Năng lượng Gió Ngàn: 3 thành viên.
-  - Tập đoàn Sao Bắc: 3 thành viên.
+- **4 hệ sinh thái, tổng 17 công ty thành viên.** Mỗi nhóm có 2 khách hàng hiện có, nên bản đồ mặc định (chỉ khách hàng) vẫn thấy đủ các cụm:
+  - Tập đoàn Cỏ Xanh: Cỏ Xanh Retail, Mây Trắng Logistics + 3 khách mục tiêu (chia giữa 2 AM, 1 công ty chưa có người nhận).
+  - Tập đoàn Tài chính Thịnh An: Ngân hàng Thịnh An, Địa ốc Hải Đăng + 2 khách mục tiêu.
+  - Tập đoàn Năng lượng Gió Ngàn: Năng lượng Gió Ngàn, Cơ điện Thiên Trường + 2 khách mục tiêu.
+  - Tập đoàn Sao Bắc: Siêu thị Sao Bắc, Vận tải Hoàng Vũ + 2 khách mục tiêu.
 
-  Thiên Trường, Hải Đăng, Mây Trắng, Hoàng Vũ và Vạn Xuân đứng riêng, không thuộc nhóm nào.
+  Dược phẩm Vạn Xuân đứng riêng, không thuộc nhóm nào.
 
 ## 6. Tự kiểm tra
 
@@ -219,13 +219,13 @@ Mở trang **/dev/selftest**. Giám đốc vào qua menu tài khoản. Bấm "Ch
 
 | Bộ | Nội dung | Số kiểm tra |
 |---|---|---|
-| Logic nghiệp vụ | chặn, dự báo mốc, sức khỏe, thứ tự việc, báo giá, thanh toán | 73 |
+| Logic nghiệp vụ | chặn, dự báo mốc, sức khỏe, thứ tự việc, báo giá, thanh toán, cách xưng hô | 74 |
 | Bán hàng và bản đồ khách hàng | điểm phù hợp, phân khúc, phễu, dự báo, tải việc, bản đồ (giá trị theo chỉ số, hệ sinh thái, phạm vi AM) | 37 |
-| Phân quyền dữ liệu | khách, thành viên, AM chỉ nhận đúng dữ liệu của mình; thao tác bị cấm; chế độ "xem như khách" chỉ đọc | 425 |
+| Phân quyền dữ liệu | khách, thành viên, AM chỉ nhận đúng dữ liệu của mình; thao tác bị cấm; chế độ "xem như khách" chỉ đọc | 426 |
 | Dữ liệu mẫu | đủ tình huống, ngày tương đối, liên kết hợp lệ, dữ liệu CRM và hệ sinh thái | 0 lỗi |
 | Gọi API tổng quát | mọi hàm đọc với từng vai trò, cộng các tình huống mẫu trên dữ liệu mới | 341 |
 
-Bộ phân quyền và bộ API chạy trên một bản sao riêng của dữ liệu, nên dữ liệu demo đang dùng không bị thay đổi. Kiểm tra kiểu toàn bộ chương trình (471 file, chế độ strict) bằng `tools/typecheck.html?auto=1` hoặc `npm run typecheck`: 0 lỗi.
+Bộ phân quyền và bộ API chạy trên một bản sao riêng của dữ liệu, nên dữ liệu demo đang dùng không bị thay đổi. Kiểm tra kiểu toàn bộ chương trình (472 file, chế độ strict) bằng `tools/typecheck.html?auto=1` hoặc `npm run typecheck`: 0 lỗi.
 
 ## 7. Cấu trúc
 
@@ -242,6 +242,7 @@ src/
   dev/         bộ tự kiểm tra (domain, crm, rbac, apiSmoke, scenarioChecks)
 supabase/      schema Postgres + RLS + hàm RPC cho backend thật sau này
 tools/         serve.ps1 (server không cần Node), typecheck.html, build-standalone.html
+vendor/fonts/  font nguồn của PDF mẫu (DejaVu Sans + giấy phép) và build-pdf-font.ps1 sinh lại src/data/samples/pdfFont.ts
 dist/          ClientHub-demo.html (bản 1 file)
 ```
 
@@ -266,7 +267,7 @@ Bảng `window.__CH_NET__` ghi lại mọi phản hồi API để kiểm chứng
   - Chưa có đăng nhập Google.
 - **Email:** chưa gửi thật. Xem trong "Thông báo → Hộp thư mô phỏng". Bản tin tuần xem trước ở `/app/digest` và `/portal/settings`.
 - **"Nhắc qua Zalo":** app copy sẵn tin nhắn rồi mở zalo.me, người dùng tự dán và gửi.
-- **Tài liệu:** file mẫu là ảnh SVG và PDF nhỏ được sinh sẵn. File tải lên chỉ lưu trong trình duyệt.
+- **Tài liệu:** file mẫu là ảnh SVG và PDF nhỏ được sinh sẵn. PDF nhúng sẵn font (DejaVu Sans) nên giữ đủ dấu tiếng Việt. File tải lên chỉ lưu trong trình duyệt.
 
 ## 9. Chưa làm ở bản này
 

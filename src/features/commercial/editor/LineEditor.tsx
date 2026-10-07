@@ -22,7 +22,7 @@ import { PriceItemPicker } from './PriceItemPicker';
 function MiniField({ id, label, children, className }: { id: string; label: string; children: ReactNode; className?: string }) {
   return (
     <div className={cn('min-w-0 space-y-1', className)}>
-      <label htmlFor={id} className="block truncate text-micro font-medium text-muted-foreground">
+      <label htmlFor={id} title={label} className="block truncate text-micro font-medium text-muted-foreground">
         {label}
       </label>
       {children}
@@ -30,7 +30,8 @@ function MiniField({ id, label, children, className }: { id: string; label: stri
   );
 }
 
-export const LINE_FIELDS_GRID = 'grid grid-cols-2 gap-x-3 gap-y-3 sm:grid-cols-[96px_minmax(0,1fr)_88px_112px]';
+// the quantity column fits its unit label ("Số lượng (người dùng)", ~130px)
+export const LINE_FIELDS_GRID = 'grid grid-cols-2 gap-x-3 gap-y-3 sm:grid-cols-[136px_minmax(0,1fr)_88px_112px]';
 
 export interface LineEditorProps {
   lines: DraftLine[];

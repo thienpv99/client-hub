@@ -328,7 +328,8 @@ function runChecks(data: Seed, today: ISODate): string[] {
     const key = f.storage_path.startsWith('sample:') ? f.storage_path.slice(7) : '';
     const sample = key ? getSampleFile(key) : null;
     expect(sample && sampleFileUrl(f.storage_path) === sample.url, `${w}: sample "${f.storage_path}" does not resolve`);
-    if (sample) expect(sample.mime === f.mime && sample.size === f.size && sample.size < 6500, `${w}: mime/size mismatch or file too big (${sample.size} B)`);
+    // PDFs carry their own Vietnamese font subset (~10 kB), so they stay well under 24 kB; designs are small SVGs
+    if (sample) expect(sample.mime === f.mime && sample.size === f.size && sample.size < 24_000, `${w}: mime/size mismatch or file too big (${sample.size} B)`);
     const v = `${f.account_id}:${f.doc_key}:${f.version}`;
     expect(!versions.has(v), `${w}: duplicate doc_key/version`);
     versions.add(v);

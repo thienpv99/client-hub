@@ -397,7 +397,7 @@ export function BubbleMap({ map, showLeads, selectedEco, onSelectEco, onEditEco 
         ) : null}
       </div>
 
-      <MapLegend showLeads={showLeads} />
+      <MapLegend showLeads={showLeads} metric={map.metric} />
     </div>
   );
 }

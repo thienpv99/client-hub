@@ -1,5 +1,6 @@
 // Content of the demo PDF documents (proposals, survey reports, signed contracts, data templates…).
-// Written in Vietnamese; pdf.ts folds it to unaccented ASCII because base-14 fonts have no Vietnamese glyphs.
+// Written in Vietnamese; pdf.ts embeds a font subset with the Vietnamese glyphs (./pdfFont). A character outside
+// that subset is folded to ASCII — re-run vendor/fonts/build-pdf-font.ps1 after adding a new kind of character.
 // No calendar dates here: files are keyed, not generated per day.
 
 import type { PdfDoc } from './pdf';

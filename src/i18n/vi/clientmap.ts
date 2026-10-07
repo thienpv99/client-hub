@@ -2,7 +2,9 @@
 const clientmap = {
   page: {
     title: 'Bản đồ khách hàng',
-    description: 'Bong bóng càng lớn, giá trị càng cao; công ty cùng hệ sinh thái tụ thành cụm.',
+    /** keep in step with mapModel.computeRadii: companies on one value scale, hubs on their own */
+    description:
+      'Khách hàng và khách mục tiêu chung một thang: bong bóng càng lớn, giá trị càng cao. Vòng hệ sinh thái thể hiện tổng giá trị cả nhóm, theo thang riêng.',
   },
   metric: {
     label: 'Kích thước theo',
@@ -76,9 +78,13 @@ const clientmap = {
   legend: {
     title: 'Chú giải',
     hide: 'Ẩn chú giải',
-    size: 'Cỡ bong bóng = giá trị',
-    hub: 'Hệ sinh thái',
-    lead: 'Khách mục tiêu (cỡ theo ngân sách)',
+    /** customers and targets share one value scale (mapModel.computeRadii) */
+    size: 'Cỡ công ty = giá trị, chung một thang',
+    /** hubs are sized on a scale of their own */
+    hub: 'Hệ sinh thái: tổng nhóm, thang riêng',
+    lead: 'Khách mục tiêu (giá trị = ngân sách ước tính)',
+    /** contract metric: a target has no contract yet, it is drawn at the minimum size */
+    leadNoValue: 'Khách mục tiêu (chưa có hợp đồng, cỡ nhỏ nhất)',
     link: 'Cùng hệ sinh thái',
   },
   a11y: {

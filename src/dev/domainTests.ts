@@ -963,6 +963,15 @@ function namingTests(): TestResult[] {
     assertEqual(addressName(null, 'Trần Quang Minh'), 'Trần Quang Minh', 'no salutation');
   });
 
+  s.test('given names ending in "Anh" keep the compound', () => {
+    assertEqual(givenName('Trần Đức Anh'), 'Đức Anh', 'compound');
+    assertEqual(addressName('anh', 'Trần Đức Anh'), 'anh Đức Anh', 'never "anh Anh"');
+    assertEqual(addressName('chị', 'Lê Quỳnh Anh'), 'chị Quỳnh Anh', 'chị');
+    assertEqual(givenName('Nguyễn Văn Anh'), 'Anh', 'gender marker is not part of the called name');
+    assertEqual(givenName('Trần Anh'), 'Anh', 'two words');
+    assertEqual(givenName('Phạm Anh Tuấn'), 'Tuấn', 'Anh as a middle name');
+  });
+
   s.test('initials', () => {
     assertEqual(initials('Cỏ Xanh Retail'), 'CX', 'company');
     assertEqual(initials('Trần Quang Minh'), 'QM', 'person');

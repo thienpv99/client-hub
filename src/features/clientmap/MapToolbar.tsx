@@ -140,7 +140,7 @@ export function MapToolbar(p: MapToolbarProps) {
   const [open, setOpen] = useState(false);
 
   if (p.compact) {
-    const active = (p.metric !== 'total' ? 1 : 0) + (p.showLeads ? 0 : 1) + (p.amId ? 1 : 0);
+    const active = (p.metric !== 'total' ? 1 : 0) + (p.showLeads ? 1 : 0) + (p.amId ? 1 : 0);
     return (
       <div className="flex items-center gap-2">
         <ViewSwitch view={p.view} onView={p.onView} full />

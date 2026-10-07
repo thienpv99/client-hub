@@ -114,6 +114,10 @@ export function AccountTasksTab({ account }: AccountTasksTabProps) {
     );
   }
 
+  // Below 1280 only the active view is named (the others: icon + tooltip), so the toolbar stays one row. On phones
+  // next to "Tạo việc" the switcher is icons only: "Dòng thời gian" and "Tạo việc" do not fit one 343px row, and the
+  // primary action keeps its words.
+  const viewLabel = create ? 'hidden xl:inline sm:[[data-state=on]>&]:inline' : 'hidden xl:inline [[data-state=on]>&]:inline';
   const actions = (
     <>
       <ToggleGroup
@@ -130,8 +134,7 @@ export function AccountTasksTab({ account }: AccountTasksTabProps) {
           return (
             <ToggleGroupItem key={v} value={v} aria-label={t(`tasks.views.${v}`)} title={t(`tasks.views.${v}`)}>
               <Icon aria-hidden="true" />
-              {/* below 1280 only the active view is named (the others: icon + tooltip), so the toolbar stays one row */}
-              <span className="hidden xl:inline [[data-state=on]>&]:inline">{t(`tasks.views.${v}`)}</span>
+              <span className={viewLabel}>{t(`tasks.views.${v}`)}</span>
             </ToggleGroupItem>
           );
         })}

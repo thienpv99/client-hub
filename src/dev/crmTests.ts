@@ -529,7 +529,7 @@ export function runCrmTests(): TestResult[] {
     }
   });
 
-  s.test('client map · demo groups (fresh data): Đức Anh sees Cỏ Xanh through two leads, Thịnh An only as a lone lead', () => {
+  s.test('client map · demo groups (fresh data): every group has 2 customers; Đức Anh sees Thịnh An only as a lone lead', () => {
     const owners: Record<ID, ID | null> = { lead_phoxanh: null, lead_nhanhoa: null, lead_coxanh_logistics: 'u_am_ducanh', lead_coxanh_foods: 'u_am_ha', lead_thinhan_securities: 'u_am_ha' };
     const pristine =
       ECOSYSTEM_SPECS.every(
@@ -545,18 +545,20 @@ export function runCrmTests(): TestResult[] {
     const dir = viewerOf('u_director');
     assert(duc && ha && dir, 'demo users');
     const dm = clientMapFor(duc);
-    assertEqual(hubTargets(dm, 'eco_coxanh'), ['lead:lead_coxanh_logistics', 'lead:lead_phoxanh'], 'Đức Anh · Cỏ Xanh hub');
-    assertEqual(hubTargets(dm, 'eco_giongan'), ['acc:acc_giongan', 'lead:lead_ngannang', 'lead:lead_nganphong'], 'Đức Anh · Gió Ngàn hub');
+    assertEqual(hubTargets(dm, 'eco_coxanh'), ['acc:acc_maytrang', 'lead:lead_coxanh_logistics', 'lead:lead_phoxanh'], 'Đức Anh · Cỏ Xanh hub');
+    assertEqual(hubTargets(dm, 'eco_giongan'), ['acc:acc_giongan', 'acc:acc_thientruong', 'lead:lead_ngannang', 'lead:lead_nganphong'], 'Đức Anh · Gió Ngàn hub');
     assert(!dm.nodes.some((n) => n.id === 'eco:eco_thinhan') && dm.nodes.find((n) => n.id === 'lead:lead_nhanhoa')?.ecosystem_id === null, 'Đức Anh · Thịnh An: one visible member, no hub');
     const hm = clientMapFor(ha);
     assertEqual(hm.ecosystems.map((e) => e.id).sort(), ['eco_coxanh', 'eco_saobac', 'eco_thinhan'], 'Hà · three groups');
     assertEqual(hubTargets(hm, 'eco_coxanh'), ['acc:acc_coxanh', 'lead:lead_coxanh_foods', 'lead:lead_phoxanh'], 'Hà · Cỏ Xanh without Đức Anh’s lead');
     const all = clientMapFor(dir);
     assertEqual(all.totals.ecosystems, 4, 'director · 4 groups');
-    assertEqual(hubTargets(all, 'eco_coxanh').length, 4, 'director · the whole Cỏ Xanh group');
-    for (const id of ['acc_thientruong', 'acc_haidang']) {
+    assertEqual(hubTargets(all, 'eco_coxanh').length, 5, 'director · the whole Cỏ Xanh group');
+    for (const id of ['acc_vanxuan']) {
       assert(all.nodes.find((n) => n.id === `acc:${id}`)?.ecosystem_id === null && !all.links.some((l) => l.target === `acc:${id}`), `${id} stands alone`);
     }
+    // the map's default view is customers only: every group must still show its hub there
+    for (const e of ECOSYSTEM_SPECS) assert(e.accounts.length >= 2, `${e.id} has at least two customer accounts`);
   });
 
   return s.results;

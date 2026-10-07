@@ -39,6 +39,8 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         className={cn(
           inputBase,
           inputSizes[inputSize],
+          // a placeholder (or value) wider than a phone toolbar ends in "…" instead of being cut mid-word (DESIGN §6)
+          'text-ellipsis placeholder:text-ellipsis',
           icon ? 'pl-9 md:pl-9' : null,
           'file:mr-3 file:h-full file:border-0 file:bg-transparent file:text-table file:font-medium file:text-foreground',
           className,

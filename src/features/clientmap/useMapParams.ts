@@ -1,4 +1,4 @@
-// Map state in the URL (?view=table&metric=pipeline&leads=0&am=u_am_ha&group=1&eco=eco_x) so "Back" from an
+// Map state in the URL (?view=table&metric=pipeline&leads=1&am=u_am_ha&group=1&eco=eco_x) so "Back" from an
 // account restores the same picture. Defaults are left out of the URL.
 import { useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -25,7 +25,8 @@ export function useMapParams(): MapParams & { update(patch: Patch): void } {
   const params: MapParams = {
     view: sp.get('view') === 'table' ? 'table' : 'map',
     metric: isMetric(metric) ? metric : 'total',
-    showLeads: sp.get('leads') !== '0',
+    // customers only by default: target budgets are large and would crowd out real clients on one honest scale
+    showLeads: sp.get('leads') === '1',
     amId: sp.get('am') || null,
     tableMode: sp.get('group') === '1' ? 'group' : 'rank',
     eco: sp.get('eco') || null,
@@ -42,7 +43,7 @@ export function useMapParams(): MapParams & { update(patch: Patch): void } {
           };
           if ('view' in patch) put('view', patch.view === 'table' ? 'table' : null);
           if ('metric' in patch) put('metric', patch.metric && patch.metric !== 'total' ? patch.metric : null);
-          if ('showLeads' in patch) put('leads', patch.showLeads === false ? '0' : null);
+          if ('showLeads' in patch) put('leads', patch.showLeads === true ? '1' : null);
           if ('amId' in patch) put('am', patch.amId ?? null);
           if ('tableMode' in patch) put('group', patch.tableMode === 'group' ? '1' : null);
           if ('eco' in patch) put('eco', patch.eco ?? null);

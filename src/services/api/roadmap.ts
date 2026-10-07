@@ -5,8 +5,7 @@ import type { Account, ID, ISODate, Milestone, Project, ProjectTemplate } from '
 import { ApiError, type Api } from '@/services/contract';
 import { nowISO } from '@/domain/clock';
 import { addDays, isValidISODate, maxDate } from '@/domain/dates';
-import { initials } from '@/domain/naming';
-import { newId } from '@/lib/utils';
+import { newId, normalizeText } from '@/lib/utils';
 import { onMilestoneCompleted } from '@/services/commercialEffects';
 import { assertInternal, assertManagerOf, assertWritable, requireViewer } from '@/services/context';
 import { db } from '@/services/db';
@@ -63,20 +62,46 @@ export function insertTemplateMilestones(project: Project, template: ProjectTemp
   return created;
 }
 
+/** a project without a template is planned for this long until its milestones say otherwise */
+const DEFAULT_PROJECT_DAYS = 90;
+
+/**
+ * 'CX-03': the account's ASCII code (initials of the short name without diacritics, like the seeded 'CX-APP' and the
+ * quote codes 'BG-CX-…' — never 'HĐ-…', which reads as "hợp đồng"), then the account's next free number. A code is
+ * never reused, even by a deleted project or another account with the same initials.
+ */
+function nextProjectCode(account: Account): string {
+  const prefix =
+    normalizeText(account.short_name || account.name)
+      .split(/[^a-z0-9]+/)
+      .filter(Boolean)
+      .map((w) => w.charAt(0))
+      .join('')
+      .toUpperCase()
+      .slice(0, 4) || 'DA';
+  const all = db.allRows('projects');
+  const used = new Set(all.map((p) => p.code));
+  let n = all.filter((p) => p.account_id === account.id).length + 1;
+  const codeOf = (i: number): string => `${prefix}-${String(i).padStart(2, '0')}`;
+  while (used.has(codeOf(n))) n += 1;
+  return codeOf(n);
+}
+
 /** Create a project (+ template milestones) and log it (call inside db.batch). */
 export function insertProject(account: Account, input: { name: string; start_date: ISODate; template_id: ID | null }, actorId: ID): Project {
   const name = (input.name ?? '').trim();
   if (!name) throw invalid('errors.name_required');
   if (!isValidISODate(input.start_date)) throw invalid('errors.invalid_date');
   const template = input.template_id ? findTemplate(input.template_id) : null;
-  const count = db.allRows('projects').filter((p) => p.account_id === account.id).length;
+  // from a template the project ends on its last milestone; an empty project gets the default span
+  const lastOffset = template && template.milestones.length > 0 ? Math.max(...template.milestones.map((m) => m.offset_days)) : null;
   const project: Project = {
     id: newId('prj'),
     account_id: account.id,
     name,
-    code: `${initials(account.short_name || account.name)}-${String(count + 1).padStart(2, '0')}`,
+    code: nextProjectCode(account),
     start_date: input.start_date,
-    end_date: addDays(input.start_date, 90),
+    end_date: addDays(input.start_date, lastOffset !== null ? Math.max(0, lastOffset) : DEFAULT_PROJECT_DAYS),
     status: 'active',
     deleted_at: null,
   };

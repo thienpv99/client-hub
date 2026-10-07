@@ -187,6 +187,15 @@ const dashboard = {
     tableCaption: 'Danh mục khách hàng, bấm một dòng để mở chi tiết',
     nextLabel: 'Mốc tiếp theo',
     noMilestone: 'Chưa có mốc sắp tới',
+    /** an account not on track names the milestone its late task holds (above the next milestone) */
+    held: {
+      title: 'Mốc {milestone} đang bị giữ',
+      titleSoon: 'Mốc {milestone} đang chờ',
+      overdueClient: 'do “{task}” chờ khách, quá hạn {days} ngày',
+      overdueInternal: 'do “{task}” chờ New Era, quá hạn {days} ngày',
+      dueSoon: '“{task}” còn {days} ngày đến hạn',
+      dueToday: '“{task}” đến hạn hôm nay',
+    },
     waitingClient: 'Khách',
     waitingInternal: 'New Era',
     waitingOverdue: '{count} quá hạn',

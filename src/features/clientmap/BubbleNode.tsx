@@ -4,7 +4,8 @@
 // - customers: soft health tint + ring + soft shadow; logo + name + value from 34px, the logo chip below;
 // - hubs (cluster centres): the group's short name in full (two lines, or a pill under the bubble), value, count;
 //   a group worth 0 in the chosen metric is a small dashed ring in muted colours (no blue fill);
-// - targets: quiet — white ghost with a thin dashed ring, initials (their short name once roomy), no value.
+// - targets: quiet — white ghost with a thin dashed ring, initials; once roomy their name and (muted) value, as they
+//   share the customers' value scale.
 import { memo } from 'react';
 import type { KeyboardEvent, MouseEvent, ReactNode } from 'react';
 import { Network, OctagonX, TriangleAlert } from 'lucide-react';
@@ -221,11 +222,33 @@ function AccountContent({ node, R, s }: { node: ClientMapNode; R: number; s: num
 }
 
 function LeadContent({ node, R, s }: { node: ClientMapNode; R: number; s: number }) {
-  if (R >= 30) {
-    const name = nameLines(node.label, clamp(R * 0.19, 11, 15), 11, R * 1.62 - 6, R >= 40, 500);
+  if (R >= R_DETAIL) {
+    // targets share the customers' value scale, so a roomy one names itself and says what it is worth, like a customer
+    const width = R * 1.62 - 6;
+    const name = nameLines(node.label, clamp(R * 0.19, 11, 15), 11, width, R >= 32, 500);
     if (name) {
-      const top = -(name.lines.length * name.size * 1.16) / 2;
-      return <TextLines lines={name} top={top} cls="fill-muted-foreground font-medium" s={s} />;
+      const nameH = name.lines.length * name.size * 1.16;
+      const value = node.value > 0 ? formatMoneyCompact(node.value) : null;
+      const vs = value ? fitSize(value, clamp(R * 0.15, 11, 14), 11, width, 500) : null;
+      const valueH = vs !== null ? vs * 1.2 : 0;
+      const withValue = value !== null && vs !== null && nameH + 2 + valueH <= R * 1.3;
+      const top = -(nameH + (withValue ? 2 + valueH : 0)) / 2;
+      return (
+        <>
+          <TextLines lines={name} top={top} cls="fill-muted-foreground font-medium" s={s} />
+          {withValue ? (
+            <text
+              y={(top + nameH + 2 + valueH / 2) * s}
+              textAnchor="middle"
+              dominantBaseline="central"
+              fontSize={(vs ?? 11) * s}
+              className="tabular fill-caption font-medium"
+            >
+              {value}
+            </text>
+          ) : null}
+        </>
+      );
     }
   }
   if (R < 10) return null;
@@ -242,9 +265,11 @@ function HubContent({ node, eco, R, r, s }: { node: ClientMapNode; eco: Ecosyste
   const empty = node.value <= 0;
   const width = R * 1.5 - 8;
   const fs = clamp(R * 0.2, 13, 24);
-  const name = oneLine(label, fs, 12, width, 600) ?? twoLines(label, fs, 11, width, 600);
   const value = formatMoneyCompact(node.value);
   const vs = fitSize(value, clamp(R * 0.17, 12, 19), 11, width, 600) ?? 11;
+  let name = oneLine(label, fs, 12, width, 600) ?? twoLines(label, fs, 11, width, 600);
+  // name + value must stack inside the disc (a small empty group's ring); otherwise the name goes in the pill below
+  if (name && name.lines.length * name.size * 1.16 + 3 + vs * 1.2 > R * 1.5) name = null;
   const cs = clamp(R * 0.12, 11, 14);
   const count = eco ? t('clientmap.map.companies', { count: eco.account_count + eco.lead_count }) : node.sublabel;
   const nameH = name ? name.lines.length * name.size * 1.16 : 0;

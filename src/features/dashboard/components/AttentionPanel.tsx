@@ -114,7 +114,8 @@ function AttentionRow({ item, onApprove }: RowProps) {
   const meta = attentionMeta(item);
   const actions = item.actions.slice(0, 2);
   return (
-    <li className="flex flex-col gap-3 px-4 py-4 sm:px-5 md:flex-row md:items-center md:gap-6">
+    // side by side from lg only: on iPad portrait the text column would be ~250px and its meta line would clip
+    <li className="flex flex-col gap-3 px-4 py-4 sm:px-5 lg:flex-row lg:items-center lg:gap-6">
       <div className="flex min-w-0 flex-1 items-start gap-3.5">
         <span
           className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-full', SEVERITY_TONE[item.severity])}
@@ -134,7 +135,8 @@ function AttentionRow({ item, onApprove }: RowProps) {
               ),
             )}
           </p>
-          <p className="mt-0.5 line-clamp-1 text-caption">
+          {/* may wrap (a client's quote note can be long): two lines at most, the whole note in the tooltip */}
+          <p className="mt-0.5 line-clamp-2 break-words text-caption" title={meta || undefined}>
             <span className={cn('font-medium', SEVERITY_WORD[item.severity])}>{t(`dashboard.attention.severity.${item.severity}`)}</span>
             {meta ? <span aria-hidden="true"> · </span> : null}
             {meta ? <span className="sr-only">, </span> : null}
@@ -143,7 +145,7 @@ function AttentionRow({ item, onApprove }: RowProps) {
         </div>
       </div>
       {actions.length > 0 ? (
-        <div className="flex flex-wrap items-center gap-2 pl-[50px] md:shrink-0 md:justify-end md:pl-0">
+        <div className="flex flex-wrap items-center gap-2 pl-[50px] lg:shrink-0 lg:justify-end lg:pl-0">
           {actions.map((a, i) => (
             <ActionButton key={a} item={item} action={a} primary={i === 0} onApprove={onApprove} />
           ))}

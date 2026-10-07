@@ -10,25 +10,20 @@ export function isMetric(v: unknown): v is ClientMapMetric {
   return typeof v === 'string' && (METRICS as string[]).includes(v);
 }
 
-/** smallest customer bubble (world px ≈ screen px once the map is fitted) */
-export const R_MIN_ACCOUNT = 14;
-/** smallest target-company bubble */
-export const R_MIN_LEAD = 12;
+/**
+ * smallest company bubble, customer or target (world px ≈ screen px once the map is fitted): the readability floor
+ * of the logo chip / initials; only bubbles below it are not proportional to their value
+ */
+export const R_MIN_COMPANY = 14;
 /** smallest hub: room for the group's short name and its value */
 export const R_MIN_HUB = 40;
 /** customer bubbles whose on-screen radius reaches this show their name + value (+ logo from 38) */
 export const R_DETAIL = 30;
-/** largest customer ≈ this share of the canvas' short side (before the density check) */
+/** largest company (customer or target) ≈ this share of the canvas' short side (before the density check) */
 const R_MAX_SHARE = 0.22;
-/**
- * Targets are sized by their budget estimate, an unweighted figure that is often larger than a customer's real
- * value: on their own √ scale, up to this share of the largest customer, so the customers stay the heroes and the
- * many targets stay quiet.
- */
-const LEAD_SCALE = 0.4;
 /** a hub is at least this much wider than its widest member (+4px) … */
 const HUB_OVER_MEMBER = 1.2;
-/** … and the largest hub (the biggest group by value) reaches this × the largest customer */
+/** … and the largest hub (the biggest group by value) reaches this × the largest company */
 const HUB_TOP = 1.4;
 /**
  * The hubs share one √ scale (group areas stay proportional to value). It grows past HUB_TOP when a group would
@@ -63,42 +58,41 @@ export function hubIndex(map: Pick<ClientMap, 'nodes' | 'links'>): Map<string, s
 }
 
 /**
- * Area ∝ value (r = rMax × √(value / max), never below the kind's floor):
- * - customers against the largest customer, rMax ≤ 0.22 × the canvas' short side;
- * - targets against the largest target, up to LEAD_SCALE × rMax (a budget estimate, see LEAD_SCALE);
- * - hubs are the centre of their cluster and always its biggest shape, and group areas stay proportional to each
- *   other: ONE √ scale for every hub (r = k × √value), k = the scale that puts the biggest group at HUB_TOP × rMax
- *   (less when the biggest group is worth less than √-proportionally more than the biggest customer), raised just
- *   enough that every group is HUB_OVER_MEMBER × wider (+4px) than its widest member (≤ HUB_SCALE_MAX × the base).
- *   So a group worth less is never drawn bigger than one worth more (Sao Bắc 4,1 tỷ vs Cỏ Xanh 5,6 tỷ); R_MIN_HUB
- *   keeps the short name legible on the smallest ones. A group worth 0 in the metric gets a small muted ring
- *   (R_EMPTY_HUB, still around its widest member) — BubbleNode draws it without the blue fill.
- * rMax shrinks until the bubbles cover about DENSITY of the canvas, so the fitted map fills it at every size
- * (1440×900: the biggest hub ≈ 0.2 and the biggest customer ≈ 0.15 of the canvas' short side, targets 12–28px).
+ * Area ∝ value (r = rMax × √(value / max), never below a small readability floor):
+ * - companies — customers AND targets — share ONE √ scale, against the most valuable company on the map, rMax ≤ 0.22
+ *   × the canvas' short side. A target's value is its budget estimate (total / pipeline metrics; 0 in the contract
+ *   one, so targets sit at their floor there): a 5 tỷ target is drawn bigger than a 0,9 tỷ customer, as the "Bảng"
+ *   ranking says. Only bubbles below the shared floor (R_MIN_COMPANY) stop being proportional.
+ * - hubs (ecosystems) are cluster containers on a scale of their own — the legend and the page subtitle say so: the
+ *   centre of their cluster and always its biggest shape, and group areas stay proportional to each other: ONE √
+ *   scale for every hub (r = k × √value), k = the scale that puts the biggest group at HUB_TOP × rMax (less when the
+ *   biggest group is worth less than √-proportionally more than the biggest company), raised just enough that every
+ *   group is HUB_OVER_MEMBER × wider (+4px) than its widest member (≤ HUB_SCALE_MAX × the base). So a group worth
+ *   less is never drawn bigger than one worth more (Sao Bắc 4,1 tỷ vs Cỏ Xanh 5,6 tỷ); R_MIN_HUB keeps the short
+ *   name legible on the smallest ones. A group worth 0 in the metric gets a small muted ring (R_EMPTY_HUB, still
+ *   around its widest member) — BubbleNode draws it without the blue fill.
+ * rMax shrinks until the bubbles cover about DENSITY of the canvas, so the fitted map fills it at every size.
  */
 export function computeRadii(nodes: ClientMapNode[], hubOf: Map<string, string>, width: number, height: number): Map<string, number> {
   const out = new Map<string, number>();
-  const accounts = nodes.filter((n) => n.kind === 'account');
-  const leads = nodes.filter((n) => n.kind === 'lead');
+  const companies = nodes.filter(isCompany);
   const hubs = nodes.filter((n) => n.kind === 'ecosystem');
   const maxOf = (list: ClientMapNode[]) => list.reduce((m, n) => Math.max(m, n.value), 0);
-  const maxAccount = maxOf(accounts);
-  const maxLead = maxOf(leads);
+  // one value scale for every company, customer or target
+  const maxCompany = maxOf(companies);
   const maxHub = maxOf(hubs);
-  // a map of targets only (AM filter) sizes them on the full scale
-  const leadScale = accounts.length > 0 ? LEAD_SCALE : 1;
-  // the biggest group reaches HUB_TOP × rMax only when it is worth that much more than the biggest customer
+  // the biggest group reaches HUB_TOP × rMax only when it is worth that much more than the biggest company
   // (contract metric: groups are often smaller than one customer's total; they stay the biggest of their cluster)
-  const hubTop = maxAccount > 0 ? Math.min(HUB_TOP, Math.sqrt(maxHub / maxAccount)) : HUB_TOP;
+  const hubTop = maxCompany > 0 ? Math.min(HUB_TOP, Math.sqrt(maxHub / maxCompany)) : HUB_TOP;
   const sized = (v: number, max: number, top: number, floor: number) =>
     max > 0 ? Math.max(floor, top * Math.sqrt(Math.max(0, v) / max)) : floor;
 
-  // a phone canvas (short side < 420) lowers the customer and hub floors a little (never below 80 %): otherwise four
-  // hubs of the same minimum size leave no room for the differences in value. Targets keep their 12px (initials).
+  // a phone canvas (short side < 420) lowers the company and hub floors a little (never below 80 %): otherwise four
+  // hubs of the same minimum size leave no room for the differences in value. Customers and targets share the floor
+  // too, so a company worth less is never drawn bigger than one worth more.
   const fs = Math.min(1, Math.max(0.8, Math.min(width, height) / 420));
   const assign = (rMax: number) => {
-    for (const n of accounts) out.set(n.id, sized(n.value, maxAccount, rMax, R_MIN_ACCOUNT * fs));
-    for (const n of leads) out.set(n.id, sized(n.value, maxLead, rMax * leadScale, R_MIN_LEAD));
+    for (const n of companies) out.set(n.id, sized(n.value, maxCompany, rMax, R_MIN_COMPANY * fs));
     // room each hub needs around its widest member
     const room = new Map<string, number>();
     for (const n of nodes) {
@@ -117,7 +111,7 @@ export function computeRadii(nodes: ClientMapNode[], hubOf: Map<string, string>,
     }
   };
 
-  const floor = (R_MIN_ACCOUNT + 8) * fs;
+  const floor = (R_MIN_COMPANY + 8) * fs;
   const target = Math.max(1, DENSITY * width * height);
   let rMax = Math.max(floor, R_MAX_SHARE * Math.min(width, height));
   for (let i = 0; i < 8; i++) {

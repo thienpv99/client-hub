@@ -153,7 +153,7 @@ const crm = {
   },
 
   list: {
-    searchPlaceholder: 'Tìm theo khách hàng, cơ hội, người phụ trách…',
+    searchPlaceholder: 'Tìm cơ hội, khách hàng…',
     searchLabel: 'Tìm cơ hội',
     stageFilter: 'Lọc theo giai đoạn',
     stageOpen: 'Đang mở',
@@ -315,6 +315,8 @@ const crm = {
     quoteCode: '{code} · v{version}',
     quoteLine: 'Tổng {total} · hiệu lực đến {date}',
     openQuote: 'Mở báo giá',
+    /** link to the newest version when the deal still points at an older one (+ " · <trạng thái>") */
+    newerVersion: 'Đã có phiên bản v{version}',
     contacts: 'Người liên hệ',
     noContacts: 'Khách hàng chưa có người liên hệ nào.',
     history: 'Lịch sử giai đoạn',
@@ -367,6 +369,12 @@ const crm = {
     quoteLoading: 'Đang tải báo giá…',
     /** one option: "BG-TA-2026-02 · v2 — Cổng ngân hàng số giai đoạn 2 · Đã gửi" */
     quoteOption: '{code} — {title} · {status}',
+    /** an option with a note: "BG-TA-2026-01 · v1 — … · Khách chấp thuận (đang gắn với “Giai đoạn 1”)" */
+    quoteOptionNote: '{option} ({note})',
+    /** the deal's own quote when a newer version of it exists */
+    quoteOlder: 'đã có v{version}',
+    /** a quote another deal of the account already uses */
+    quoteUsedBy: 'đang gắn với “{name}”',
     quoteHint: 'Báo giá gắn với cơ hội hiện ở thẻ “Báo giá” của trang cơ hội.',
     quoteNoneHint: '{account} chưa có báo giá nào. Tạo báo giá ở mục Thương mại rồi gắn vào đây.',
     errors: {

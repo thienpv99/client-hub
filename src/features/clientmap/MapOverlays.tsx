@@ -3,6 +3,7 @@
 import { useRef } from 'react';
 import type { ReactNode } from 'react';
 import { CircleCheck, Maximize, Minus, OctagonX, Plus, Search, TriangleAlert, X } from 'lucide-react';
+import type { ClientMapMetric } from '@/services/crmContract';
 import { SMALL } from '@/components/common/cx';
 import { SCROLL_FADE_CLASS, useScrollFade } from '@/components/ui/use-scroll-fade';
 import { t } from '@/i18n';
@@ -102,8 +103,11 @@ function Swatch({ children }: { children: ReactNode }) {
   );
 }
 
-/** the card's footer bar: one row; scrolls sideways with a faded edge on phones */
-export function MapLegend({ showLeads }: { showLeads: boolean }) {
+/**
+ * The card's footer bar: one row; scrolls sideways with a faded edge on phones. It states the size rules of
+ * mapModel.computeRadii: companies (customers and targets) on one value scale, ecosystem hubs on their own.
+ */
+export function MapLegend({ showLeads, metric }: { showLeads: boolean; metric: ClientMapMetric }) {
   const ref = useRef<HTMLUListElement>(null);
   useScrollFade(ref);
   const item = cn('inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap', SMALL);
@@ -146,7 +150,7 @@ export function MapLegend({ showLeads }: { showLeads: boolean }) {
           <Swatch>
             <circle cx="9" cy="9" r="6.5" className="fill-card stroke-caption" strokeWidth="1.25" strokeDasharray="2.5 2.5" />
           </Swatch>
-          {t('clientmap.legend.lead')}
+          {metric === 'contract_value' ? t('clientmap.legend.leadNoValue') : t('clientmap.legend.lead')}
         </li>
       ) : null}
     </ul>

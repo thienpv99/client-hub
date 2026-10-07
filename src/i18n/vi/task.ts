@@ -105,7 +105,19 @@ const task = {
       comments: 'Bình luận',
       history: 'Lịch sử',
     },
-    milestoneTag: 'Mốc {name} · {date}',
+    /** header eyebrow: the task's milestone + its dates (both dates once it has moved, SPEC §3) */
+    milestone: {
+      name: 'Mốc {name}',
+      /** done milestone: the day it was completed */
+      doneDate: 'Xong {date}',
+      /** read before the bare dates "09/10 → 15/10" */
+      plannedSr: 'Kế hoạch',
+      forecastSr: 'Dự báo',
+      /** tooltips (the full line) */
+      onPlan: 'Mốc {name} · {date}',
+      shifted: 'Mốc {name} · Kế hoạch {planned} → Dự báo {forecast}',
+      done: 'Mốc {name} · Xong {date}',
+    },
     openFull: 'Xem toàn màn hình',
     previewOf: 'Xem lớn {name}',
     fileMeta: '{version} · {name} · {when}',

@@ -78,8 +78,18 @@ function milestoneNames(ms: Milestone[]): string {
     .join(', ');
 }
 
-function maxDelay(graph: AccountGraph, ms: Milestone[]): number {
-  return ms.reduce((max, m) => Math.max(max, graph.forecast(m.id).delay_days), 0);
+/**
+ * The first of `ms` (plan order) whose forecast was moved by hand: its own override, or a cascade from an earlier
+ * milestone's override (a cascade with no cause task). An escalation names that forecast separately instead of
+ * blaming the overdue task for days an AM added.
+ */
+function manuallyAdjusted(graph: AccountGraph, ms: Milestone[]): Milestone | undefined {
+  return [...ms]
+    .sort((a, b) => a.planned_date.localeCompare(b.planned_date) || a.order_no - b.order_no)
+    .find((m) => {
+      const f = graph.forecast(m.id);
+      return f.source === 'manual' || (f.source === 'cascade' && f.cause_task_id === null);
+    });
 }
 
 // ───────────────────────────── (1) + (2) client tasks ─────────────────────────────
@@ -137,13 +147,22 @@ function escalate(task: Task, account: Account, graph: AccountGraph, overdueDays
     const isClient = user.org_type === 'client';
     const shown = isClient ? held.filter((m) => m.client_visible) : held;
     const variant = !isClient ? 'internal' : shown.length > 0 ? 'client' : 'clientPlain';
+    // the delay this task causes: its own overdue days, carried unchanged along the chain to every milestone it holds
+    // (a milestone's whole forecast slip may also hold other causes or a manual change, which this task is not blamed for)
+    const adjusted = variant === 'clientPlain' ? undefined : manuallyAdjusted(graph, shown);
     const params = {
       account: account.name,
       task: task.title,
       due: fmtDay(task.due_date),
       days: overdueDays,
       milestones: milestoneNames(shown),
-      delay: maxDelay(graph, shown.length > 0 ? shown : held),
+      delay: overdueDays,
+      adjusted: adjusted
+        ? t(`${TPL}.escalation.${variant}.adjusted`, {
+            milestone: adjusted.name,
+            forecast: fmtDay(graph.forecast(adjusted.id).forecast_date),
+          })
+        : '',
       assignee: assignee ? assignee.full_name : account.name,
       ...addressingOf(user),
     };

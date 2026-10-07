@@ -143,10 +143,13 @@ const notifyTemplates = {
       body: 'Việc “{task}” có hạn {due} ({relativeLower}).{impact}',
     },
   },
+  // {delay} = the days THIS task pushes the milestone back (its own overdue days carried along the chain), never the
+  // milestone's whole slip; {adjusted} = '' or the `adjusted` sentence when a manual forecast change moved the milestone.
   escalation: {
     client: {
       title: 'Mốc {milestones} đang chờ việc “{task}”',
-      body: 'Việc “{task}” đã quá hạn {days} ngày (hạn {due}) và đang giữ mốc {milestones}, dự báo lùi {delay} ngày. {Pronoun} xem giúp để dự án tiếp tục theo kế hoạch.',
+      body: 'Việc “{task}” đã quá hạn {days} ngày (hạn {due}) và đang giữ mốc {milestones}; riêng việc này làm mốc lùi {delay} ngày.{adjusted} {Pronoun} xem giúp để dự án tiếp tục theo kế hoạch.',
+      adjusted: ' Mốc {milestone} hiện dự báo {forecast} (lịch đã được điều chỉnh).',
     },
     clientPlain: {
       title: 'Việc “{task}” đã quá hạn {days} ngày',
@@ -154,7 +157,8 @@ const notifyTemplates = {
     },
     internal: {
       title: 'Leo thang: {account} – “{task}” quá hạn {days} ngày',
-      body: '{account}: việc phía khách “{task}” ({assignee}) đã quá hạn {days} ngày, đang giữ mốc {milestones} (dự báo lùi {delay} ngày). Đã báo Người quyết định phía khách.',
+      body: '{account}: việc phía khách “{task}” ({assignee}) đã quá hạn {days} ngày, đang giữ mốc {milestones} (riêng việc này làm mốc lùi {delay} ngày).{adjusted} Đã báo Người quyết định phía khách.',
+      adjusted: ' Dự báo mốc {milestone} hiện là {forecast}, gồm cả điều chỉnh thủ công.',
     },
   },
   internalOverdue: {

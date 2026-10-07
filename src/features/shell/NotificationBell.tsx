@@ -81,7 +81,8 @@ export function NotificationBell({ side }: NotificationBellProps) {
   const footerLabel = side === 'internal' ? t('layout.bell.viewAll') : t('layout.bell.settings');
   const FooterIcon = side === 'internal' ? ArrowRight : Settings;
 
-  // phones (sheet header shares the row with the close button): short "Đọc hết" label, full label for screen readers;
+  // phones (sheet header shares the row with the close button): short "Đọc hết" label, full label for screen readers,
+  // and mr-1 on top of the header's close-button gutter keeps 8px between the two tap targets (DESIGN §6);
   // the row may wrap rather than overlap (e.g. "99 chưa đọc" on a 320px screen)
   const header = (
     <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
@@ -98,7 +99,7 @@ export function NotificationBell({ side }: NotificationBellProps) {
           type="button"
           variant="ghost"
           size="sm"
-          className="px-2 text-muted-foreground hover:text-foreground md:-mr-2"
+          className="mr-1 px-2 text-muted-foreground hover:text-foreground md:-mr-2"
           loading={pending}
           title={t('layout.bell.markAllRead')}
           onClick={() => void run(() => api.markNotificationsRead())}

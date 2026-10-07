@@ -18,9 +18,12 @@ import { formatMoneyCompact } from '@/lib/format';
 
 const TOP = 6;
 
-/** ranks run down the columns: 1–3 | 4–6 from md, 1–2 | 3–4 | 5–6 on the full-width xl band */
+/**
+ * ranks run down the columns: one column on phones and iPad portrait (two columns there leave ~130px per name and cut
+ * "Ngân hàng Thịnh An"), 1–3 | 4–6 from lg, 1–2 | 3–4 | 5–6 on the full-width xl band
+ */
 const GRID =
-  'grid gap-x-8 gap-y-0.5 px-2 pb-3 sm:px-3 md:grid-flow-col md:grid-cols-2 md:grid-rows-3 xl:grid-cols-3 xl:grid-rows-2';
+  'grid gap-x-8 gap-y-0.5 px-2 pb-3 sm:px-3 lg:grid-flow-col lg:grid-cols-2 lg:grid-rows-3 xl:grid-cols-3 xl:grid-rows-2';
 
 function pct(part: number, max: number): string {
   if (max <= 0 || part <= 0) return '0%';
@@ -49,7 +52,9 @@ function Row({ node, rank, max }: { node: ClientMapNode; rank: number; max: numb
       />
       <span className="min-w-0 flex-1" aria-hidden="true">
         <span className="flex items-baseline justify-between gap-3">
-          <span className="truncate text-table font-medium text-foreground">{node.label}</span>
+          <span className="truncate text-table font-medium text-foreground" title={node.label}>
+            {node.label}
+          </span>
           <span className="shrink-0 text-table font-semibold tabular text-ink">{value}</span>
         </span>
         <span className="mt-1.5 flex h-1.5 w-full overflow-hidden rounded-full bg-muted">

@@ -2,7 +2,7 @@
 import { useId, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { ExternalLink, Hourglass } from 'lucide-react';
+import { ArrowRight, Clock, ExternalLink, Hourglass } from 'lucide-react';
 import type { ActivityView, ChainNode, FileView, MilestoneRef, TaskDetail } from '@/services/contract';
 import { api } from '@/services/api';
 import { useQuery } from '@/hooks/useQuery';
@@ -57,15 +57,62 @@ export function StatusBadge({ phrase }: { phrase: StatusPhrase }) {
   );
 }
 
+/** between the parts of a one-line eyebrow; phones stack the parts instead (no separator) */
 const SEP = (
-  <span aria-hidden="true" className="text-border-strong">
+  <span aria-hidden="true" className="hidden text-border-strong sm:inline">
     ·
   </span>
 );
 
 /**
- * Eyebrow above the title: account (internal viewers) · project · milestone + planned date. One quiet line; on
- * phones an internal viewer's line drops the project (account + milestone say enough there).
+ * "Mốc Thiết kế · 09/10 → ◷ 15/10": once the milestone has moved, the planned date (secondary) and the forecast
+ * (danger with its clock when later) — the same marks as MilestoneTag / ForecastLabel, never the stale planned date
+ * alone (SPEC §3 "Luôn hiện cả hai ngày"). A done milestone shows the day it was completed. The name truncates; the
+ * dates never do.
+ */
+function MilestoneContext({ milestone: m }: { milestone: MilestoneRef }) {
+  const done = m.status === 'done';
+  const shifted = !done && m.forecast_date !== m.planned_date;
+  const later = m.forecast_date > m.planned_date;
+  const planned = formatDateShort(m.planned_date);
+  const forecast = formatDateShort(m.forecast_date);
+  const title = done
+    ? t('task.drawer.milestone.done', { name: m.name, date: forecast })
+    : shifted
+      ? t('task.drawer.milestone.shifted', { name: m.name, planned, forecast })
+      : t('task.drawer.milestone.onPlan', { name: m.name, date: planned });
+  return (
+    <span className="inline-flex min-w-0 max-w-full items-center gap-1.5" title={title}>
+      <span className="min-w-0 truncate">{t('task.drawer.milestone.name', { name: m.name })}</span>
+      <span aria-hidden="true">·</span>
+      <span className="inline-flex shrink-0 items-center gap-1 tabular">
+        {done ? (
+          t('task.drawer.milestone.doneDate', { date: forecast })
+        ) : shifted ? (
+          <>
+            <span>
+              <span className="sr-only">{t('task.drawer.milestone.plannedSr')} </span>
+              {planned}
+            </span>
+            <ArrowRight className="h-3 w-3 shrink-0" aria-hidden="true" />
+            <span className={cn('inline-flex items-center gap-0.5', later ? 'font-semibold text-danger' : 'font-medium text-foreground')}>
+              <span className="sr-only">{t('task.drawer.milestone.forecastSr')} </span>
+              {later ? <Clock className="h-3 w-3 shrink-0" aria-hidden="true" /> : null}
+              {forecast}
+            </span>
+          </>
+        ) : (
+          planned
+        )}
+      </span>
+    </span>
+  );
+}
+
+/**
+ * Eyebrow above the title: account (internal viewers) · project · milestone + its dates. One quiet line from `sm`;
+ * on phones the parts stack (at most 2 lines, inside the 44px row of the "…" and close buttons) so the milestone's
+ * dates keep their room, and an internal viewer's eyebrow drops the project (account + milestone say enough there).
  */
 export function TaskContext({ task, internal, className }: { task: TaskDetail; internal: boolean; className?: string }) {
   const parts: { key: string; node: ReactNode; phone: boolean }[] = [];
@@ -87,7 +134,7 @@ export function TaskContext({ task, internal, className }: { task: TaskDetail; i
   if (task.project.name) {
     parts.push({
       key: 'project',
-      // never the first part on phones: that would leave a leading separator
+      // on phones only when it is the first line (a client's eyebrow: project, then milestone)
       phone: parts.length === 0,
       node: (
         <span className="min-w-0 truncate" title={t('task.card.project', { name: task.project.name })}>
@@ -100,24 +147,28 @@ export function TaskContext({ task, internal, className }: { task: TaskDetail; i
     parts.push({
       key: 'milestone',
       phone: true,
-      node: (
-        <span
-          className="min-w-0 truncate"
-          title={t('task.drawer.milestoneTag', { name: task.milestone.name, date: formatDateShort(task.milestone.planned_date) })}
-        >
-          {t('task.drawer.milestoneTag', { name: task.milestone.name, date: formatDateShort(task.milestone.planned_date) })}
-        </span>
-      ),
+      node: <MilestoneContext milestone={task.milestone} />,
     });
   }
   if (parts.length === 0) return null;
   return (
-    // one line (it shares the row with "…" and the close button): long names truncate, the full text is the tooltip
-    <p className={cn('flex min-w-0 items-center gap-x-2 overflow-hidden whitespace-nowrap text-caption', className)}>
+    // it shares the row with "…" and the close button: long names truncate, the full text is the tooltip
+    <p
+      className={cn(
+        'flex min-w-0 flex-col items-start gap-0.5 overflow-hidden whitespace-nowrap text-caption sm:flex-row sm:items-center sm:gap-x-2 sm:gap-y-0',
+        className,
+      )}
+    >
       {parts.map((p, i) => (
         <span
           key={p.key}
-          className={cn('min-w-0 items-center gap-2', p.phone ? 'inline-flex' : 'hidden sm:inline-flex', p.key === 'account' && 'shrink-0')}
+          className={cn(
+            'min-w-0 max-w-full items-center gap-2',
+            p.phone ? 'inline-flex' : 'hidden sm:inline-flex',
+            p.key === 'account' && 'sm:shrink-0',
+            // the project only gets the room the account and the milestone (with its dates) leave: it truncates first
+            p.key === 'project' && 'sm:max-w-max sm:flex-1',
+          )}
         >
           {i > 0 ? SEP : null}
           {p.node}

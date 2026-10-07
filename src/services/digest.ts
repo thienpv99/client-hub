@@ -43,9 +43,18 @@ export function viewerForUser(u: User): Viewer {
   };
 }
 
-/** C-level recipients of the Monday bulletin: directors, AMs with accounts, decision makers of active accounts. */
+/**
+ * Accounts a bulletin reports on: a delivery stage AND at least one project. A prospect, or a deal still being
+ * negotiated without a project, has no plan to be "on track" against and would only add empty sections.
+ */
+function digestEligibleAccounts(): Account[] {
+  const withProject = new Set(db.rows('projects').map((p) => p.account_id));
+  return db.rows('accounts').filter((a) => DIGEST_STAGES.includes(a.stage) && withProject.has(a.id));
+}
+
+/** C-level recipients of the Monday bulletin: directors, AMs with active accounts, decision makers of active accounts. */
 export function digestRecipients(): User[] {
-  const accounts = db.rows('accounts');
+  const accounts = digestEligibleAccounts();
   return db.rows('users').filter((u) => {
     if (u.status !== 'active') return false;
     switch (u.role) {
@@ -53,10 +62,8 @@ export function digestRecipients(): User[] {
         return true;
       case 'am':
         return accounts.some((a) => a.am_id === u.id);
-      case 'client_owner': {
-        const account = accounts.find((a) => a.id === u.account_id);
-        return !!account && DIGEST_STAGES.includes(account.stage);
-      }
+      case 'client_owner':
+        return accounts.some((a) => a.id === u.account_id);
       case 'member':
       case 'client_member':
         return false;
@@ -65,7 +72,7 @@ export function digestRecipients(): User[] {
 }
 
 function digestAccounts(rv: Viewer): Account[] {
-  const accounts = db.rows('accounts');
+  const accounts = digestEligibleAccounts();
   switch (rv.role) {
     case 'client_owner':
     case 'client_member':
@@ -73,10 +80,10 @@ function digestAccounts(rv: Viewer): Account[] {
     case 'am':
       return accounts.filter((a) => a.am_id === rv.user.id);
     case 'director':
-      return accounts.filter((a) => DIGEST_STAGES.includes(a.stage));
+      return accounts;
     case 'member': {
       const ids = accessibleAccountIds(rv);
-      return accounts.filter((a) => ids.has(a.id) && DIGEST_STAGES.includes(a.stage));
+      return accounts.filter((a) => ids.has(a.id));
     }
   }
 }
