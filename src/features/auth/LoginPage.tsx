@@ -1,24 +1,19 @@
 // /login — split layout: calm brand panel with a product preview (≥1024) + sign-in column.
-// Sign-in column: heading → sign-in card (segmented Khách hàng / Nội bộ New Era) → demo quick-login grid.
-// Phones: one column, the demo grid comes first (the fastest way in), then the sign-in card.
-import { useEffect, useState } from 'react';
+// Sign-in column: ONE sign-in card for clients and New Era staff alike (title → Google for staff → email, which
+// routes to a password or a one-time code, see SignInForm) → demo quick-login grid below it. Phones: one column.
+import { useEffect } from 'react';
 import { Navigate, useSearchParams } from 'react-router-dom';
 import { NewEraLogo } from '@/components/common/new-era-logo';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { homePathFor, safeNextPath } from '@/features/shell/routing';
 import { useViewer } from '@/hooks/useViewer';
 import { t } from '@/i18n';
-import { ClientLoginForm } from './ClientLoginForm';
 import { DemoLoginPanel } from './DemoLoginPanel';
-import { InternalLoginForm } from './InternalLoginForm';
 import { BrandPanel } from './LoginShowcase';
-
-type Mode = 'client' | 'internal';
+import { SignInForm } from './SignInForm';
 
 export function LoginPage() {
   const viewer = useViewer();
   const [params] = useSearchParams();
-  const [mode, setMode] = useState<Mode>('client');
   // outside both app frames: name the browser tab here (after a logout it still showed the last page)
   useEffect(() => {
     document.title = t('layout.documentTitle', { page: t('auth.pageTitle') });
@@ -39,35 +34,23 @@ export function LoginPage() {
           <span className="text-caption font-medium">{t('auth.brand.eyebrow')}</span>
         </div>
 
-        <div className="mx-auto flex w-full max-w-[460px] flex-1 flex-col justify-center py-8 lg:py-12">
-          <h1 className="text-title font-semibold tracking-tightish text-ink sm:text-display sm:tracking-display">
-            {t('auth.heading')}
-          </h1>
-          <p className="mt-1.5 text-body text-muted-foreground">{t('auth.subheading')}</p>
-
-          <div className="mt-6 flex flex-col gap-8 lg:mt-8">
-            <section
-              aria-label={t('auth.mode.label')}
-              className="order-2 rounded-xl border border-border/70 bg-card p-5 shadow-card sm:p-6 lg:order-1"
+        {/* lg:py-6: the email step + demo cards fit a 1440×900 laptop without a scroll (the content is centred anyway) */}
+        <div className="mx-auto flex w-full max-w-[460px] flex-1 flex-col justify-center gap-8 py-8 lg:py-6">
+          <section
+            aria-labelledby="login-title"
+            className="rounded-xl border border-border/70 bg-card p-5 shadow-card sm:p-6"
+          >
+            <h1
+              id="login-title"
+              className="text-title font-semibold tracking-tightish text-ink sm:text-display sm:tracking-display"
             >
-              <p className="-mt-1 mb-4 text-caption lg:hidden">{t('auth.orSignIn')}</p>
-              <Tabs value={mode} onValueChange={(v) => setMode(v === 'internal' ? 'internal' : 'client')}>
-                <TabsList aria-label={t('auth.mode.label')} className="grid w-full grid-cols-2">
-                  <TabsTrigger value="client">{t('auth.mode.client')}</TabsTrigger>
-                  <TabsTrigger value="internal">{t('auth.mode.internal')}</TabsTrigger>
-                </TabsList>
-                {/* the panels start with a field: no extra tab stop on the panel itself */}
-                <TabsContent value="client" className="mt-5" tabIndex={-1}>
-                  <ClientLoginForm />
-                </TabsContent>
-                <TabsContent value="internal" className="mt-5" tabIndex={-1}>
-                  <InternalLoginForm />
-                </TabsContent>
-              </Tabs>
-            </section>
+              {t('auth.heading')}
+            </h1>
+            <p className="mt-1 text-body text-muted-foreground">{t('auth.subheading')}</p>
+            <SignInForm className="mt-6" />
+          </section>
 
-            <DemoLoginPanel className="order-1 lg:order-2" />
-          </div>
+          <DemoLoginPanel />
         </div>
         <p className="text-center text-caption lg:hidden">{t('auth.brand.footer')}</p>
       </main>

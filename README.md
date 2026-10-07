@@ -107,7 +107,19 @@ Lần đầu script tạo project và gắn tên miền `clienthub.nea.io.vn` (C
 
 ## 3. Đăng nhập demo
 
-Màn đăng nhập có các nút **Vào nhanh** theo vai trò:
+Màn đăng nhập (`/login`) chỉ có **một khung "Đăng nhập"** dùng chung cho khách hàng và nhân sự New Era, không chia thẻ Khách hàng / Nội bộ:
+
+1. **Đăng nhập bằng Google** ở trên cùng, dành cho nhân sự New Era (tài khoản `@newera.inc`, xem mục dưới). Khi nút ẩn, dòng "hoặc dùng email" ngay dưới nó cũng ẩn.
+2. **Email công việc** → **Tiếp tục**. Bước tiếp theo chọn theo đuôi email:
+   - `@newera.inc` (nhân sự New Era) → nhập **mật khẩu**, bấm **Đăng nhập**. Có nút hiện/ẩn mật khẩu.
+   - đuôi khác (khách hàng) → hệ thống gửi **mã 6 số** qua email, nhập mã rồi bấm **Xác nhận** (đủ 6 số là tự đăng nhập, dán mã cũng được). Bản demo hiện mã ngay trên màn hình, kèm nút "Điền mã". "Gửi lại mã" bấm lại được sau 30 giây.
+   - Email khách không có trong hệ thống: báo "Không tìm thấy tài khoản với email này." ngay dưới ô email.
+3. Ở bước mật khẩu / mã, email hiện thành một dòng kèm nút **Đổi email**. Bấm nút này hoặc phím **Esc** để quay lại, email đã gõ vẫn còn.
+4. **Ghi nhớ thiết bị này** (mặc định bật) hiện ở mọi bước và áp dụng cho mọi cách đăng nhập, kể cả Google.
+
+**Enter** gửi từng bước. Trình quản lý mật khẩu của trình duyệt tự điền được email và mật khẩu. Đăng nhập xong, app mở trang trong `?next=` (nếu có và đúng phía), nếu không thì về trang chủ theo vai trò: Giám đốc / AM → `/app`, thành viên nội bộ → `/app/tasks?mine=1`, khách → `/portal`.
+
+Bên dưới khung là mục **Vào nhanh (demo)** với các thẻ theo vai trò:
 
 | Nút | Người dùng | Ghi chú |
 |---|---|---|
@@ -117,10 +129,10 @@ Màn đăng nhập có các nút **Vào nhanh** theo vai trò:
 | Khách – Thành viên | chị Phạm Thu Lan, Cỏ Xanh Retail | có việc được anh Minh giao |
 | Thành viên nội bộ (link nhỏ bên dưới) | Phạm Minh Tuấn | mở thẳng "Việc của tôi"; không thấy thương mại, giá vốn, CRM |
 
-Đăng nhập thủ công:
+Đăng nhập thủ công (cùng một khung, theo đuôi email):
 
-- **Khách:** nhập email, rồi nhập mã OTP demo **`246810`**.
-- **Nội bộ:** nhập email và mật khẩu **`newera2026`**.
+- **Khách:** nhập email, bấm Tiếp tục, rồi nhập mã OTP demo **`246810`**.
+- **Nội bộ (`@newera.inc`):** nhập email, bấm Tiếp tục, rồi nhập mật khẩu **`newera2026`**.
 
 | Email | Vai trò |
 |---|---|
@@ -135,7 +147,7 @@ Màn đăng nhập có các nút **Vào nhanh** theo vai trò:
 
 ### Đăng nhập bằng Google (nhân sự New Era)
 
-Ở thẻ **Nội bộ New Era** có nút **Đăng nhập bằng Google**, nằm trên ô email và mật khẩu.
+Nút **Đăng nhập bằng Google** nằm trên cùng khung đăng nhập, phía trên ô email, kèm dòng chú thích "Dành cho nhân sự New Era (@newera.inc)".
 
 - **Ai dùng được:** chỉ tài khoản Google Workspace của tên miền **`newera.inc`**. Khách hàng vẫn đăng nhập bằng email và mã OTP như cũ.
 - **Đã có tài khoản:** email Google trùng với một người dùng nội bộ (không phân biệt chữ hoa, chữ thường) thì vào thẳng tài khoản đó, giữ nguyên vai trò.
@@ -143,7 +155,7 @@ Màn đăng nhập có các nút **Vào nhanh** theo vai trò:
 - **Đổi vai trò:** Giám đốc vào **Cài đặt › Người dùng & vai trò**. Người tạo qua Google có nhãn **Google** cạnh tên. Muốn ai đó thành Giám đốc ngay lần đầu thì thêm email vào `SSO_ADMIN_EMAILS`.
 - **Tài khoản bị khóa:** không đăng nhập được bằng Google, và hệ thống không tạo tài khoản mới thay thế. Nếu Giám đốc đã mời lại email đó, Google đăng nhập vào tài khoản mới được mời (giống form mật khẩu).
 - **Ghi nhớ thiết bị** áp dụng cho cả đăng nhập Google.
-- **Khi nào nút ẩn:** chưa cấu hình `GOOGLE_CLIENT_ID`, máy đang offline, mở file HTML trực tiếp (`file://`), hoặc trang chạy ở địa chỉ không có trong `GOOGLE_JS_ORIGINS` (ví dụ link xem trước `….pages.dev` của Cloudflare, `127.0.0.1`), vì Google từ chối nút ở các địa chỉ chưa đăng ký. Nếu đã cấu hình mà không tải được script của Google, form hiện dòng "Không tải được đăng nhập Google. Dùng email và mật khẩu."
+- **Khi nào nút ẩn:** chưa cấu hình `GOOGLE_CLIENT_ID`, máy đang offline, mở file HTML trực tiếp (`file://`), hoặc trang chạy ở địa chỉ không có trong `GOOGLE_JS_ORIGINS` (ví dụ link xem trước `….pages.dev` của Cloudflare, `127.0.0.1`), vì Google từ chối nút ở các địa chỉ chưa đăng ký. Khi nút ẩn, khung chỉ còn ô email. Nếu đã cấu hình mà không tải được script của Google, khung hiện dòng "Không tải được đăng nhập Google. Anh/chị vẫn đăng nhập được bằng email bên dưới."
 - **Bảo mật:** mã đăng nhập (ID token) của Google được kiểm tra ngay trong trình duyệt trước khi tin bất kỳ thông tin nào:
   - chữ ký RS256, đối chiếu khóa công khai của Google (RSA từ 2048 bit; khóa ghi trong mã bị bỏ qua);
   - nơi phát hành, client ID, hạn dùng;

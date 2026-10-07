@@ -1,8 +1,9 @@
-// "Đăng nhập bằng Google" for New Era staff, above the password form of the "Nội bộ New Era" tab: the official GIS
-// button (google.accounts.id.renderButton), fitted to the card width. Shown only when it can work — a client id is
-// configured, the page has an http(s) origin, the browser is online and the script loaded; otherwise nothing, except
-// one calm caption when the client id is set but the script failed. The token goes straight to api.loginWithGoogle,
-// which verifies it again (the UI is never trusted) — it is never logged or kept.
+// "Đăng nhập bằng Google" for New Era staff, at the top of the sign-in card (SignInForm), followed by the
+// "hoặc dùng email" divider: the official GIS button (google.accounts.id.renderButton), fitted to the card width.
+// Shown only when it can work — a client id is configured, the page has an http(s) origin, the browser is online and
+// the script loaded; otherwise nothing (no divider either), except one calm caption when the client id is set but the
+// script failed. The token goes straight to api.loginWithGoogle, which verifies it again (the UI is never trusted) —
+// it is never logged or kept.
 import { useEffect, useId, useRef, useState } from 'react';
 import { Info, LoaderCircle } from 'lucide-react';
 import { GOOGLE_CLIENT_ID, SSO_ALLOWED_DOMAIN } from '@/config/auth';
@@ -38,11 +39,14 @@ function useOnline(): boolean {
 
 export function GoogleSignIn({
   remember,
+  className,
   clientId: clientIdProp,
   scriptSrc: scriptSrcProp,
 }: {
   /** "Ghi nhớ thiết bị" of the form below (read when Google answers) */
   remember: boolean;
+  /** root classes (e.g. the gap to the form below) — nothing is rendered when Google sign-in cannot work here */
+  className?: string;
   /** defaults: src/config/auth.ts (or the QA hook in googleIdentity.ts) */
   clientId?: string;
   scriptSrc?: string;
@@ -149,7 +153,7 @@ export function GoogleSignIn({
 
   if (state === 'failed') {
     return (
-      <p role="status" className="flex items-start gap-2 text-caption">
+      <p role="status" className={cn('flex items-start gap-2 text-caption', className)}>
         <Info className="mt-px h-4 w-4 shrink-0" aria-hidden />
         <span>{t('auth.google.loadFailed')}</span>
       </p>
@@ -158,33 +162,35 @@ export function GoogleSignIn({
 
   const errorId = `${ids}-google-error`;
   return (
-    <div role="group" aria-label={t('auth.google.groupLabel')} aria-describedby={error ? errorId : undefined} className="space-y-3">
-      <div ref={boxRef} className="w-full" aria-busy={state === 'loading' || pending}>
-        {state === 'loading' ? (
-          <>
-            <Skeleton className="h-11 w-full rounded-lg md:h-10" />
-            <span className="sr-only">{t('auth.google.loading')}</span>
-          </>
-        ) : null}
-        <div
-          ref={slotRef}
-          className={cn(
-            'flex min-h-tap w-full items-center justify-center transition-opacity duration-150',
-            state !== 'ready' && 'hidden',
-            pending && 'pointer-events-none opacity-60',
-          )}
-        />
+    <div className={cn('space-y-5', className)}>
+      <div role="group" aria-label={t('auth.google.groupLabel')} aria-describedby={error ? errorId : undefined} className="space-y-2.5">
+        <div ref={boxRef} className="w-full" aria-busy={state === 'loading' || pending}>
+          {state === 'loading' ? (
+            <>
+              <Skeleton className="h-11 w-full rounded-lg md:h-10" />
+              <span className="sr-only">{t('auth.google.loading')}</span>
+            </>
+          ) : null}
+          <div
+            ref={slotRef}
+            className={cn(
+              'flex min-h-tap w-full items-center justify-center transition-opacity duration-150',
+              state !== 'ready' && 'hidden',
+              pending && 'pointer-events-none opacity-60',
+            )}
+          />
+        </div>
+        {pending ? (
+          <p role="status" className="flex items-center justify-center gap-2 text-caption">
+            <LoaderCircle className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
+            {t('auth.google.signingIn')}
+          </p>
+        ) : (
+          <p className="text-center text-caption">{t('auth.google.hint', { domain: SSO_ALLOWED_DOMAIN })}</p>
+        )}
+        <FormError id={errorId} message={error} />
       </div>
-      {pending ? (
-        <p role="status" className="flex items-center justify-center gap-2 text-caption">
-          <LoaderCircle className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
-          {t('auth.google.signingIn')}
-        </p>
-      ) : (
-        <p className="text-center text-caption">{t('auth.google.hint', { domain: SSO_ALLOWED_DOMAIN })}</p>
-      )}
-      <FormError id={errorId} message={error} />
-      <div className="flex items-center gap-3 pt-1">
+      <div className="flex items-center gap-3">
         <span aria-hidden className="h-px flex-1 bg-border" />
         <span className="shrink-0 text-caption">{t('auth.google.divider')}</span>
         <span aria-hidden className="h-px flex-1 bg-border" />
