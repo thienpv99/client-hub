@@ -7,6 +7,7 @@ import type { TaskView, UserRef } from '@/services/contract';
 import { api } from '@/services/api';
 import { useQuery } from '@/hooks/useQuery';
 import { useViewer } from '@/hooks/useViewer';
+import { useDelayedFlag } from '@/hooks/useMotion';
 import { t } from '@/i18n';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -75,6 +76,8 @@ export function DelegateDialog({ open, onOpenChange, task, onSubmit }: DelegateD
   const [note, setNote] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [pending, setPending] = useState(false);
+  // Cancel dims only once the submit takes 150 ms (DESIGN §8.2); its click is guarded by `pending` at once
+  const pendingVisible = useDelayedFlag(pending);
 
   const assigneeId = task.assignee?.id ?? null;
   useEffect(() => {
@@ -264,10 +267,10 @@ export function DelegateDialog({ open, onOpenChange, task, onSubmit }: DelegateD
           </FormField>
 
           <DialogFooter>
-            <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} disabled={pending}>
+            <Button type="button" variant="secondary" onClick={() => (pending ? undefined : onOpenChange(false))} disabled={pendingVisible}>
               {t('common.cancel')}
             </Button>
-            <Button type="submit" loading={pending} disabled={query.loading && mode === 'pick'}>
+            <Button type="submit" loading={pending} spinnerOverlay disabled={query.loading && mode === 'pick'}>
               {mode === 'invite' ? t('task.delegate.inviteConfirm') : t('task.delegate.confirm')}
             </Button>
           </DialogFooter>

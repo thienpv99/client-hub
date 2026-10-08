@@ -14,6 +14,7 @@ import { ActivityFeed } from '@/components/common/activity-feed';
 import { EmptyState } from '@/components/common/empty-state';
 import { SectionCard } from '@/components/common/section-card';
 import { UserAvatar } from '@/components/common/user-avatar';
+import { useStagger } from '@/hooks/useMotion';
 import { useTaskDrawer } from '@/hooks/useTaskDrawer';
 import type { Salute } from './portalText';
 import { personName, telHref } from './portalText';
@@ -37,6 +38,8 @@ export interface MyTasksSectionProps {
 export function MyTasksSection({ tasks, showProject, salute, onTrack, search, className }: MyTasksSectionProps) {
   const headingId = useId();
   const { you } = salute;
+  // the focal list of the home: its cards fade up one after the other when the page first shows them (DESIGN §8.4)
+  const rise = useStagger(tasks.length > 0);
   return (
     <section aria-labelledby={headingId} className={cn('min-w-0', className)}>
       <div className="mb-3 flex min-h-8 items-center justify-between gap-3">
@@ -57,7 +60,7 @@ export function MyTasksSection({ tasks, showProject, salute, onTrack, search, cl
         ) : null}
       </div>
       {tasks.length > 0 ? (
-        <TaskCardList tasks={tasks} showProject={showProject} />
+        <TaskCardList tasks={tasks} showProject={showProject} rise={rise} />
       ) : (
         <Card>
           <EmptyState
@@ -121,7 +124,8 @@ export function WaitingCard({ tasks, showProject, salute, className }: { tasks: 
         >
           <span className="min-w-0 flex-1">
             <span className={cn('block', SECTION_TITLE)}>{t('portal.home.waiting.title')}</span>
-            <span className="mt-0.5 block text-caption">{t('portal.home.waiting.description', { you: salute.you })}</span>
+            {/* pretty, not the h2's balance: the sentence uses the card's width */}
+            <span className="mt-0.5 block text-pretty text-caption">{t('portal.home.waiting.description', { you: salute.you })}</span>
           </span>
           <span className={COUNT_PILL}>{tasks.length}</span>
           <ChevronDown
@@ -131,7 +135,8 @@ export function WaitingCard({ tasks, showProject, salute, className }: { tasks: 
           <span className="sr-only">{expanded ? t('portal.home.waiting.hide') : t('portal.home.waiting.show')}</span>
         </button>
       </h2>
-      <ul id={panelId} hidden={!expanded} className={CARD_LIST}>
+      {/* the opened list fades in (the animation restarts each time `hidden` lifts) */}
+      <ul id={panelId} hidden={!expanded} className={cn(CARD_LIST, 'animate-fade-in')}>
         {tasks.map((task) => (
           <CompactTaskRow
             key={task.id}
@@ -207,7 +212,7 @@ export function UpdatesCard({ items, className }: { items: ActivityView[]; class
         rest > 0 ? (
           <Button variant="ghost" size="sm" className="-mx-2 -my-1.5" aria-expanded={all} onClick={() => setAll((x) => !x)}>
             {all ? t('portal.common.showLess') : t('portal.common.showMore', { count: rest })}
-            <ChevronDown className={cn('transition-transform duration-200', all && 'rotate-180')} aria-hidden="true" />
+            <ChevronDown className={cn('transition-transform duration-200 ease-out-quart', all && 'rotate-180')} aria-hidden="true" />
           </Button>
         ) : undefined
       }
@@ -226,13 +231,14 @@ export function AmContact({ am, salute }: { am: UserRef; salute: Salute }) {
       <UserAvatar user={am} size="md" />
       <div className="min-w-0 flex-1">
         <p className="truncate text-table font-medium text-foreground">{am.full_name}</p>
+        {/* the dot travels with the phone number: a wrapped line never ends or starts on a lone "·" */}
         <p className="mt-0.5 flex flex-wrap gap-x-1.5 text-micro text-muted-foreground">
           <span>{t('portal.home.summary.contact', { you: salute.you })}</span>
           {am.phone ? (
-            <>
-              <span aria-hidden="true">·</span>
-              <span className="whitespace-nowrap tabular">{am.phone}</span>
-            </>
+            <span className="whitespace-nowrap tabular">
+              <span aria-hidden="true" className="mr-1.5">·</span>
+              {am.phone}
+            </span>
           ) : null}
         </p>
       </div>

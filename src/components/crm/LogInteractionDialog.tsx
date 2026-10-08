@@ -9,6 +9,7 @@ import { api } from '@/services/api';
 import { atTime, nowISO, todayISO } from '@/domain/clock';
 import { isOpenLead, isOpenStage } from '@/domain/crm';
 import { useAction } from '@/hooks/useAction';
+import { useDelayedFlag } from '@/hooks/useMotion';
 import { useQuery } from '@/hooks/useQuery';
 import { t } from '@/i18n';
 import { cn } from '@/components/ui/cn';
@@ -75,7 +76,7 @@ function LinkedChip({ icon: Icon, label, value }: { icon: typeof Building2; labe
 
 export function LogInteractionDialog({ open, onOpenChange, defaults, onLogged }: LogInteractionDialogProps) {
   const uid = useId();
-  const { run, pending } = useAction();
+  const { run, pending, pendingVisible } = useAction();
   const [form, setForm] = useState<FormState>(() => initialState(defaults));
   const [touched, setTouched] = useState(false);
   const leadId = defaults?.lead_id ?? '';
@@ -106,6 +107,9 @@ export function LogInteractionDialog({ open, onOpenChange, defaults, onLogged }:
     enabled: open && accountId !== '' && fixedOppId === '',
   });
   const contactsQ = useQuery(() => api.listContacts(accountId), [accountId], { enabled: open && accountId !== '' });
+  // "Đang tải…" placeholders only when a list takes a beat (DESIGN §8.2); logic keeps the immediate `loading`
+  const accountsLoadingVisible = useDelayedFlag(accountsQ.loading);
+  const contactsLoadingVisible = useDelayedFlag(contactsQ.loading);
 
   const accountName = useMemo(() => {
     if (!accountId) return null;
@@ -249,7 +253,7 @@ export function LogInteractionDialog({ open, onOpenChange, defaults, onLogged }:
                 <NativeSelect
                   id={ids.account}
                   value={form.accountId}
-                  placeholder={accountsQ.loading ? t('common.loading') : t('crm.log.accountPlaceholder')}
+                  placeholder={accountsLoadingVisible ? t('common.loading') : t('crm.log.accountPlaceholder')}
                   onChange={(e) => setForm((f) => ({ ...f, accountId: e.target.value, opportunityId: '', contactId: '' }))}
                 >
                   {(accountsQ.data ?? []).map((a) => (
@@ -278,7 +282,7 @@ export function LogInteractionDialog({ open, onOpenChange, defaults, onLogged }:
                 <NativeSelect
                   id={ids.contact}
                   value={form.contactId}
-                  placeholder={contactsQ.loading ? t('common.loading') : t('crm.log.none')}
+                  placeholder={contactsLoadingVisible ? t('common.loading') : t('crm.log.none')}
                   onChange={(e) => set('contactId', e.target.value)}
                 >
                   {(contactsQ.data ?? []).map((c) => (
@@ -308,10 +312,10 @@ export function LogInteractionDialog({ open, onOpenChange, defaults, onLogged }:
           ) : null}
 
           <DialogFooter>
-            <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} disabled={pending}>
+            <Button type="button" variant="secondary" onClick={() => !pending && onOpenChange(false)} disabled={pendingVisible}>
               {t('common.cancel')}
             </Button>
-            <Button type="submit" loading={pending} disabled={contextLoading}>
+            <Button type="submit" loading={pending} spinnerOverlay disabled={contextLoading}>
               {t('crm.log.submit')}
             </Button>
           </DialogFooter>

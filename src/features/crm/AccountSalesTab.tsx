@@ -7,6 +7,7 @@ import type { AccountRef } from '@/services/contract';
 import type { OpportunityView } from '@/services/crmContract';
 import { api } from '@/services/api';
 import { todayISO } from '@/domain/clock';
+import { useMediaQuery } from '@/hooks/useMedia';
 import { useQuery } from '@/hooks/useQuery';
 import { t } from '@/i18n';
 import { formatMoneyCompact, formatPercent } from '@/lib/format';
@@ -101,6 +102,11 @@ export function AccountSalesTab({ account }: { account: AccountRef }) {
   const openDeals = sorted.filter((o) => isOpenStage(o.stage));
   const logDefaults = useMemo(() => ({ account_id: account.id }), [account.id]);
   const dealsListed = opps.data !== undefined && sorted.length > 0;
+  // the 1/3 side column at 1280–1439 (~260px of card): the log action is an icon button, so it stays on the title row
+  const sideColumn = useMediaQuery('(min-width: 1280px)');
+  const roomy = useMediaQuery('(min-width: 1440px)');
+  const logIconOnly = sideColumn && !roomy;
+  const logLabel = t('crm.accountTab.log');
 
   return (
     <div className="grid min-w-0 gap-4 md:gap-6 xl:grid-cols-3">
@@ -140,9 +146,15 @@ export function AccountSalesTab({ account }: { account: AccountRef }) {
       <SectionCard
         title={t('crm.accountTab.interactions')}
         actions={
-          <Button variant="secondary" size="sm" onClick={() => setLogOpen(true)}>
+          <Button
+            variant="secondary"
+            size={logIconOnly ? 'icon-sm' : 'sm'}
+            onClick={() => setLogOpen(true)}
+            aria-label={logIconOnly ? logLabel : undefined}
+            title={logIconOnly ? logLabel : undefined}
+          >
             <MessageSquarePlus aria-hidden="true" />
-            {t('crm.accountTab.log')}
+            {logIconOnly ? null : logLabel}
           </Button>
         }
       >

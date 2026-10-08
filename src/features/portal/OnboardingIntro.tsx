@@ -19,6 +19,7 @@ import { t } from '@/i18n';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
+import { useSlidingIndicator } from '@/components/ui/use-sliding-indicator';
 import { NewEraLogo } from '@/components/common/new-era-logo';
 import { useViewer } from '@/hooks/useViewer';
 import { saluteOf } from './portalText';
@@ -60,6 +61,47 @@ function Illustration({ screen }: { screen: Screen }) {
 }
 
 const SWIPE_MIN = 48;
+
+/**
+ * Page dots: one 24px pill glides to the current dot (sliding indicator, DESIGN §8.3). The indicator covers the
+ * current button's box and centres the pill in it, so it also follows the 44px touch boxes. Its own component so the
+ * indicator is measured once the dialog content is in the DOM (the dialog renders in a portal after its first pass).
+ */
+function StepDots({ keys, current, onGo }: { keys: string[]; current: number; onGo(index: number): void }) {
+  const dotsRef = useRef<HTMLDivElement | null>(null);
+  const pillRef = useRef<HTMLSpanElement | null>(null);
+  useSlidingIndicator(dotsRef, pillRef, { activeSelector: 'button[aria-current="step"]', itemSelector: 'button' });
+  return (
+    <div ref={dotsRef} className="group/dots relative mx-auto flex items-center justify-center gap-1" role="group" aria-label={t('portal.onboarding.dots')}>
+      <span
+        ref={pillRef}
+        aria-hidden="true"
+        className="pointer-events-none absolute left-0 top-0 flex items-center justify-center opacity-0 transition-[transform,width,height] duration-250 ease-out-quart"
+      >
+        <span className="block h-2 w-6 rounded-full bg-primary" />
+      </span>
+      {keys.map((key, i) => (
+        <button
+          key={key}
+          type="button"
+          onClick={() => onGo(i)}
+          aria-label={t('portal.onboarding.step', { current: i + 1, total: keys.length })}
+          aria-current={i === current ? 'step' : undefined}
+          className="touch-tap-square group relative inline-flex h-8 min-w-8 items-center justify-center rounded-full"
+        >
+          {/* until the pill is placed the current dot draws itself; then it steps aside (no width animation) */}
+          <span
+            aria-hidden="true"
+            className={cn(
+              'block h-2 rounded-full transition-colors duration-150 ease-out-quart',
+              i === current ? 'w-6 bg-primary group-data-[indicator=ready]/dots:invisible' : 'w-2 bg-border group-hover:bg-caption',
+            )}
+          />
+        </button>
+      ))}
+    </div>
+  );
+}
 
 export function OnboardingIntro({ onDone }: OnboardingIntroProps) {
   const viewer = useViewer();
@@ -135,10 +177,11 @@ export function OnboardingIntro({ onDone }: OnboardingIntroProps) {
           </p>
         </div>
 
+        {/* keyed: each screen fades up 6px as it comes in (DESIGN §8 rise), the dots' pill glides along */}
         <div
           key={screen.key}
           aria-live="polite"
-          className="flex flex-1 animate-pop-in flex-col items-center justify-center px-6 py-8 text-center sm:px-10 sm:py-10"
+          className="flex flex-1 animate-rise flex-col items-center justify-center px-6 py-8 text-center sm:px-10 sm:py-10"
         >
           <Illustration screen={screen} />
           <p className="sr-only">{t('portal.onboarding.step', { current: step + 1, total: screens.length })}</p>
@@ -151,31 +194,14 @@ export function OnboardingIntro({ onDone }: OnboardingIntroProps) {
         </div>
 
         <div className="flex flex-col gap-4 px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-8 sm:pb-8">
-          <div className="flex items-center justify-center gap-1" role="group" aria-label={t('portal.onboarding.dots')}>
-            {screens.map((s, i) => (
-              <button
-                key={s.key}
-                type="button"
-                onClick={() => go(i)}
-                aria-label={t('portal.onboarding.step', { current: i + 1, total: screens.length })}
-                aria-current={i === step ? 'step' : undefined}
-                className="touch-tap-square group inline-flex h-8 min-w-8 items-center justify-center rounded-full"
-              >
-                <span
-                  aria-hidden="true"
-                  className={cn(
-                    'block h-2 rounded-full transition-all duration-200',
-                    i === step ? 'w-6 bg-primary' : 'w-2 bg-border group-hover:bg-caption',
-                  )}
-                />
-              </button>
-            ))}
-          </div>
+          <StepDots keys={screens.map((s) => s.key)} current={step} onGo={go} />
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
             <Button
               variant="ghost"
               onClick={finish}
-              className={cn('text-muted-foreground', last && 'hidden sm:invisible sm:inline-flex')}
+              // the last screen keeps the button's box (invisible, not hidden): the dots and "Bắt đầu" stay where the
+              // thumb already is (DESIGN §6: primary actions keep their position)
+              className={cn('text-muted-foreground', last && 'invisible')}
               disabled={last}
               aria-hidden={last || undefined}
               tabIndex={last ? -1 : undefined}

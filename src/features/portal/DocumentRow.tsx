@@ -81,7 +81,7 @@ export function DocumentRow({ file, onPreview }: DocumentRowProps) {
               onClick={() => setExpanded((x) => !x)}
             >
               {expanded ? t('portal.documents.hideVersions') : t('portal.documents.showVersions', { count: older.length })}
-              <ChevronDown className={cn('transition-transform duration-200', expanded && 'rotate-180')} aria-hidden="true" />
+              <ChevronDown className={cn('transition-transform duration-200 ease-out-quart', expanded && 'rotate-180')} aria-hidden="true" />
             </Button>
           ) : null}
         </div>
@@ -93,7 +93,8 @@ export function DocumentRow({ file, onPreview }: DocumentRowProps) {
           id={panelId}
           hidden={!expanded}
           aria-label={t('portal.documents.olderLabel', { name: file.name })}
-          className="mb-3 ml-[68px] mr-4 divide-y divide-border/60 rounded-lg bg-subtle ring-1 ring-inset ring-border/60 sm:ml-[72px] sm:mr-5"
+          // fades in each time it opens (the animation restarts when `hidden` lifts)
+          className="mb-3 ml-[68px] mr-4 animate-fade-in divide-y divide-border/60 rounded-lg bg-subtle ring-1 ring-inset ring-border/60 sm:ml-[72px] sm:mr-5"
         >
           {older.map((v) => (
             <li key={v.id} className="flex min-h-tap items-center gap-1 pl-1 pr-1">

@@ -71,7 +71,8 @@ const TableRow = React.forwardRef<HTMLTableRowElement, React.HTMLAttributes<HTML
     <tr
       ref={ref}
       className={cn(
-        'border-b border-border/60 transition-colors duration-150 hover:bg-subtle data-[state=selected]:bg-primary-soft/60',
+        // quiet hover (colour only, 150 ms); a selected row keeps a soft primary tint
+        'border-b border-border/60 transition-colors duration-150 ease-out-quart hover:bg-subtle/80 data-[state=selected]:bg-primary-soft/60',
         className,
       )}
       {...props}
@@ -80,30 +81,41 @@ const TableRow = React.forwardRef<HTMLTableRowElement, React.HTMLAttributes<HTML
 );
 TableRow.displayName = 'TableRow';
 
-const TableHead = React.forwardRef<HTMLTableCellElement, React.ThHTMLAttributes<HTMLTableCellElement>>(
-  ({ className, ...props }, ref) => (
-    <th
-      ref={ref}
-      className={cn(
-        'h-10 whitespace-nowrap px-3 text-left align-middle text-micro font-medium shadow-[inset_0_-1px_0_0_rgb(var(--border))] first:pl-4 last:pr-4',
-        '[&:has([role=checkbox])]:w-10 [&:has([role=checkbox])]:pr-0',
-        className,
-      )}
-      {...props}
-    />
-  ),
-);
+export interface TableHeadProps extends React.ThHTMLAttributes<HTMLTableCellElement> {
+  /** a column of numbers (money, counts, %): right-aligned, same as its cells (`TableCell numeric`) */
+  numeric?: boolean;
+}
+
+const TableHead = React.forwardRef<HTMLTableCellElement, TableHeadProps>(({ className, numeric = false, ...props }, ref) => (
+  <th
+    ref={ref}
+    className={cn(
+      'h-10 whitespace-nowrap px-3 text-left align-middle text-micro font-medium tracking-[0.01em] shadow-[inset_0_-1px_0_0_rgb(var(--border))] first:pl-4 last:pr-4',
+      '[&:has([role=checkbox])]:w-10 [&:has([role=checkbox])]:pr-0',
+      numeric && 'text-right',
+      className,
+    )}
+    {...props}
+  />
+));
 TableHead.displayName = 'TableHead';
 
-const TableCell = React.forwardRef<HTMLTableCellElement, React.TdHTMLAttributes<HTMLTableCellElement>>(
-  ({ className, ...props }, ref) => (
-    <td
-      ref={ref}
-      className={cn('h-14 px-3 py-2.5 align-middle text-foreground first:pl-4 last:pr-4 [&:has([role=checkbox])]:pr-0', className)}
-      {...props}
-    />
-  ),
-);
+export interface TableCellProps extends React.TdHTMLAttributes<HTMLTableCellElement> {
+  /** a number cell: right-aligned with tabular figures, so digits line up down the column */
+  numeric?: boolean;
+}
+
+const TableCell = React.forwardRef<HTMLTableCellElement, TableCellProps>(({ className, numeric = false, ...props }, ref) => (
+  <td
+    ref={ref}
+    className={cn(
+      'h-14 px-3 py-2.5 align-middle text-foreground first:pl-4 last:pr-4 [&:has([role=checkbox])]:pr-0',
+      numeric && 'whitespace-nowrap text-right tabular',
+      className,
+    )}
+    {...props}
+  />
+));
 TableCell.displayName = 'TableCell';
 
 const TableCaption = React.forwardRef<HTMLTableCaptionElement, React.HTMLAttributes<HTMLTableCaptionElement>>(

@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/components/ui/cn';
 import { NativeSelect } from '@/components/ui/native-select';
 import { Switch } from '@/components/ui/switch';
+import { useDelayedFlag } from '@/hooks/useMotion';
 import { t } from '@/i18n';
 
 export interface UserRow {
@@ -101,6 +102,8 @@ export function UserListRow({
   onCostChange: (allowed: boolean) => void;
 }) {
   const u = row.user;
+  // the save is guarded at once (`busy`); the dimmed controls only show once it takes 150 ms (DESIGN §8.2)
+  const busyVisible = useDelayedFlag(busy);
   const internal = u.org_type === 'internal';
   const roles = internal ? INTERNAL_ROLES : CLIENT_ROLES;
   const selectId = `user-role-${u.id}`;
@@ -174,7 +177,15 @@ export function UserListRow({
             <label htmlFor={selectId} className="sr-only">
               {t('settings.users.roleFor', { name: u.full_name })}
             </label>
-            <NativeSelect id={selectId} size="sm" value={role} disabled={busy} onChange={(e) => onRoleChange(e.target.value as Role)}>
+            <NativeSelect
+              id={selectId}
+              size="sm"
+              value={role}
+              disabled={busyVisible}
+              onChange={(e) => {
+                if (!busy) onRoleChange(e.target.value as Role);
+              }}
+            >
               {roles.map((r) => (
                 <option key={r} value={r}>
                   {t(`enums.role.${r}`)}
@@ -197,8 +208,10 @@ export function UserListRow({
               <Switch
                 id={costId}
                 checked={canViewCost}
-                disabled={busy || u.role !== 'am'}
-                onCheckedChange={onCostChange}
+                disabled={busyVisible || u.role !== 'am'}
+                onCheckedChange={(allowed) => {
+                  if (!busy) onCostChange(allowed);
+                }}
                 aria-label={t('settings.users.cost.aria', { name: u.full_name })}
               />
               <span className="text-table text-foreground">{t('settings.users.cost.label')}</span>

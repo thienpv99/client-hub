@@ -9,6 +9,7 @@ import { DateText } from '@/components/common/date-text';
 import { HealthBadge } from '@/components/common/health-badge';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/components/ui/cn';
+import type { RiseProps } from '@/hooks/useMotion';
 import { t } from '@/i18n';
 import { AmName, ContractValue, NextMilestoneInfo, ReceivableValue, TierStage, WaitingInline, lastTouched } from './PortfolioBits';
 import { accountPath } from './PortfolioTable';
@@ -24,9 +25,9 @@ function Field({ label, children, className }: { label: string; children: ReactN
 
 // From a 380px card width the health pill sits top-right of the name; narrower cards (2-up iPad, phones) put it at
 // the start of the subline so the name keeps the full width. Class names stay literal for the Tailwind scanner.
-function PortfolioCard({ account: a, showMoney }: { account: AccountSummary; showMoney: boolean }) {
+function PortfolioCard({ account: a, showMoney, rise }: { account: AccountSummary; showMoney: boolean; rise: RiseProps }) {
   return (
-    <li className="min-w-0">
+    <li className={cn('min-w-0', rise.className)} style={rise.style}>
       <Card interactive asChild className="flex h-full flex-col p-4 [container-type:inline-size] sm:p-5">
         <Link to={accountPath(a.id)}>
           <div className="flex items-start gap-3">
@@ -76,11 +77,22 @@ function PortfolioCard({ account: a, showMoney }: { account: AccountSummary; sho
   );
 }
 
-export function PortfolioCards({ accounts, showMoney }: { accounts: AccountSummary[]; showMoney: boolean }) {
+const NO_RISE = (): RiseProps => ({});
+
+export function PortfolioCards({
+  accounts,
+  showMoney,
+  rise = NO_RISE,
+}: {
+  accounts: AccountSummary[];
+  showMoney: boolean;
+  /** stagger recipe (useStagger) of the page's focal list; cards rise one after another on its first paint */
+  rise?: (index: number) => RiseProps;
+}) {
   return (
     <ul className="grid gap-3 sm:gap-4 md:grid-cols-2">
-      {accounts.map((a) => (
-        <PortfolioCard key={a.id} account={a} showMoney={showMoney} />
+      {accounts.map((a, i) => (
+        <PortfolioCard key={a.id} account={a} showMoney={showMoney} rise={rise(i)} />
       ))}
     </ul>
   );

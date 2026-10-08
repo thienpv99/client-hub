@@ -11,10 +11,11 @@ const badgeVariants = cva(
     variants: {
       variant: {
         default: 'border-transparent bg-muted text-muted-foreground',
-        primary: 'border-transparent bg-primary-soft text-primary',
-        success: 'border-transparent bg-success-soft text-success',
-        warning: 'border-transparent bg-warning-soft text-warning',
-        danger: 'border-transparent bg-danger-soft text-danger',
+        // tinted pills carry a hairline in their own colour — the same edge as HealthBadge (v3 consistency)
+        primary: 'border-primary-border/60 bg-primary-soft text-primary',
+        success: 'border-success/15 bg-success-soft text-success',
+        warning: 'border-warning/20 bg-warning-soft text-warning',
+        danger: 'border-danger/15 bg-danger-soft text-danger',
         outline: 'border-border-strong bg-card text-muted-foreground',
         note: 'border-note-border bg-note text-foreground',
       },

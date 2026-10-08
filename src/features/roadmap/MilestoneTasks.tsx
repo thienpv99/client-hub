@@ -59,7 +59,7 @@ export function MilestoneTasksToggle({
       <ListChecks className="text-caption" aria-hidden="true" />
       {text}
       <span className="sr-only">{t('roadmap.tasks.toggleSr', { name: milestone.name })}</span>
-      <ChevronDown className={cn('transition-transform duration-150', expanded && 'rotate-180')} aria-hidden="true" />
+      <ChevronDown className={cn('transition-transform duration-150 ease-out-quart', expanded && 'rotate-180')} aria-hidden="true" />
     </Button>
   );
 }
@@ -74,9 +74,15 @@ export function MilestoneTasks({ milestone, id, className }: { milestone: Milest
   const panel = 'overflow-hidden rounded-lg bg-subtle ring-1 ring-inset ring-border/60';
 
   return (
-    <div id={id} role="region" aria-label={t('roadmap.tasks.title', { name: milestone.name })} className={className}>
+    // mounts when the user opens it: a 150 ms fade (opacity only) instead of a pop
+    <div
+      id={id}
+      role="region"
+      aria-label={t('roadmap.tasks.title', { name: milestone.name })}
+      className={cn('animate-fade-in', className)}
+    >
       {query.loading ? (
-        <div className={cn(panel, 'space-y-2.5 p-4')} role="status" aria-busy="true">
+        <div className={cn(panel, 'skeleton-reveal space-y-2.5 p-4')} role="status" aria-busy="true">
           <span className="sr-only">{t('common.loading')}</span>
           <Skeleton className="h-3.5 w-3/4" />
           <Skeleton className="h-3.5 w-1/2" />

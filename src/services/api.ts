@@ -1,5 +1,11 @@
 // The one object the UI talks to. Merges every service module and wraps each async method:
-// simulated latency → call → sanitizeOutgoing (RBAC defence in depth) → JSON clone → window.__CH_NET__ log.
+// (opt-in) simulated latency → call → sanitizeOutgoing (RBAC defence in depth) → JSON clone → window.__CH_NET__ log.
+//
+// Latency: none by default — every call still resolves asynchronously (next macrotask), so the UI code paths are the
+// ones of a real network, but a click answers at once. To test loading states, opt in per tab with `?latency=600`
+// (kept in sessionStorage for the rest of that tab's session; `?latency=0` clears it) or for the whole browser with
+// localStorage['clienthub.latency'] = '600'. `apiInFlight()` / `onApiActivity()` report calls in flight (top
+// progress bar).
 
 import type { Role } from '@/domain/types';
 import { ApiError, type Api } from '@/services/contract';
@@ -41,12 +47,94 @@ declare global {
 const NET_LOG_LIMIT = 300;
 const SYNC_METHODS: ReadonlySet<string> = new Set<keyof Api>(['getViewer', 'onViewerChange', 'onDataChange', 'listDemoLogins']);
 
-let callCount = 0;
+const LATENCY_KEY = 'clienthub.latency';
+const MAX_LATENCY_MS = 10_000;
 
-/** 80–220 ms, varied deterministically by a call counter */
+function parseLatency(raw: string | null): number | null {
+  if (raw === null || raw.trim() === '') return null;
+  const ms = Number(raw);
+  return Number.isFinite(ms) && ms >= 0 ? Math.min(MAX_LATENCY_MS, Math.round(ms)) : null;
+}
+
+/** `?latency=<ms>` of the page the tab was opened on, remembered for the tab (sessionStorage) */
+function readTabLatency(): number | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const fromUrl = parseLatency(new URLSearchParams(window.location.search).get('latency'));
+    if (fromUrl !== null) {
+      if (fromUrl > 0) window.sessionStorage.setItem(LATENCY_KEY, String(fromUrl));
+      else window.sessionStorage.removeItem(LATENCY_KEY);
+      return fromUrl;
+    }
+    return parseLatency(window.sessionStorage.getItem(LATENCY_KEY));
+  } catch {
+    return null;
+  }
+}
+
+const tabLatency = readTabLatency();
+
+/** Simulated latency of the next call: 0 unless a tester opted in (URL / sessionStorage / localStorage). */
 function latencyMs(): number {
-  callCount += 1;
-  return 80 + ((callCount * 53) % 141);
+  if (tabLatency !== null) return tabLatency;
+  try {
+    return typeof window === 'undefined' ? 0 : (parseLatency(window.localStorage.getItem(LATENCY_KEY)) ?? 0);
+  } catch {
+    return 0;
+  }
+}
+
+// next macrotask without the 4 ms clamp of nested setTimeout(0) (and not throttled in background tabs)
+const macrotaskQueue: Array<() => void> = [];
+let macrotaskChannel: MessageChannel | null = null;
+
+function nextMacrotask(): Promise<void> {
+  return new Promise<void>((resolve) => {
+    if (typeof MessageChannel === 'undefined') {
+      setTimeout(resolve, 0);
+      return;
+    }
+    if (!macrotaskChannel) {
+      macrotaskChannel = new MessageChannel();
+      macrotaskChannel.port1.onmessage = () => {
+        const next = macrotaskQueue.shift();
+        if (next) next();
+      };
+    }
+    macrotaskQueue.push(resolve);
+    macrotaskChannel.port2.postMessage(null);
+  });
+}
+
+// ---- calls in flight (top progress bar) ----
+let inFlight = 0;
+const activityListeners = new Set<(count: number) => void>();
+
+function setInFlight(count: number): void {
+  inFlight = Math.max(0, count);
+  for (const cb of [...activityListeners]) {
+    try {
+      cb(inFlight);
+    } catch (err) {
+      console.error('[api] activity listener failed', err);
+    }
+  }
+}
+
+/** Number of api calls currently in flight. */
+export function apiInFlight(): number {
+  return inFlight;
+}
+
+/**
+ * Called with the in-flight count whenever a call starts or settles. Listeners run synchronously inside the call, so
+ * they must only schedule work (timers, DOM writes) — never set React state directly.
+ */
+export function onApiActivity(cb: (count: number) => void): () => void {
+  activityListeners.add(cb);
+  return () => {
+    activityListeners.delete(cb);
+  };
 }
 
 function record(entry: NetLogEntry): void {
@@ -61,26 +149,37 @@ type AnyFn = (...args: unknown[]) => unknown;
 
 function wrapAsync(method: string, fn: AnyFn): AnyFn {
   return async (...args: unknown[]): Promise<unknown> => {
-    await sleep(latencyMs());
+    setInFlight(inFlight + 1);
     try {
-      const result = await fn(...args);
-      const viewer = getViewer();
-      const clean = sanitizeOutgoing(result, viewer);
-      const payload: unknown = clean === undefined ? undefined : JSON.parse(JSON.stringify(clean));
-      record({ method, role: viewer ? viewer.role : null, at: nowISO(), payload });
-      return payload;
-    } catch (err) {
-      const viewer = getViewer();
-      const role = viewer ? viewer.role : null;
-      if (err instanceof ApiError) {
-        record({ method, role, at: nowISO(), payload: null, error: err.code });
-        throw err;
-      }
-      console.error(`[api] ${method} failed`, err);
-      record({ method, role, at: nowISO(), payload: null, error: 'unexpected' });
-      throw new ApiError('conflict', 'errors.unexpected');
+      const delay = latencyMs();
+      await (delay > 0 ? sleep(delay) : nextMacrotask());
+      return await settle(method, fn, args);
+    } finally {
+      setInFlight(inFlight - 1);
     }
   };
+}
+
+/** call → sanitizeOutgoing → JSON clone → __CH_NET__ log (unchanged contract) */
+async function settle(method: string, fn: AnyFn, args: unknown[]): Promise<unknown> {
+  try {
+    const result = await fn(...args);
+    const viewer = getViewer();
+    const clean = sanitizeOutgoing(result, viewer);
+    const payload: unknown = clean === undefined ? undefined : JSON.parse(JSON.stringify(clean));
+    record({ method, role: viewer ? viewer.role : null, at: nowISO(), payload });
+    return payload;
+  } catch (err) {
+    const viewer = getViewer();
+    const role = viewer ? viewer.role : null;
+    if (err instanceof ApiError) {
+      record({ method, role, at: nowISO(), payload: null, error: err.code });
+      throw err;
+    }
+    console.error(`[api] ${method} failed`, err);
+    record({ method, role, at: nowISO(), payload: null, error: 'unexpected' });
+    throw new ApiError('conflict', 'errors.unexpected');
+  }
 }
 
 const modules: Record<string, object> = {

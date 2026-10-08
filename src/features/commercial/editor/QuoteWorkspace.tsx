@@ -56,7 +56,7 @@ export function QuoteWorkspace({
 }: QuoteWorkspaceProps) {
   const uid = useId();
   const navigate = useNavigate();
-  const { run, pending: saving } = useAction();
+  const { run, pending: saving, pendingVisible: savingVisible } = useAction();
   const source = useMemo(() => (quote ? draftFromDetail(quote) : emptyDraft(todayISO())), [quote]);
   const { draft, setDraft, dirty, reset } = useDraftState(source);
   const [showErrors, setShowErrors] = useState(false);
@@ -121,7 +121,7 @@ export function QuoteWorkspace({
   ) : (
     <div className="space-y-3">
       <Button onClick={() => void save()} loading={saving} className="w-full">
-        {saving ? null : <Save aria-hidden="true" />}
+        <Save aria-hidden="true" />
         {t('commercial.actions.createDraft')}
       </Button>
       <ActionNote icon={Info} tone={liveNeeds ? 'warning' : 'neutral'}>
@@ -142,7 +142,8 @@ export function QuoteWorkspace({
           <div
             role="region"
             aria-label={t('commercial.editor.unsavedLabel')}
-            className="sticky bottom-4 z-20 flex flex-col gap-3 rounded-xl border border-border/70 bg-card/95 p-3 shadow-pop backdrop-blur supports-[backdrop-filter]:bg-card/85 sm:flex-row sm:items-center sm:justify-between sm:pl-5"
+            // rises into place (6px + fade, transform only) the moment the first edit makes the draft dirty
+            className="sticky bottom-4 z-20 flex animate-rise flex-col gap-3 rounded-xl border border-border/70 bg-card/95 p-3 shadow-pop backdrop-blur supports-[backdrop-filter]:bg-card/85 sm:flex-row sm:items-center sm:justify-between sm:pl-5"
           >
             <p className="min-w-0 text-table text-foreground" role="status">
               <span className="font-medium">
@@ -153,12 +154,12 @@ export function QuoteWorkspace({
               </span>
             </p>
             <div className="grid grid-cols-2 gap-2 sm:flex">
-              <Button variant="ghost" onClick={() => reset(source)} disabled={saving}>
+              <Button variant="ghost" onClick={() => (saving ? undefined : reset(source))} disabled={savingVisible}>
                 <Undo2 aria-hidden="true" />
                 {t('commercial.editor.discard')}
               </Button>
               <Button onClick={() => void save()} loading={saving}>
-                {saving ? null : <Save aria-hidden="true" />}
+                <Save aria-hidden="true" />
                 {quote ? t('commercial.actions.saveDraft') : t('commercial.actions.createDraft')}
               </Button>
             </div>

@@ -4,6 +4,7 @@
 import type { ReactNode } from 'react';
 import { CircleCheck, ShieldCheck, TriangleAlert } from 'lucide-react';
 import type { QuoteTotals } from '@/services/contract';
+import { CountUp } from '@/components/common/count-up';
 import { InternalOnlyBadge } from '@/components/common/internal-only-badge';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -29,14 +30,21 @@ function DiscountMeter({ eff, thresholdPct, over }: { eff: number; thresholdPct:
   const mark = Math.min(100, (thresholdPct / scale) * 100);
   return (
     <div
-      className="relative mt-3 h-1.5 rounded-full bg-muted"
+      className="relative mt-3 h-1.5"
       role="img"
       aria-label={t('commercial.totals.meterLabel', { pct: fmtPct(eff), threshold: fmtPct(thresholdPct) })}
     >
-      <div
-        className={cn('absolute inset-y-0 left-0 rounded-full transition-[width] duration-200 ease-out-quart', over ? 'bg-warning' : 'bg-primary')}
-        style={{ width: `${fill}%` }}
-      />
+      {/* DESIGN §8.5 custom bar: a full-width fill moved with transform (never `width`) — grows in on first paint and
+          eases to each new discount while lines are edited */}
+      <div className="absolute inset-0 overflow-hidden rounded-full bg-muted">
+        <div
+          className={cn(
+            'h-full w-full animate-progress-grow rounded-full transition-[transform,background-color] duration-500 ease-out-quart',
+            over ? 'bg-warning' : 'bg-primary',
+          )}
+          style={{ transform: `translateX(-${100 - fill}%)` }}
+        />
+      </div>
       <div className="absolute -top-1 h-3.5 w-0.5 -translate-x-1/2 rounded-full bg-ink/50" style={{ left: `${mark}%` }} />
     </div>
   );
@@ -52,7 +60,8 @@ export function QuoteSummaryCard({ totals, thresholdPct, accountName, approved, 
         <div className="p-4 sm:p-5">
           <p className="text-caption font-medium">{t('commercial.totals.grand')}</p>
           <p className="mt-1.5 break-words text-[clamp(1.5rem,11cqi,1.875rem)] font-semibold leading-[1.2] tabular tracking-display text-ink">
-            {formatMoney(totals.grand_total)}
+            {/* the quote's hero number counts up when the page opens (DESIGN §8.5); edits then show it at once */}
+            <CountUp value={formatMoney(totals.grand_total)} />
           </p>
           <p className="mt-1 text-caption tabular">
             {t('commercial.totals.netAndVat', { net: formatMoney(totals.net_before_vat), vat: formatMoney(totals.vat) })}

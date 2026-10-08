@@ -17,7 +17,8 @@ This file is the contract for every screen. Tokens live in `tailwind.config.js` 
 5. **Status = icon + word + soft tint**, never a coloured block. One status accent per card.
 6. **Blue is for action and selection only** (primary button, active nav, links, focus, selected rows, charts).
 7. **Motion is quiet**: 150–200 ms `ease-out-quart`; hover lift on clickable cards (`hover:-translate-y-px
-   hover:shadow-card-hover`), press `active:scale-[0.98]`; respect reduced motion (global rule exists).
+   hover:shadow-card-hover`), press `active:scale-[0.98]`; respect reduced motion (global rule exists). The full
+   motion system (tokens, page enter, stagger, count-up, sliding tabs, no-flash loading) is §8.
 8. **Mobile is a first-class layout**, not a squeezed desktop: full-width cards, bottom sheets, thumb-reachable actions.
 
 ## 2. Tokens (use these classes only)
@@ -163,8 +164,12 @@ are done. Screens compose them; they do not rebuild them. Every API below is opt
 - `cn` from `@/components/ui/cn` (= `cx` from `components/common/cx`) and `cn` from `@/lib/utils` now share the same
   merge config and know every v2 token (sizes, shadows incl. `segment`, tracking, `max-w-page|reading`, `ease-out-quart`,
   `min-h|w-tap`). Either is safe; new code prefers `@/components/ui/cn`. Keep the two configs in step.
-- `text-caption` = 13px **and** the caption colour: never next to another size. 12px caption-coloured text =
-  `text-micro text-muted-foreground` (`MICRO_MUTED`); 13px in another colour = `SMALL` (`text-[13px] leading-[18px]`).
+- `text-caption` = 13px **and** the caption colour: never next to another size, and **never next to another text
+  colour** on the same element (`text-caption text-danger`): the precompiled build orders same-kind rules differently
+  from the dev runtime, so the winner can differ between dev and the shipped file. 12px caption-coloured text =
+  `text-micro text-muted-foreground` (`MICRO_MUTED`); 13px in another colour = `SMALL` (`text-[13px] leading-[18px]`) +
+  the colour, or set the colour on a parent. The same goes for any two utilities of one kind on one element (`px-4
+  px-5`, `flex hidden`, two `animate-*`): `tools/css-audit.html` now fails on them ("xung đột cùng loại").
 - Kit components merge the caller's `className` with the token-aware `cn`, so `className="text-micro"` etc. is safe.
 
 ### 7.2 Chrome contract (layouts own it — pages never add a top bar, logo, breadcrumbs, back link or page padding)
@@ -183,8 +188,10 @@ are done. Screens compose them; they do not rebuild them. Every API below is opt
 - **Portal frame**: canvas `max-w-[1120px]`, header h-16 (phones h-14), bottom tab bar 58px + safe area; `main`
   already pads the tab bar. Fixed bottom bars on portal phones: `bottom-[calc(58px+env(safe-area-inset-bottom))]`.
 - **Breakpoints**: two-column layouts (main 2/3 + side 1/3, dashboard attention + chart, kanban 4 columns, editor +
-  totals) switch at **`xl`**, not `lg` — at 1024 the sidebar is open. KPI rows: `grid grid-cols-2 gap-3 sm:gap-4
-  xl:grid-cols-4`. Internal tables become cards below `xl` (TableSkeleton matches).
+  totals) switch at **`xl`**, not `lg` — at 1024 the sidebar is open. 4-KPI rows: `grid grid-cols-2 gap-3 sm:gap-4
+  lg:grid-cols-4` (one row of ~168px tiles at 1024: the focal block starts ~110px higher on iPad landscape; the
+  matching `KpiSkeleton` gets the same `lg:grid-cols-4`). Internal tables become cards below `xl` (TableSkeleton
+  matches).
 - **Browser tab title** belongs to the frames: InternalLayout sets `"{breadcrumb leaf} · Client Hub"` ("Việc",
   "Cỏ Xanh Retail", "Không mở được" when an entity cannot be opened), ClientLayout `"{portal section} · Client Hub"`
   (`layout.documentTitle`). Pages never set `document.title`, except the pages outside any section (NotFoundPage,
@@ -198,7 +205,7 @@ are done. Screens compose them; they do not rebuild them. Every API below is opt
 ### 7.3 Kit (`components/ui`) — optional API added in v2
 | Component | v2 props / exports |
 |---|---|
-| `Button` | sizes `touch` (44px always: full-width mobile primary), `icon-sm` (32px mouse / 44px touch); `loading`. Ghost = muted text (add `text-foreground` when it must read as primary text) |
+| `Button` | sizes `touch` (44px always: full-width mobile primary), `icon-sm` (32px mouse / 44px touch); `loading`; `spinnerOverlay` (text-only buttons: while busy the label turns transparent and the spinner sits centred on top, so the width never changes — dialog submits, "Yêu cầu chỉnh sửa"; not for buttons whose label changes while busy). Ghost = muted text (add `text-foreground` when it must read as primary text) |
 | `Card` | `interactive` (hover lift + press), `asChild` (`<Card interactive asChild><Link/></Card>`); `CardAction` (right of the title row inside `CardHeader`); `CardFooter` = bar under a hairline |
 | `Badge` | `dot` (6px leading dot), `size="sm"` (20px, dense tables); status variants always with icon or `dot` + word |
 | `Tabs` | `TabsList variant="underline"` (page tabs) · `"segmented"` (= pill/default, in-card); `TabsTrigger count` / `countTone="danger"` / `countLabel`; `TabsCount`. Strips that scroll fade their cut edge and keep the active tab clear of the 40px fade (re-checked when a tab changes size, e.g. once the web font is in) |
@@ -214,14 +221,14 @@ are done. Screens compose them; they do not rebuild them. Every API below is opt
 | `Progress` | default 6px, `size="md"` 8px |
 | `Skeleton` | `SkeletonText lines` |
 | `menu-styles` | `menuPanelBase`, `menuItemBase`, `menuLabelBase`, `menuSeparatorBase` for custom menus |
-| `use-scroll-fade` | `useScrollFade(ref)` + `SCROLL_FADE_CLASS` for any custom horizontal scroller |
+| `use-scroll-fade` | `useScrollFade(ref)` + `SCROLL_FADE_CLASS` for any custom horizontal scroller; `SCROLL_FADE_END_CLASS` (end edge only) for scrollers with a pinned first column (Gantt, task timeline) |
 | tokens | `shadow-segment` (active segment), `shadow-xs/card/card-hover/pop/drawer/btn/btn-secondary/focus`, `ease-out-quart` |
 
 ### 7.4 Product components (`components/common`) — optional API added in v2
 | Component | v2 props / exports |
 |---|---|
-| `PageHeader` | `eyebrow` (date / context line above the title), `tabs` (underline TabsList slot), `compact` (`text-title` for detail pages), `children` (badges / meta row). Never override the title size. `PAGE_TABS_BLEED` = className for internal page tabs (strip + hairline run edge to edge of the content column) — every underline page strip uses it |
-| `KpiCard` | `trend {value, direction, good?, label?}` (arrow chip), `progress {value, max, label?}` (6px bar + %), `spark number[]` (32px area chart), `footer`; `onClick` + `active` = filter (ring + corner filter icon). Pass plain values — no size wrappers inside `value`. `KpiTrendChip`. `labelLines` 2 (default: narrow tiles reserve two label lines so a row's numbers line up) or 1 (a row whose labels all fit one line at 375 — saves ~18px per tile) |
+| `PageHeader` | `eyebrow` (date / context line above the title), `tabs` (underline TabsList slot), `compact` (`text-title` for detail pages), `children` (badges / meta row), `actionsInline` (phones: a single short action stays on the title row instead of a row of its own — list pages with one primary / one secondary). Never override the title size. `PAGE_TABS_BLEED` = className for internal page tabs (strip + hairline run edge to edge of the content column) — every underline page strip uses it |
+| `KpiCard` | `trend {value, direction, good?, label?}` (arrow chip), `progress {value, max, label?}` (6px bar + %), `spark number[]` (32px area chart), `footer`; `onClick` + `active` = filter (ring + corner filter icon). Pass plain values — no size wrappers inside `value`. `KpiTrendChip`. Narrow tiles (≤ 200px inside: 2-up phones, 4-up iPad landscape) drop the progress percentage so the caption keeps the full width (it wraps rather than "…"). Labels: join two-syllable words with a non-breaking space in the i18n string (`'Khách đã chấp thuận'`, `'Đang trễ kế hoạch'`) — a ~96px label box then wraps between words, never inside one; a label that would still leave one word alone can swap in a short form under `[@container_(max-width:167px)]` (QuotesTab "Chờ GĐ duyệt"). `labelLines` 2 (default: narrow tiles reserve two label lines so a row's numbers line up) or 1 (a row whose labels all fit one line at 375 — saves ~18px per tile) |
 | `KpiSkeleton` | `className` (grid, same as the real row), `itemClassName` (string or `(i) => …`, e.g. the 3-KPI span), `labelLines` |
 | `SectionCard` | `divided` (direct children become hairline-separated rows), `flush` (tables / media), `footer`, `headerClassName`, `as`. Header: title row (the title keeps its one-line width; actions that do not fit beside it wrap under it instead of squeezing it), then the description at full width under the row; `headerClassName` styles the title row |
 | `ErrorState` | `titleAs="h1"` when the error replaces a whole page (forbidden / not found detail pages keep their one `<h1>`) |
@@ -241,8 +248,7 @@ are done. Screens compose them; they do not rebuild them. Every API below is opt
 | skeletons | `TableSkeleton` (cards < xl), `KpiSkeleton`, `PageSkeleton` (with status hero), `CardSkeleton`, `ListSkeleton` |
 
 ### 7.5 Recipes to copy (do not invent variants)
-- **Clickable card**: `<Card interactive>` — or for custom elements `transition duration-150 ease-out-quart
-  hover:-translate-y-px hover:border-primary-border hover:shadow-card-hover active:scale-[0.98]`.
+- **Clickable card**: `<Card interactive>` — or for custom elements the `hover-lift` class (§8.3).
 - **Count pill**: danger `h-5 rounded-full bg-danger-soft px-1.5 text-micro font-medium tabular text-danger`,
   neutral `bg-muted text-muted-foreground`; unread dot `h-2 w-2 rounded-full bg-primary`. In tabs use `count`.
 - **List row inside a card**: `SectionCard divided`, row = entity (AccountLogo/UserAvatar sm + `font-semibold` name +
@@ -281,3 +287,169 @@ are done. Screens compose them; they do not rebuild them. Every API below is opt
 6. Touch: 44px targets (`touch-tap`), no hover-only affordances; Vietnamese labels never wrap inside controls.
 7. Loading = skeletons in the real layout; empty = `EmptyState` with a natural sentence; errors = `ErrorState`.
 8. Typecheck 0 errors in your files; no console errors; check 1440×900, 1024×768 and 375×812.
+
+## 8. Motion & polish (v3)
+The client asked for "mượt và đẹp mắt hơn". v3 makes the app feel instant and calm (Linear / Stripe / Attio): no fake
+waiting, nothing flashes, things that move travel on two curves only, and every motion has a reason. The foundation
+(kit, common, layouts, hooks) already does most of it — screens opt in with the few recipes below and never invent
+their own timings.
+
+### 8.1 Tokens (tailwind.config.js · index.css · hooks/useMotion.ts)
+| Token | Class / export | Use |
+|---|---|---|
+| Durations | `duration-120` · `duration-150` · `duration-200` · `duration-220` · `duration-250` · `duration-280` | 120 press / quick exits · 150 hover, colour, menus · 200 card lift, switch · 220 page enter, dialog in · 250 sliding indicators · 280 sheets |
+| Curves | `ease-out-quart` (`EASE_OUT_QUART`, `--ease-out-quart`) · `ease-spring` (`EASE_SPRING`, `--ease-spring`) · `ease-in-quart` | out-quart = the default for anything that appears or follows the pointer; spring = things that travel (dialog, sheet, switch thumb, check mark); in-quart = fast exits |
+| Animations | `animate-fade-in/-out` · `animate-pop-in/-out` · `animate-dialog-in/-out` · `animate-slide-in/out-{right,left,bottom,top}` · `animate-check-in` · `animate-page-enter` · `animate-rise` · `animate-progress-grow` | all registered in tailwind-merge (`MOTION_ANIMATIONS`, lib/utils), so a later `animate-*` replaces an earlier one in `cn()` |
+| JS helpers | `prefersReducedMotion()`, `usePrefersReducedMotion()`, `useDelayedFlag(flag, 150)`, `useStagger(ready)`, `riseProps(i)`, `useCountUp(value)`, `useArrivalMotion()`, `markPageEnter()` / `pageEnteredRecently()`, `parseFormattedNumber()`, `jumpScrollTo(top)`, `easeOutQuart()` | `@/hooks/useMotion` |
+
+Rules: animate only `opacity` and `transform` (plus colour / shadow on hover); never `transition-all` on large
+containers; class names stay literal strings. **One documented exception**: the box pills of the sliding indicators
+(segmented tabs / toggles, sidebar, rail, portal top menu) transition `width` / `height` too — a scaled box would
+distort its radius and shadow; they are small absolutely positioned elements, and nav items share one size. Underline
+bars (2px) glide by `transform` only (`translate3d(...) scaleX(...)` on a fixed base width).
+**Hover only where it exists**: `tailwind.config.js` has `future.hoverOnlyWhenSupported`, so every `hover:` /
+`group-hover:` (and `.hover-lift`) applies only under `(hover: hover) and (pointer: fine)` — a tap on iPad / phones
+never leaves a card lifted or a row filled. Touch keeps its own cues (`[@media(pointer:coarse)]:opacity-100` for row
+actions). **Reduced motion**: index.css ends every CSS animation at once and zeroes
+transitions (delays stay, so a skeleton still waits 120 ms); JS motion (WAAPI, rAF) must check `prefersReducedMotion()`
+— every helper above already does.
+
+### 8.2 Speed: no fake latency, no flash
+- `api` answers on the next macrotask (no 80–220 ms sleep any more). To see loading states: open any page with
+  `?latency=600` (kept for that tab; `?latency=0` clears it) or set `localStorage['clienthub.latency'] = '600'`.
+- **Skeletons wait 120 ms, then fade in** (`.skeleton`, `Skeleton`, every `components/common/skeletons` export: the
+  whole placeholder fades as one). A fast load never flashes grey. Keep using the skeleton components — never a
+  spinner, never `opacity-0` tricks of your own. **A custom loading layout that draws its own frames** (white cards,
+  borders, tinted wells, a hairline strip) puts `skeleton-reveal` on its root — else the frames show at once and only
+  the blocks wait. Put the root's `sr-only` "Đang tải…" LAST: as a first child of a `space-y-*` root it takes the gap
+  and pushes the frame down. The skeleton mirrors the real phone layout too (hidden tiles, full-width buttons, the
+  real strip height) so nothing jumps. `Skeleton` takes `rounded-*` classes as they are (its 8px default is a
+  zero-specificity `:where(.skeleton)` rule).
+- **Pending visuals wait 150 ms.** `Button loading={pending}` swallows clicks (and Enter in its form) at once but only
+  shows its spinner (in place of its leading icon) and busy look after 150 ms — so **keep the icon as a child**: write
+  `<Button loading={pending}><Save aria-hidden />Lưu</Button>`, not `{pending ? null : <Save />}` (that removes the icon
+  at once and makes the button jump). A text-only button (no leading icon) adds `spinnerOverlay`: the spinner covers the
+  transparent label instead of widening the button. For anything drawn outside a kit Button use `pendingVisible` from `useAction()`
+  (or `useDelayedFlag(pending)`): "Đang lưu…" labels, inline spinners, dimmed rows. Logic (`disabled` of OTHER
+  controls, guards, `onOpenChange` blocks) keeps the immediate `pending`; a Cancel button next to a busy action gets
+  `disabled={pendingVisible}` and guards its click with `pending`. The same for query-driven placeholders: a select
+  reading "Đang tải…" uses `useDelayedFlag(query.loading)` (its `disabled` keeps the immediate `loading`).
+- **Top progress bar** (layouts): a 2px primary line at the very top when api work stays in flight > 200 ms; trickles,
+  completes, fades. Nothing to do in screens. (`apiInFlight()` / `onApiActivity()` in services/api.)
+
+### 8.3 Page enter, hover, indicators
+- **Page enter** (layouts/PageTransition): a new page fades up 6px in 220 ms. It does NOT replay for a tab segment
+  (`/accounts/:id/:tab?`, `crm/:tab?`, `projects/:tab?`, `targets/:tab?`, `commercial/:tab?`, `settings/:tab?`), a query
+  string (filters, `?task=` drawers, `?project=`) or a drawer route (`/portal/tasks/:taskId`, `targets/leads/:leadId`);
+  the page is never remounted, so filters and scroll survive. A new page reached by a link starts at the top — the
+  first page of a frame too (sign-in → `/app`, "Xem như khách hàng" → `/portal`); back / forward and a fresh load keep
+  the browser's scroll. Screens add nothing — no own fade on the page root. **`position: fixed` UI rendered by a page**
+  (a phone action bar that shows as the page opens) goes through `createPortal(…, #main-content)`: during the 220 ms
+  enter the page wrapper carries a transform, which would trap a fixed child at the bottom of the page; `<main>` itself
+  is never transformed, and there the bar stays in the main landmark, before the bottom tab bar in reading order (in
+  `<body>` it would come after it). Resolve the host once in a layout effect (`document.getElementById('main-content')
+  ?? document.body`) so the portal never switches container mid-interaction (PortalQuotePage DecisionBar).
+- **Page arrival** (PageTransition → `markPageEnter()`): "first appearance" motion — KPI count-up, `Progress` / KpiCard
+  bars growing, chart bars rising, Gantt / funnel fills — plays only when a component first renders within ~1.5 s of a
+  page change (`useArrivalMotion()`), never when a tab or view switch remounts it. Custom first-draw motion opts in the
+  same way: `const arrival = useArrivalMotion(); className={cn('…', arrival && 'animate-progress-grow')}`.
+- **Tab content** (`TabsContent`) fades in 150 ms on switch; that is the only tab motion.
+- **Sliding indicators**: `TabsList` (underline + segmented), single-choice `ToggleGroup variant="segmented"`, the
+  sidebar / rail / sheet nav, the portal top menu and the phone tab bar draw ONE indicator that glides (250 ms
+  out-quart) to the active item; it is placed without animating on first paint and follows resizes, fonts, counts and
+  horizontal scrolling. Do not add your own active background to a `TabsTrigger` / segmented item — it would show
+  under the indicator. Custom strips can use `useSlidingIndicator(containerRef, indicatorRef, { activeSelector,
+  itemSelector, mode })` (components/ui/use-sliding-indicator).
+- **Hover lift** (clickable surfaces): `<Card interactive>` (or `asChild` with a Link) — 200 ms, −1px + `shadow-card-hover`,
+  settles on press. A custom clickable element that is not a Card: add `hover-lift` (index.css; same motion). Never lift
+  rows inside a list — rows get `hover:bg-subtle/80` only.
+- **Buttons** press to 0.98 (filled / outlined / soft / ghost text); ghost icon buttons and links do not scale.
+  Disabled controls never move.
+- **Overlays** (kit): dialogs scale 0.96 → 1 on the spring (220 ms in, 150 ms out) over a scrim with a 2px blur;
+  sheets slide on the spring (280 ms in, 200 ms out) and contain their own scroll (`overscroll-contain`); popovers,
+  menus, selects and tooltips scale + fade from their trigger (`origin-[var(--radix-…-transform-origin)]`, 150 ms).
+  Use the kit parts as they are — never override `animate-*` on them. Dialog / AlertDialog / Sheet give focus back to
+  whatever opened them on close (most are opened with a controlled `open`, without a Trigger) — a caller's own
+  `onCloseAutoFocus` that prevents the default still wins. The opener is recorded while the panel content renders
+  (`CaptureOpener`, components/ui/use-return-focus), so a field with `autoFocus` (Ctrl+K, "Thêm mốc", ReasonDialog…)
+  no longer loses it. `DialogFooter` is sticky: in a long form that scrolls, the
+  actions stay in view on a card-coloured bar under a hairline (`data-scrollable` on the panel); short dialogs look as
+  before. Keep `DialogFooter` the last child of the panel or of its `<form>`. The close X sits in the panel's corner and
+  scrolls away with a long form — never make it sticky: a pinned X covers the right end of fields scrolling under it
+  and turns a tap on the field into "close" (resetting a half-filled create form). Escape, the scrim and the sticky
+  footer's "Hủy" close a scrolled dialog.
+
+### 8.4 Stagger (lists and grids, first appearance only)
+The first ~10 children of a list fade up 6px, 35 ms apart (320 ms each, items from the 10th share the last step):
+```tsx
+import { useStagger } from '@/hooks/useMotion';
+const rise = useStagger(!!data);            // true once the list has its data
+{rows.map((r, i) => <Row key={r.id} {...rise(i)} />)}
+// a row with its own classes: const p = rise(i); <li className={cn('…', p.className)} style={p.style}>
+```
+`rise(i)` returns `{ className: 'animate-rise', style: { '--i': i } }` during the list's first appearance and `{}`
+afterwards — refetches, filters and rows added later appear without motion. Use it for the focal list of a page
+(dashboard "Cần chú ý", client "Việc cần anh xử lý", account cards, kanban cards of the first column…), KPI rows and
+card grids — at most one or two staggered groups per page. Never on table rows of long tables (> 30 rows), never
+inside drawers or dialogs, never on items the user just created. `riseProps(i)` = the same without the first-mount
+logic (for content that only mounts once anyway).
+
+### 8.5 Numbers and progress
+- `KpiCard` counts its value up from 0 on page arrival (700 ms out-quart, rAF; not on a tab switch) when `value` is a string / number with a
+  number in it ("9,22 tỷ ₫", "759 tr ₫", "3/6", "33%"): the digits are re-written in the same Vietnamese format and the
+  last frame is exactly the original text. The real text stays in the DOM (screen readers, copy, width). Pass the
+  formatted string as `value` (not a `<Money/>` element) to get the count-up; refetches and reduced motion show the
+  value at once. Other hero numbers: `<CountUp value={formatMoneyCompact(x)} />` (components/common/count-up) inside a
+  `tabular` element.
+- `Progress` and the KpiCard progress bar grow from empty on first mount (`animate-progress-grow`, 700 ms) and ease to
+  new values (500 ms). Custom bars: a full-width fill with `style={{ transform: \`translateX(-${100 - pct}%)\` }}` +
+  `animate-progress-grow transition-transform duration-500 ease-out-quart` — never animate `width`.
+
+### 8.6 Global polish (already on)
+Thin neutral scrollbars (Firefox + WebKit) · `::selection` in the primary tint · `text-wrap: balance` on h1–h2 and
+`pretty` on h3 and paragraphs (card titles are h3: balance split long task / quote names into two short lines; add
+`text-pretty` yourself to a long description that sits inside an h1/h2, and to multi-word labels in narrow tiles —
+KpiCard labels already have it) · smooth in-page anchor scrolling (not under reduced motion) — **programmatic window scrolls
+must use `jumpScrollTo(top)`** from `@/hooks/useMotion` (a plain `window.scrollTo` would glide) · one focus ring
+everywhere (2px primary, offset 2px; kit controls `ring-2 ring-primary`) · skeleton shimmer slow and low-contrast ·
+toasts: white card, `shadow-pop`, tinted status disc, 3 visible.
+
+### 8.7 Shared pieces refined in v3
+Sidebar / rail / phone menu: sliding soft pill, quieter hover (`bg-muted/70`), section labels on a 6px rhythm · top bar
+sticky with blur and a hairline only after scrolling · portal top menu pill and phone tab bar indicator slide ·
+`EmptyState` / `ErrorState`: a 96px monochrome illustration (halo, dotted orbit, two quiet cards) around the icon,
+title → description → action on a 20px rhythm (`compact` keeps the 56px halo for cards and drawers) · `Table`:
+`TableHead numeric` / `TableCell numeric` = right-aligned tabular number columns, quieter row hover · tinted `Badge`
+variants (primary / success / warning / danger) now carry the same hairline edge in their own colour as `HealthBadge`
+(still icon or dot + word) · photo avatars get a faint hairline · `PageHeader` description 6px under the title,
+`text-pretty`.
+
+### 8.8 Do / don't
+- Do let the kit move: Tabs, ToggleGroup, Dialog, Sheet, menus, Button, Card, Progress, KpiCard already animate.
+- Do use `useStagger` once per page for the focal list; `pendingVisible` for pending text; `jumpScrollTo` for scrolls.
+- Don't add `transition-all`, `animate-bounce/pulse/ping`, spinners for page loads, custom durations or curves, motion
+  on hover of rows, or parallax / scroll-linked effects. Don't animate `width`, `height`, `top`, `left`, `margin` (the
+  only exception: the sliding box pills, §8.1).
+- Don't let a meta line end on a lone separator: in a wrapping `flex-wrap` meta row, put each "·" inside the
+  `whitespace-nowrap` span of the item after it (`<span className="whitespace-nowrap"><span aria-hidden="true"
+  className="mr-1.5">·</span>{value}</span>`), and keep a date with its label (non-breaking space in the i18n string).
+- Don't remove (`hidden`) a button that goes away on the last step of a flow: make it `invisible` (it keeps its box)
+  so the primary action next to it does not jump.
+- Don't wrap pages in your own fade / key the page root to force a remount — the frame does page enter.
+- Don't show "Đang lưu…" / spinners from `pending` directly (one-frame flicker); don't toggle a button's icon on
+  `pending` (keep it — the Button swaps it).
+
+### 8.9 Per-screen checklist (motion pass)
+1. Open the page with `?latency=600`: the skeleton matches the real layout, appears after a beat, no layout jump when
+   data arrives; the top bar shows. Without the parameter: no grey flash at all.
+2. Page enter plays once when you arrive from another page — never on a tab click, a filter, opening / closing a drawer.
+3. The focal list / grid uses `useStagger(!!data)`; nothing else on the page staggers; a refetch (do an action) does
+   not replay it.
+4. KPI values are formatted strings (count-up) — no `<Money/>` or wrapper spans inside `value`.
+5. Every async button: `loading={pending}` with its icon kept as a child; "Đang lưu…" / extra spinners use
+   `pendingVisible`; double-click still runs once.
+6. Clickable cards = `Card interactive` / `hover-lift`; rows = colour hover only; segmented / tab controls come from
+   the kit (indicator glides).
+7. Any `window.scrollTo` → `jumpScrollTo`. Any custom animation → tokens of §8.1 and a reduced-motion check (JS) or the
+   global rule (CSS).
+8. Check 1440×900, 1024×768 and 390×844: no horizontal scroll, 44px targets, typecheck 0, no console errors.

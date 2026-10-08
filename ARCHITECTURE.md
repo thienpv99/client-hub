@@ -176,7 +176,9 @@ Vietnamese locale: thousands separator `.`, decimal `,`. Dates always dd/mm/yyyy
 
 UI → `api` (only import from `@/services/api`; types from `@/services/contract`) → service modules → `db`.
 
-- `api` methods are async and simulate a short network delay (80–220 ms) so skeletons are real.
+- `api` methods are async and answer on the next macrotask — no simulated delay (DESIGN §8.2: no fake latency). To see
+  loading states, open a page with `?latency=600` (kept for that tab; `?latency=0` clears it) or set
+  `localStorage['clienthub.latency']`.
 - `api.onDataChange(cb)` fires after every committed mutation; `useQuery` refetches automatically (keeping old data
   visible while refetching — skeleton only on first load). After a mutation you never refetch by hand.
 - **Security**: every result passes `sanitizeOutgoing(result, viewer)` and a JSON round-trip before reaching the UI
@@ -456,7 +458,7 @@ Links: clients → `/portal/tasks/<taskId>` (opens the task directly), internal 
 quotes → `/app/commercial/quotes/<id>` or `/portal/commercial/quotes/<id>`.
 
 ### `src/services/api/*.ts` and `src/services/api.ts`
-Each module exports a `Pick<Api, …>` object. `api.ts` (C) merges them, wraps async methods with latency → call →
+Each module exports a `Pick<Api, …>` object. `api.ts` (C) merges them, wraps async methods with the (opt-in, default 0) latency → call →
 `sanitizeOutgoing` (`sanitize.ts`, C) → JSON clone → `window.__CH_NET__` log, and exports `export const api: Api`.
 - C: `api/session.ts` (session, demo logins, view-as, onboarding, prefs), `api/reads.ts` (dashboard, accounts, projects,
   tasks, activities, files, contacts, users, portal home, search), `api/tasks.ts` (client actions, undo, delegate, ask,

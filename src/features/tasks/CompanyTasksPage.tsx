@@ -9,6 +9,7 @@ import { BellRing, Building2, CheckCheck, CircleAlert, Flag, ListTodo, Search, U
 import type { TaskView, UserRef } from '@/services/contract';
 import { api } from '@/services/api';
 import { t } from '@/i18n';
+import { useStagger } from '@/hooks/useMotion';
 import { useQuery } from '@/hooks/useQuery';
 import { useViewer } from '@/hooks/useViewer';
 import { Button } from '@/components/ui/button';
@@ -135,6 +136,8 @@ export function CompanyTasksPage() {
 
   const { data, loading, error, refetch } = useQuery(() => api.listTasks({ openOnly: true }), []);
   const all = useMemo(() => data ?? [], [data]);
+  // the groups (the page's focal list) rise one after another on first paint only — never on a filter or a refetch
+  const rise = useStagger(!!data);
 
   const update = (patch: Partial<CompanyFilters> & { group?: GroupBy }) =>
     setParams((prev) => writeCompanyParams(prev, patch), { replace: true });
@@ -250,9 +253,10 @@ export function CompanyTasksPage() {
   } else {
     body = (
       <div className="space-y-4">
-        {groups.map((g) => (
+        {groups.map((g, i) => (
           <TaskGroupCard
             key={g.key}
+            rise={rise(i)}
             title={g.title}
             subtitle={g.subtitle}
             avatar={g.avatar}
@@ -282,10 +286,10 @@ export function CompanyTasksPage() {
           // "Đang chặn mốc" takes two lines in a 2-up phone tile: keep the default reserve so both numbers line up
           <KpiSkeleton count={2} className={MINE_KPI_GRID} />
         ) : (
-          <KpiSkeleton className="grid-cols-2 gap-3 sm:gap-4" />
+          <KpiSkeleton className="grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4" />
         )
       ) : data ? (
-        <section aria-label={t('tasks.company.kpi.label')} className={mine ? MINE_KPI_GRID : 'grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4'}>
+        <section aria-label={t('tasks.company.kpi.label')} className={mine ? MINE_KPI_GRID : 'grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4'}>
           <KpiCard
             label={t('tasks.company.kpi.overdue')}
             icon={CircleAlert}
@@ -363,12 +367,13 @@ export function CompanyTasksPage() {
           >
             <ToggleGroupItem value="account" aria-label={t('tasks.company.byAccount')} title={t('tasks.company.byAccount')}>
               <Building2 aria-hidden="true" />
-              {/* labels where the row has room for them (phones and the 1024 one-row toolbar: icons + tooltip) */}
-              <span className="hidden md:inline lg:hidden xl:inline">{t('tasks.company.byAccount')}</span>
+              {/* labels where the row has room for them (iPad portrait, and from 1360; at 1024–1359 the one-row toolbar
+                  shows icons + tooltip — at 1280 the labels pushed the switcher onto a row of its own) */}
+              <span className="hidden md:inline lg:hidden min-[1360px]:inline">{t('tasks.company.byAccount')}</span>
             </ToggleGroupItem>
             <ToggleGroupItem value="assignee" aria-label={t('tasks.company.byAssignee')} title={t('tasks.company.byAssignee')}>
               <Users aria-hidden="true" />
-              <span className="hidden md:inline lg:hidden xl:inline">{t('tasks.company.byAssignee')}</span>
+              <span className="hidden md:inline lg:hidden min-[1360px]:inline">{t('tasks.company.byAssignee')}</span>
             </ToggleGroupItem>
           </ToggleGroup>
           <div className="no-scrollbar order-3 -mx-4 flex w-[calc(100%+2rem)] items-center gap-2 overflow-x-auto px-4 sm:mx-0 sm:w-full sm:overflow-visible sm:px-0 lg:order-2 lg:w-auto xl:gap-3">

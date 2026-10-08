@@ -17,6 +17,8 @@ import { cn } from '@/components/ui/cn';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useMediaQuery } from '@/hooks/useMedia';
+import { useStagger } from '@/hooks/useMotion';
+import type { RiseProps } from '@/hooks/useMotion';
 import { useQuery } from '@/hooks/useQuery';
 import { useViewer } from '@/hooks/useViewer';
 import { t } from '@/i18n';
@@ -28,10 +30,12 @@ import { cellLabel, HEAT_CLASSES, HEAT_LEVELS, heatLevel, sortPeople, workloadTo
 
 const WEEKS = 6;
 
-export function WorkloadTab() {
+/** stagger: the people rise in on first appearance (the page's entry tab only) */
+export function WorkloadTab({ stagger = false }: { stagger?: boolean }) {
   const viewer = useViewer();
   const wide = useMediaQuery('(min-width: 1280px)');
   const { data, loading, error, refetch } = useQuery(() => api.getWorkload({ weeks: WEEKS }), [viewer?.user.id]);
+  const rise = useStagger(stagger && data !== undefined);
 
   if (!data) {
     if (loading) {
@@ -78,14 +82,14 @@ export function WorkloadTab() {
     return (
       <Card className="overflow-hidden">
         <div className="px-5 pb-4 pt-5">{head}</div>
-        <WorkloadTable data={data} people={people} />
+        <WorkloadTable data={data} people={people} rise={rise} />
       </Card>
     );
   }
   return (
     <div className="space-y-4">
       {head}
-      <WorkloadCards data={data} people={people} />
+      <WorkloadCards data={data} people={people} rise={rise} />
     </div>
   );
 }
@@ -161,7 +165,7 @@ function AccountChips({ accounts, max = 3 }: { accounts: AccountRef[]; max?: num
   );
 }
 
-function WorkloadTable({ data, people }: { data: WorkloadView; people: WorkloadPerson[] }) {
+function WorkloadTable({ data, people, rise }: { data: WorkloadView; people: WorkloadPerson[]; rise: (index: number) => RiseProps }) {
   const navigate = useNavigate();
   return (
     <Table>
@@ -177,17 +181,18 @@ function WorkloadTable({ data, people }: { data: WorkloadView; people: WorkloadP
               <span className="block font-normal tabular">{formatDateShort(w)}</span>
             </TableHead>
           ))}
-          <TableHead className="text-right">{t('projects.workload.columns.open')}</TableHead>
-          <TableHead className="text-right">{t('projects.workload.columns.overdue')}</TableHead>
-          <TableHead className="text-right">{t('projects.workload.columns.blocked')}</TableHead>
+          <TableHead numeric>{t('projects.workload.columns.open')}</TableHead>
+          <TableHead numeric>{t('projects.workload.columns.overdue')}</TableHead>
+          <TableHead numeric>{t('projects.workload.columns.blocked')}</TableHead>
           <TableHead className="pr-5">{t('projects.workload.columns.accounts')}</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
-        {people.map((person) => (
+        {people.map((person, i) => (
           <TableRow
             key={person.user.id}
-            className="cursor-pointer"
+            className={cn('cursor-pointer', rise(i).className)}
+            style={rise(i).style}
             onClick={(e) => {
               if (!shouldIgnoreRowClick(e)) navigate(assigneeTasksHref(person.user.id));
             }}
@@ -230,11 +235,11 @@ function WorkloadTable({ data, people }: { data: WorkloadView; people: WorkloadP
   );
 }
 
-function WorkloadCards({ data, people }: { data: WorkloadView; people: WorkloadPerson[] }) {
+function WorkloadCards({ data, people, rise }: { data: WorkloadView; people: WorkloadPerson[]; rise: (index: number) => RiseProps }) {
   return (
     <ul className="grid gap-3 sm:gap-4 md:grid-cols-2">
-      {people.map((person) => (
-        <li key={person.user.id} className="min-w-0">
+      {people.map((person, i) => (
+        <li key={person.user.id} className={cn('min-w-0', rise(i).className)} style={rise(i).style}>
           <Link
             to={assigneeTasksHref(person.user.id)}
             className={cn(

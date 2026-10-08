@@ -21,7 +21,8 @@ const Switch = React.forwardRef<
     )}
     {...props}
   >
-    <SwitchPrimitive.Thumb className="pointer-events-none block h-5 w-5 rounded-full bg-card shadow-[0_1px_3px_rgb(var(--ink)/0.18),0_1px_1px_rgb(var(--ink)/0.06)] ring-0 transition-transform duration-200 ease-out-quart data-[state=checked]:translate-x-4 data-[state=unchecked]:translate-x-0" />
+    {/* the thumb travels on the spring curve (DESIGN.md §8) */}
+    <SwitchPrimitive.Thumb className="pointer-events-none block h-5 w-5 rounded-full bg-card shadow-[0_1px_3px_rgb(var(--ink)/0.18),0_1px_1px_rgb(var(--ink)/0.06)] ring-0 transition-transform duration-250 ease-spring data-[state=checked]:translate-x-4 data-[state=unchecked]:translate-x-0" />
   </SwitchPrimitive.Root>
 ));
 Switch.displayName = 'Switch';

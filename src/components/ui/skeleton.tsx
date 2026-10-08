@@ -3,24 +3,10 @@ import { cn } from '@/components/ui/cn';
 
 // Shimmer block (`.skeleton` in index.css). Give it the real layout's sizes (DESIGN.md §4): title bar 40 %,
 // text lines 70 / 50 %, a 36px-tall KPI number block, 28px avatars.
-// `.skeleton` (utilities layer) sets border-radius: 8px after Tailwind's own utilities, so a plain `rounded-full`
-// would lose. Radius classes passed in are made !important here.
-function forceRadius(className: string | undefined): string | undefined {
-  if (!className) return className;
-  return className
-    .split(/\s+/)
-    .map((token) => {
-      const i = token.lastIndexOf(':');
-      const base = token.slice(i + 1);
-      return base.startsWith('rounded') ? `${token.slice(0, i + 1)}!${base}` : token;
-    })
-    .join(' ');
-}
-
+// The default 8px radius is a zero-specificity `:where(.skeleton)` rule (index.css), so a `rounded-*` class passed in
+// simply wins — class names stay literal (no runtime `!rounded-*` rewriting).
 const Skeleton = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => (
-    <div ref={ref} aria-hidden="true" className={cn('skeleton', forceRadius(className))} {...props} />
-  ),
+  ({ className, ...props }, ref) => <div ref={ref} aria-hidden="true" className={cn('skeleton', className)} {...props} />,
 );
 Skeleton.displayName = 'Skeleton';
 

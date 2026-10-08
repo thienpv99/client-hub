@@ -46,7 +46,7 @@ function BadgeBody({ fit, size }: { fit: FitBreakdown; size: 'sm' | 'md' }) {
       <span
         className={cn(
           'inline-flex items-center justify-center rounded-md font-semibold ring-1 ring-inset',
-          small ? 'h-5 min-w-5 px-1 text-micro' : `h-6 min-w-6 px-1.5 ${SMALL}`,
+          small ? 'h-5 min-w-5 px-1 text-micro' : ['h-6 min-w-6 px-1.5', SMALL],
           GRADE_LOOK[fit.grade],
         )}
         aria-hidden="true"
@@ -73,8 +73,12 @@ export function FitBreakdownPanel({ fit }: { fit: FitBreakdown }) {
                 <span className={cn('font-medium text-foreground', SMALL)}>{t(`crm.fit.component.${c}`)}</span>
                 <span className="text-micro font-medium tabular text-muted-foreground">{v}</span>
               </div>
+              {/* full-width fill moved by transform (DESIGN §8.5): grows from empty when the panel opens */}
               <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-muted" aria-hidden="true">
-                <div className="h-full rounded-full bg-chart-1" style={{ width: `${v}%` }} />
+                <div
+                  className="h-full w-full animate-progress-grow rounded-full bg-chart-1 transition-transform duration-500 ease-out-quart"
+                  style={{ transform: `translateX(-${100 - v}%)` }}
+                />
               </div>
               <p className="mt-1 text-micro text-muted-foreground">{t(`crm.fit.phrase.${c}.${level(c, v)}`)}</p>
             </li>

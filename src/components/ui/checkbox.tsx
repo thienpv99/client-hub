@@ -22,7 +22,8 @@ const Checkbox = React.forwardRef<
     )}
     {...props}
   >
-    <CheckboxPrimitive.Indicator className="flex items-center justify-center text-current data-[state=checked]:animate-zoom-in">
+    {/* the mark scales in on the spring curve (DESIGN.md §8) */}
+    <CheckboxPrimitive.Indicator className="flex items-center justify-center text-current data-[state=checked]:animate-check-in data-[state=indeterminate]:animate-check-in">
       <Check className="h-3.5 w-3.5 group-data-[state=indeterminate]:hidden" strokeWidth={3} aria-hidden="true" />
       <Minus className="hidden h-3.5 w-3.5 group-data-[state=indeterminate]:block" strokeWidth={3} aria-hidden="true" />
     </CheckboxPrimitive.Indicator>

@@ -1,9 +1,12 @@
 // Owns the force simulation of the map: ~300 synchronous ticks before the first paint (the final layout is known at
-// once, so the view is fitted to it from the start), then the bubbles grow in, biggest first. When the data or the
-// metric changes: a gentle re-heat with the radii tweened over 400 ms. The requestAnimationFrame loop runs only while
-// something moves and stops once the layout has settled. Dragging pins a node and re-heats the simulation.
+// once, so the view is fitted to it from the start), then the bubbles settle in, biggest first (fade + grow from 60 %,
+// ease-out-quart, no overshoot). When the data or the metric changes: a gentle re-heat with the radii tweened over
+// 400 ms. The requestAnimationFrame loop runs only while something moves and the page is visible: it stops once the
+// layout has settled, and a hidden tab finishes the layout at once (no frames are spent on a page nobody sees).
+// Dragging pins a node and re-heats the simulation.
 import { useCallback, useEffect, useLayoutEffect, useReducer, useRef } from 'react';
 import type { ClientMapLink, ClientMapNode } from '@/services/crmContract';
+import { easeOutQuart } from '@/hooks/useMotion';
 import { ForceSim, seedLayout, type SimNode } from './forceSim';
 
 export interface LayoutInput {
@@ -36,15 +39,11 @@ export interface MapLayout {
 const TWEEN_MS = 400;
 const REHEAT = 0.45;
 const DRAG_HEAT = 0.3;
-/** entrance: each bubble grows in this long, the last one starts INTRO_STAGGER after the first */
-const INTRO_MS = 420;
-const INTRO_STAGGER = 320;
-const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
-/** ≈5 % overshoot: the bubbles settle with a soft bounce */
-const easeOutBack = (t: number) => {
-  const u = t - 1;
-  return 1 + u * u * (2.2 * u + 1.2);
-};
+/** entrance: each bubble settles in this long, the last one starts INTRO_STAGGER after the first */
+const INTRO_MS = 520;
+const INTRO_STAGGER = 360;
+/** ticks that finish a re-heated layout at once (a hidden page) */
+const FINISH_TICKS = 320;
 
 interface Tween {
   from: Map<string, number>;
@@ -99,7 +98,7 @@ export function useMapLayout(input: LayoutInput | null, reducedMotion: boolean, 
         let done = true;
         for (const n of sim.nodes) {
           const p = Math.max(0, Math.min(1, (now - it.start - (it.delay.get(n.id) ?? 0)) / INTRO_MS));
-          n.grow = p >= 1 ? 1 : Math.max(0, easeOutBack(p));
+          n.grow = p >= 1 ? 1 : easeOutQuart(p);
           if (p < 1) done = false;
         }
         if (done) endIntro(sim);
@@ -108,7 +107,7 @@ export function useMapLayout(input: LayoutInput | null, reducedMotion: boolean, 
       const tw = tween.current;
       if (tw) {
         const p = Math.min(1, (now - tw.start) / TWEEN_MS);
-        const e = easeOutCubic(p);
+        const e = easeOutQuart(p);
         for (const n of sim.nodes) {
           const from = tw.from.get(n.id) ?? n.r;
           const to = tw.to.get(n.id) ?? n.r;
@@ -146,6 +145,35 @@ export function useMapLayout(input: LayoutInput | null, reducedMotion: boolean, 
     [],
   );
 
+  // A hidden page gets no frames: stop the loop and finish what was moving (entrance, radius tween, re-heat) so the
+  // map is complete and still when the page is shown again; a drag in progress picks up where it was.
+  useEffect(() => {
+    const onVisibility = () => {
+      const sim = simRef.current;
+      if (document.visibilityState === 'hidden') {
+        if (loop.current !== null) cancelAnimationFrame(loop.current);
+        loop.current = null;
+        if (!sim) return;
+        endIntro(sim);
+        const tw = tween.current;
+        if (tw) {
+          for (const n of sim.nodes) n.r = tw.to.get(n.id) ?? n.r;
+          tween.current = null;
+        }
+        if (!dragging.current && !sim.settled) {
+          sim.run(FINISH_TICKS);
+          sim.alpha = 0;
+        }
+        onFrameRef.current(sim, true);
+        bump();
+      } else if (sim && (dragging.current || !sim.settled)) {
+        start();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, [endIntro, start]);
+
   const key = layoutKey(input);
   useLayoutEffect(() => {
     if (!input) return;
@@ -172,7 +200,9 @@ export function useMapLayout(input: LayoutInput | null, reducedMotion: boolean, 
     // a canvas of another shape (rotation, resize) gets a fresh layout in its proportions instead of a re-heat
     const reshaped = aspectRef.current !== null && Math.abs(Math.log(input.aspect / aspectRef.current)) > 0.15;
     aspectRef.current = input.aspect;
-    const animate = prevPos !== null && !reducedRef.current && !reshaped;
+    // a hidden page paints nothing: its layout is settled at once like the first paint
+    const hidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
+    const animate = prevPos !== null && !reducedRef.current && !reshaped && !hidden;
     // without animation the picture is rebuilt from the deterministic seed: same data → same map, whatever came before
     seedLayout(nodes, animate ? prevPos : null, input.aspect);
     const sim = new ForceSim(nodes, input.links, input.aspect);
@@ -184,7 +214,6 @@ export function useMapLayout(input: LayoutInput | null, reducedMotion: boolean, 
       sim.alpha = 0;
       tween.current = null;
       simRef.current = sim;
-      const hidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
       if (prev === null && !reducedRef.current && !hidden) {
         const order = [...nodes].sort((a, b) => b.r - a.r || (a.id < b.id ? -1 : 1));
         const last = Math.max(1, order.length - 1);

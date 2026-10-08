@@ -69,7 +69,7 @@ export function UploadDialog({ open, onOpenChange, file, accountId, documents, d
   const [kind, setKind] = useState<FileKind>('document');
   const [visibility, setVisibility] = useState<Visibility>('internal');
   const [note, setNote] = useState('');
-  const { run, pending } = useAction();
+  const { run, pending, pendingVisible } = useAction();
 
   // a new file (or reopening) starts from the defaults: same-name document → its next version
   useEffect(() => {
@@ -119,7 +119,7 @@ export function UploadDialog({ open, onOpenChange, file, accountId, documents, d
                 <p className="break-words text-table font-medium text-foreground">{file.name}</p>
                 <p className="text-micro tabular text-muted-foreground">{formatFileSize(file.size)}</p>
               </div>
-              <Button type="button" variant="ghost" size="sm" onClick={onPickAnother} disabled={pending}>
+              <Button type="button" variant="ghost" size="sm" onClick={() => (pending ? undefined : onPickAnother())} disabled={pendingVisible}>
                 {t('account.documents.pickAnother')}
               </Button>
             </div>
@@ -229,7 +229,7 @@ export function UploadDialog({ open, onOpenChange, file, accountId, documents, d
             </FormField>
 
             <DialogFooter>
-              <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} disabled={pending}>
+              <Button type="button" variant="secondary" onClick={() => (pending ? undefined : onOpenChange(false))} disabled={pendingVisible}>
                 {t('common.cancel')}
               </Button>
               <Button type="submit" disabled={tooBig} loading={pending}>

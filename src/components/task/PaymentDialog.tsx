@@ -3,6 +3,7 @@ import { useEffect, useId, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Paperclip, X } from 'lucide-react';
 import type { UploadInput } from '@/services/contract';
+import { useDelayedFlag } from '@/hooks/useMotion';
 import { t } from '@/i18n';
 import { formatFileSize } from '@/lib/format';
 import { toastError } from '@/lib/toast';
@@ -26,6 +27,8 @@ export function PaymentDialog({ open, onOpenChange, onSubmit }: PaymentDialogPro
   const [note, setNote] = useState('');
   const [reading, setReading] = useState(false);
   const [pending, setPending] = useState(false);
+  // Cancel dims only once the submit takes 150 ms (DESIGN §8.2); its click is guarded by `pending` at once
+  const pendingVisible = useDelayedFlag(pending);
   const [showError, setShowError] = useState(false);
 
   useEffect(() => {
@@ -119,10 +122,10 @@ export function PaymentDialog({ open, onOpenChange, onSubmit }: PaymentDialogPro
             />
           </FormField>
           <DialogFooter>
-            <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} disabled={pending}>
+            <Button type="button" variant="secondary" onClick={() => (pending ? undefined : onOpenChange(false))} disabled={pendingVisible}>
               {t('common.cancel')}
             </Button>
-            <Button type="submit" loading={pending} disabled={reading}>
+            <Button type="submit" loading={pending} spinnerOverlay disabled={reading}>
               {t('task.dialog.payment.confirm')}
             </Button>
           </DialogFooter>

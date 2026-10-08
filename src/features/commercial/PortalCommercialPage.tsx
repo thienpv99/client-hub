@@ -85,16 +85,18 @@ function ContractBlock({ contract }: { contract: ContractView }) {
           {contract.code}
           {contract.signed_date ? ` · ${t('commercial.contract.signedOn', { date: formatDate(contract.signed_date) })}` : ''}
         </p>
-        <dl className="mt-4 grid grid-cols-2 gap-4">
-          <div>
+        {/* phones: one label-left / figure-right row per amount (two 20px figures side by side ran into each other at
+            360–390); from sm the two figures share a row */}
+        <dl className="mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-2 sm:gap-4">
+          <div className="flex items-baseline justify-between gap-3 sm:block">
             <dt className="text-caption">{t('commercial.contract.value')}</dt>
-            <dd className="mt-0.5 text-title font-semibold tracking-tightish text-ink">
+            <dd className="text-title sm:mt-0.5 font-semibold tracking-tightish text-ink">
               <Money value={contract.value} />
             </dd>
           </div>
-          <div>
+          <div className="flex items-baseline justify-between gap-3 sm:block">
             <dt className="text-caption">{t('commercial.portal.paidSoFar')}</dt>
-            <dd className="mt-0.5 text-title font-semibold tracking-tightish text-foreground">
+            <dd className="text-title sm:mt-0.5 font-semibold tracking-tightish text-foreground">
               <Money value={contract.collected} />
             </dd>
           </div>
@@ -122,7 +124,10 @@ function ContractBlock({ contract }: { contract: ContractView }) {
   );
 }
 
-/** "Báo giá đã nhận": full-width rows below lg, a narrow side card from lg (amount + status under the title) */
+/**
+ * "Báo giá đã nhận": amount + status under the title on phones and in the narrow side card from lg (the title keeps
+ * the row's width), beside it on sm–lg rows; titles wrap to two lines instead of being cut
+ */
 function HistoryCard({ quotes }: { quotes: QuoteSummary[] }) {
   return (
     <SectionCard title={t('commercial.portal.historyTitle')} flush>
@@ -137,19 +142,19 @@ function HistoryCard({ quotes }: { quotes: QuoteSummary[] }) {
                 <FileText className="h-4 w-4" aria-hidden="true" />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate font-medium text-foreground">{q.title}</span>
+                <span className="line-clamp-2 break-words font-medium text-foreground">{q.title}</span>
                 <span className="block text-caption tabular">{t('commercial.quote.codeVersion', { code: q.code, version: q.version })}</span>
-                <span className="mt-1.5 hidden flex-wrap items-center gap-x-3 gap-y-1 lg:flex">
+                <span className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 sm:hidden lg:flex">
                   <Money value={q.grand_total} className="text-table font-semibold text-ink" />
                   <QuoteStatusBadge status={q.status} audience="client" size="sm" />
                 </span>
               </span>
-              <span className="flex shrink-0 flex-col items-end gap-1 sm:flex-row sm:items-center sm:gap-3 lg:hidden">
+              <span className="hidden shrink-0 items-center gap-3 sm:flex lg:hidden">
                 <Money value={q.grand_total} className="text-table font-semibold text-ink" />
                 <QuoteStatusBadge status={q.status} audience="client" size="sm" />
               </span>
               <ChevronRight
-                className="hidden h-4 w-4 shrink-0 text-caption transition-transform group-hover:translate-x-0.5 sm:block"
+                className="hidden h-4 w-4 shrink-0 text-caption transition-transform duration-150 ease-out-quart group-hover:translate-x-0.5 sm:block"
                 aria-hidden="true"
               />
             </Link>

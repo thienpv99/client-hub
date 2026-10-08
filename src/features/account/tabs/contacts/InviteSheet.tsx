@@ -49,7 +49,7 @@ export function InviteSheet({ account, contact, open, onOpenChange }: InviteShee
   const [draft, setDraft] = useState<Draft>(() => draftOf(contact));
   const [emailError, setEmailError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
-  const { run, pending } = useAction();
+  const { run, pending, pendingVisible } = useAction();
   const emailRef = useRef<HTMLInputElement>(null);
   const domain = account.email_domain;
 
@@ -64,7 +64,9 @@ export function InviteSheet({ account, contact, open, onOpenChange }: InviteShee
 
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => setDraft((d) => ({ ...d, [key]: value }));
   const owner = draft.decision_role === 'decision_maker';
-  const canSubmit = draft.full_name.trim().length > 0 && draft.email.trim().length > 0 && draft.salutation !== null && !pending;
+  // `ready` draws the submit button (it shows its own busy look after 150 ms); `canSubmit` also guards a double submit
+  const ready = draft.full_name.trim().length > 0 && draft.email.trim().length > 0 && draft.salutation !== null;
+  const canSubmit = ready && !pending;
 
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -203,11 +205,11 @@ export function InviteSheet({ account, contact, open, onOpenChange }: InviteShee
             {formError ? <FormAlert>{formError}</FormAlert> : null}
           </SheetBody>
           <SheetFooter>
-            <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} disabled={pending}>
+            <Button type="button" variant="secondary" onClick={() => (pending ? undefined : onOpenChange(false))} disabled={pendingVisible}>
               {t('common.cancel')}
             </Button>
-            <Button type="submit" disabled={!canSubmit} loading={pending}>
-              {pending ? null : <Send aria-hidden="true" />}
+            <Button type="submit" disabled={!ready} loading={pending}>
+              <Send aria-hidden="true" />
               {t('account.contacts.inviteSubmit')}
             </Button>
           </SheetFooter>

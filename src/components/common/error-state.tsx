@@ -51,19 +51,19 @@ export function ErrorState({ error, onRetry, compact = false, titleAs: Title = '
       role="alert"
       className={cx(
         'flex flex-col items-center justify-center text-center',
-        compact ? 'gap-3 px-4 py-8' : 'gap-4 px-6 py-12',
+        compact ? 'gap-3 px-4 py-8' : 'gap-5 px-6 py-12 md:py-14',
         className,
       )}
     >
       <EmptyIcon icon={look.icon} tone={look.tone} compact={compact} />
-      <div className="max-w-md space-y-1">
+      <div className={cx('max-w-md', compact ? 'space-y-1' : 'space-y-1.5')}>
         <Title className={cx('text-balance text-ink', compact ? 'text-table font-medium' : 'text-heading font-semibold tracking-tightish')}>
           {t(look.titleKey)}
         </Title>
-        <p className="text-balance text-table text-muted-foreground">{errorMessage(error)}</p>
+        <p className="mx-auto max-w-sm text-balance text-table text-muted-foreground">{errorMessage(error)}</p>
       </div>
       {onRetry && kind === 'failed' ? (
-        <Button variant="secondary" onClick={onRetry} className="mt-1">
+        <Button variant="secondary" onClick={onRetry}>
           <RefreshCw className="h-4 w-4" aria-hidden="true" />
           {t('components.error.retry')}
         </Button>

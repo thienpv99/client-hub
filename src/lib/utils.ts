@@ -3,7 +3,15 @@ import { extendTailwindMerge } from 'tailwind-merge';
 
 // tailwind-merge must know the custom tokens of tailwind.config.js, otherwise it treats them as colours and drops
 // them: cn('text-table text-muted-foreground') would lose the 14px size, cn('shadow-card …') the shadow.
-// Keep in sync with src/components/ui/cn.ts (DESIGN.md §2 tokens).
+// Keep in sync with src/components/ui/cn.ts (DESIGN.md §2 tokens, §8 motion tokens).
+
+/** custom `animate-*` names of tailwind.config.js, so a later one replaces an earlier one with the same variant */
+export const MOTION_ANIMATIONS = [
+  'fade-in', 'fade-out', 'slide-in-right', 'slide-out-right', 'slide-in-bottom', 'slide-out-bottom', 'slide-in-left',
+  'slide-out-left', 'slide-in-top', 'slide-out-top', 'zoom-in', 'pop-in', 'pop-out', 'dialog-in', 'dialog-out',
+  'check-in', 'page-enter', 'rise', 'progress-grow', 'shimmer',
+];
+
 const twMerge = extendTailwindMerge({
   extend: {
     classGroups: {
@@ -11,7 +19,8 @@ const twMerge = extendTailwindMerge({
       shadow: [{ shadow: ['xs', 'card', 'card-hover', 'pop', 'drawer', 'btn', 'btn-secondary', 'focus', 'segment'] }],
       tracking: [{ tracking: ['tightish', 'display'] }],
       'max-w': [{ 'max-w': ['page', 'reading'] }],
-      ease: [{ ease: ['out-quart'] }],
+      ease: [{ ease: ['out-quart', 'spring', 'in-quart'] }],
+      animate: [{ animate: MOTION_ANIMATIONS }],
       'min-h': [{ 'min-h': ['tap'] }],
       'min-w': [{ 'min-w': ['tap'] }],
     },

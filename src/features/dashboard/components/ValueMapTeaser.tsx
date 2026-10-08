@@ -10,6 +10,7 @@ import { EmptyState } from '@/components/common/empty-state';
 import { ErrorState } from '@/components/common/error-state';
 import { SectionCard } from '@/components/common/section-card';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/components/ui/cn';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useQuery } from '@/hooks/useQuery';
 import { useViewer } from '@/hooks/useViewer';
@@ -58,8 +59,11 @@ function Row({ node, rank, max }: { node: ClientMapNode; rank: number; max: numb
           <span className="shrink-0 text-table font-semibold tabular text-ink">{value}</span>
         </span>
         <span className="mt-1.5 flex h-1.5 w-full overflow-hidden rounded-full bg-muted">
-          <span className="h-full bg-chart-1" style={{ width: pct(node.contract_value, max) }} />
-          <span className="h-full bg-chart-3" style={{ width: pct(node.pipeline_value, max) }} />
+          {/* the stacked bar grows in from the left on first paint (transform only, DESIGN §8.5) */}
+          <span className="flex h-full w-full animate-progress-grow">
+            <span className="h-full bg-chart-1" style={{ width: pct(node.contract_value, max) }} />
+            <span className="h-full bg-chart-3" style={{ width: pct(node.pipeline_value, max) }} />
+          </span>
         </span>
       </span>
     </>
@@ -68,7 +72,7 @@ function Row({ node, rank, max }: { node: ClientMapNode; rank: number; max: numb
   return (
     <li className="min-w-0">
       {node.href ? (
-        <Link to={node.href} aria-label={label} className={`${rowClass} transition-colors duration-150 hover:bg-subtle`}>
+        <Link to={node.href} aria-label={label} className={`${rowClass} transition-colors duration-150 ease-out-quart hover:bg-subtle`}>
           {body}
         </Link>
       ) : (
@@ -82,7 +86,7 @@ function Row({ node, rank, max }: { node: ClientMapNode; rank: number; max: numb
 
 function TeaserSkeleton() {
   return (
-    <div role="status" aria-busy="true" className={GRID}>
+    <div role="status" aria-busy="true" className={cn('skeleton-reveal', GRID)}>
       <span className="sr-only">{t('common.a11y.loading')}</span>
       {Array.from({ length: TOP }, (_, i) => (
         <div key={i} className="flex items-center gap-3 px-2 py-2" aria-hidden="true">

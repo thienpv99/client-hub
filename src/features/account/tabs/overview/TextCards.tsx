@@ -118,12 +118,10 @@ export function InternalNotesCard({ account, canEdit, className }: { account: Ac
   return (
     <SectionCard
       className={className}
-      title={
-        <span className="inline-flex flex-wrap items-center gap-2">
-          {t('account.overview.notes.title')}
-          <InternalOnlyBadge />
-        </span>
-      }
+      title={t('account.overview.notes.title')}
+      // the badge sits under the title (like "Khách thấy được" on the summary card): beside it, it pushed "Sửa" onto
+      // a row of its own in the 1/3 side column
+      description={<InternalOnlyBadge className="mt-1" />}
       actions={canEdit && !editing ? <EditButton onClick={() => setEditing(true)} label={t('account.overview.notes.edit')} /> : null}
     >
       {editing ? (

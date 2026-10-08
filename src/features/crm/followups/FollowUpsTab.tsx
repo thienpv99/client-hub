@@ -9,6 +9,8 @@ import { api } from '@/services/api';
 import { followUpBucket } from '@/domain/crm';
 import type { FollowUpBucket } from '@/domain/crm';
 import { useQuery } from '@/hooks/useQuery';
+import { useStagger } from '@/hooks/useMotion';
+import type { RiseProps } from '@/hooks/useMotion';
 import { t } from '@/i18n';
 import { formatDate, formatRelativeDays } from '@/lib/format';
 import { cn } from '@/components/ui/cn';
@@ -37,14 +39,14 @@ function hrefOf(item: FollowUpItem): string {
   return item.kind === 'lead' ? crmPaths.lead(item.id) : crmPaths.opportunity(item.id);
 }
 
-function FollowUpRow({ item, today, onLog }: { item: FollowUpItem; today: string; onLog: () => void }) {
+function FollowUpRow({ item, today, onLog, rise }: { item: FollowUpItem; today: string; onLog: () => void; rise: RiseProps }) {
   const Icon = item.kind === 'lead' ? Crosshair : Handshake;
   const days = daysFrom(today, item.date);
   const overdue = days < 0;
   return (
     // the title link stretches over the row (a ≥ 44px target on touch screens); the log button sits above it
     // (icon only on phones, so a row stays three lines tall)
-    <div className="group relative flex items-start gap-3 transition-colors hover:bg-subtle focus-within:bg-subtle sm:items-center">
+    <div className={cn('group relative flex items-start gap-3 transition-colors hover:bg-subtle focus-within:bg-subtle sm:items-center', rise.className)} style={rise.style}>
       <div className="flex min-w-0 flex-1 items-start gap-3">
         <span
           className={cn(
@@ -116,8 +118,10 @@ function CountPill({ count, danger }: { count: number; danger: boolean }) {
   );
 }
 
-export function FollowUpsTab({ owner, today }: { owner: string; today: string }) {
+export function FollowUpsTab({ owner, today, stagger = false }: { owner: string; today: string; stagger?: boolean }) {
   const q = useQuery(() => api.listFollowUps({ ...ownerParams(owner), range: 'all' }), [owner], { keepPreviousData: true });
+  // the to-do rows rise in on first appearance (the page's entry tab only), counted across the groups
+  const rise = useStagger(stagger && q.data !== undefined);
   // defaults are kept while the dialog animates out
   const [log, setLog] = useState<{ open: boolean; defaults: Partial<InteractionInput> }>({ open: false, defaults: {} });
   const [expanded, setExpanded] = useState<Partial<Record<Group, boolean>>>({});
@@ -138,6 +142,7 @@ export function FollowUpsTab({ owner, today }: { owner: string; today: string })
   }
   const total = (q.data ?? []).length;
   const calm = groups.overdue.length === 0 && groups.today.length === 0;
+  let row = 0;
 
   return (
     <div className="space-y-6 md:space-y-8">
@@ -190,6 +195,7 @@ export function FollowUpsTab({ owner, today }: { owner: string; today: string })
                   item={item}
                   today={today}
                   onLog={() => setLog({ open: true, defaults: item.kind === 'lead' ? { lead_id: item.id } : { opportunity_id: item.id } })}
+                  rise={rise(row++)}
                 />
               ))}
             </SectionCard>

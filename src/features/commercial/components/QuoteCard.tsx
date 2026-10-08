@@ -16,17 +16,19 @@ export function QuoteCard({ quote, className }: { quote: QuoteSummary; className
   return (
     <Card interactive asChild className={className}>
       <Link to={quoteHref(quote.id)} className="flex h-full flex-col p-4 sm:p-5">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-2.5">
-            <AccountLogo account={quote.account} size="sm" />
-            <div className="min-w-0">
-              <p className="truncate text-table font-medium text-foreground">{quote.account.name}</p>
-              <p className="text-caption tabular">{t('commercial.quote.codeVersion', { code: quote.code, version: quote.version })}</p>
-            </div>
+        {/* the entity line keeps the card's whole width (the status badge beside it cut the account name and broke
+            the quote code at its hyphen); the status sits right above the title it qualifies */}
+        <div className="flex min-w-0 items-center gap-2.5">
+          <AccountLogo account={quote.account} size="sm" />
+          <div className="min-w-0">
+            <p className="truncate text-table font-medium text-foreground">{quote.account.name}</p>
+            <p className="truncate whitespace-nowrap text-caption tabular">
+              {t('commercial.quote.codeVersion', { code: quote.code, version: quote.version })}
+            </p>
           </div>
-          <QuoteStatusBadge status={quote.status} size="sm" className="mt-0.5" />
         </div>
-        <p className="mt-3 line-clamp-2 text-heading font-semibold tracking-tightish text-ink">{quote.title}</p>
+        <QuoteStatusBadge status={quote.status} size="sm" className="mt-3 self-start" />
+        <p className="mt-2 line-clamp-2 text-heading font-semibold tracking-tightish text-ink">{quote.title}</p>
         <div className="mt-auto flex flex-wrap items-end justify-between gap-x-4 gap-y-2 pt-4">
           <div>
             <p className="text-caption">{t('commercial.quote.total')}</p>

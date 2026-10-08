@@ -1,0 +1,863 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <title>CSS audit · Client Hub</title>
+    <style>
+      body { font: 14px/1.5 ui-monospace, Consolas, monospace; margin: 24px; color: #0F172A; background: #F6F8FC; }
+      button { font: inherit; padding: 8px 16px; border-radius: 8px; border: 0; background: #1D4ED8; color: #fff; cursor: pointer; }
+      button:disabled { opacity: 0.6; cursor: progress; }
+      a { color: #1D4ED8; margin-left: 12px; }
+      pre { white-space: pre-wrap; background: #fff; border: 1px solid #E5E9F0; border-radius: 12px; padding: 16px; }
+      #stage { display: flex; gap: 12px; align-items: flex-start; margin: 12px 0; }
+      .frame-box { position: relative; overflow: hidden; border: 1px solid #E5E9F0; border-radius: 12px; background: #fff; flex: none; }
+      .frame-box iframe { position: absolute; left: 0; top: 0; border: 0; transform-origin: 0 0; }
+      #status { font-weight: 600; }
+    </style>
+  </head>
+  <body>
+    <h1>Kiểm tra độ phủ CSS biên dịch sẵn (bản 1 file)</h1>
+    <p id="desc"></p>
+    <p><button id="run">Chạy kiểm tra</button><a id="quick" href="?quick=1&amp;auto=1">nhanh (1440, không AM)</a><a id="cmp" href="?compare=ClientHub-demo-runtime.html&amp;roles=client_member&amp;overlays=0&amp;auto=1">so computed style với bản Tailwind runtime</a><a id="cmpdev" href="?compare=dev&amp;roles=client_member&amp;overlays=0&amp;auto=1">so với ứng dụng dev</a></p>
+    <p id="status"></p>
+    <div id="stage"></div>
+    <pre id="log"></pre>
+    <script type="module">
+      // Proves that the CSS precompiled by tools/build-standalone.html covers every class the app really renders.
+      //
+      // 1. Opens dist/<file> (default ClientHub-demo.html) in a same-origin iframe, signs in through the demo cards like
+      //    a user (director, AM, member, both client roles), walks a broad route list at 1440×900 and 390×844, opens the
+      //    overlays it can reach (every [aria-haspopup] trigger, comboboxes, the Ctrl+K palette, task drawers via ?task=)
+      //    and records every class token that ever appears in the DOM (MutationObserver, old values included).
+      // 2. Recompiles those DOM tokens with the same Tailwind engine, config and app CSS as the build (read from the
+      //    build's sidecar dist/<name>.tailwind-inputs.json, else from the live sources): that is exactly the CSS the
+      //    dev app (Tailwind Play in the page) would generate for those screens.
+      // 3. Real misses = DOM tokens the engine makes CSS for that the inlined stylesheet has no selector for (selectors
+      //    walked recursively through @media / @supports, unescaped). Rule parity = every reference rule present verbatim
+      //    in the inlined sheet, in the same cascade order. Both must be empty.
+      //    Tokens with no CSS anywhere (also not in dev) are listed by kind, never counted: Tailwind markers (group,
+      //    peer, group/name, peer/name: they only style through a group-*/peer-* variant on another element), classes
+      //    set by libraries (recharts-*, lucide*, sonner — not in our sources) and the app's own hook classes.
+      // 4. Also checks the file itself: no Tailwind runtime, no style[type=text/tailwindcss], no external resource
+      //    reference in the markup or the CSS; records any request the page made to another host while it ran.
+      // 5. Conflicts: no element may carry two utilities of the same kind (same variant context, same property set) that
+      //    set a property to different values (text-caption + text-primary, px-4 + px-5…) — the winner would depend on
+      //    rule order, which the dev runtime and the build need not share (DESIGN §7.1). Must be empty too.
+      // ?compare=<other>.html additionally loads a second build side by side on a route subset and compares the computed
+      // style of every element — normally ClientHub-demo-runtime.html, which build-standalone.html?auto=1&twin=1 writes
+      // from the same sources with the Tailwind runtime in the page (the previous output) — or ?compare=dev: the no-build
+      // dev app itself (nobuild.html + sw.js, Tailwind Play from its CDN; needs network). Differences are split into
+      // stylesheet ones (must be 0) and layout / JS-measured ones (auto margins, sizes, inline styles written from a
+      // measurement), which depend on timing. Results: window.__CSS_AUDIT__ (progress: window.__CSS_AUDIT_PROGRESS__).
+      // Params: ?auto=1 · ?file= · ?widths=1440,390 · ?roles=director,am,member,client_owner,client_member · ?overlays=0 ·
+      // ?quick=1 (1440 only, no AM) · ?compare=<file>|dev. The audit signs in (demo cards) and reads the shared mock db only
+      // to pick ids; the tab's session and the remembered-device session are restored at the end.
+      import {
+        TAILWIND_LOCAL, compileTailwind, configScriptFrom, extractCandidates, flattenRules, inputsFileName,
+        parseCss, ruleClassNames, selectorClassNames, stripTailwindDirectives,
+      } from '/tools/tailwind-precompile.js';
+
+      const params = new URLSearchParams(location.search);
+      const QUICK = params.has('quick');
+      const FILE = params.get('file') || 'ClientHub-demo.html';
+      const COMPARE = params.get('compare');
+      const NAME_OK = /^[A-Za-z0-9._-]+\.html$/;
+      const WIDTHS = (params.get('widths') || (QUICK ? '1440' : '1440,390')).split(',').map(Number).filter((n) => n >= 320 && n <= 2560);
+      const ROLES = (params.get('roles') || (QUICK ? 'director,member,client_owner,client_member' : 'director,am,member,client_owner,client_member'))
+        .split(',').filter(Boolean);
+      const OVERLAYS = params.get('overlays') !== '0';
+      const ACCOUNT = params.get('account') || 'acc_coxanh';
+      const SESSION_KEY = 'clienthub.session.v1';
+      const DB_KEY = 'clienthub.db.v1';
+      const heightOf = (w) => (w >= 768 ? 900 : 844);
+
+      // DOM classes that have no CSS by design (also none in the dev app): reported by kind, never counted as misses.
+      const MARKER = /^(group|peer)(\/[\w-]+)?$/; // Tailwind markers: `.group:hover .group-hover\:x` styles the CHILD
+      // set by recharts / lucide-react / sonner; any other class missing from our sources (e.g. Google Sign-In's) counts too
+      const LIBRARY = /^(recharts-|lucide$|lucide-|sonner|toaster$|toast$)/;
+
+      const logEl = document.getElementById('log');
+      const statusEl = document.getElementById('status');
+      const log = (m) => { logEl.textContent += m + '\n'; };
+      const status = (m) => { statusEl.textContent = m; window.__CSS_AUDIT_PROGRESS__ = m; };
+      const kb = (n) => (n / 1024).toFixed(n < 10240 ? 1 : 0) + ' KB';
+      const utf8Bytes = (s) => new TextEncoder().encode(s).length;
+
+      document.getElementById('desc').textContent = 'Mở dist/' + FILE + ' trong iframe, đăng nhập bằng thẻ demo, đi qua các màn ('
+        + ROLES.join(', ') + ' · ' + WIDTHS.map((w) => w + '×' + heightOf(w)).join(', ') + '), ghi mọi lớp CSS xuất hiện trong DOM rồi đối chiếu với CSS nhúng trong file.'
+        + (COMPARE ? ' So computed style với ' + (COMPARE === 'dev' ? 'ứng dụng dev' : 'dist/' + COMPARE) + '.' : '');
+
+      // ---------- timing that keeps working in a background tab ----------
+      // Hidden tabs clamp setTimeout to 1 s and, after 5 min, chained timers to 1 per minute; posted messages are not
+      // throttled, so waits poll through a MessageChannel.
+      const chan = new MessageChannel();
+      const waiting = [];
+      chan.port1.onmessage = () => { const r = waiting.shift(); if (r) r(); };
+      const yieldTask = () => new Promise((r) => { waiting.push(r); chan.port2.postMessage(0); });
+      async function sleep(ms) {
+        const end = performance.now() + ms;
+        while (performance.now() < end) await yieldTask();
+      }
+      async function waitFor(fn, timeout, message) {
+        const end = performance.now() + timeout;
+        for (;;) {
+          let v;
+          try { v = fn(); } catch { v = null; }
+          if (v) return v;
+          if (performance.now() > end) throw new Error(message || 'Hết thời gian chờ');
+          await sleep(40);
+        }
+      }
+
+      // ---------- frames ----------
+      // Motion is switched off inside the audited page: Radix keeps a closing overlay mounted until its exit animation
+      // ends, and a hidden tab never ends an animation. Class attributes do not depend on it.
+      const NO_MOTION = '*,*::before,*::after{animation:none!important;transition:none!important}';
+      let loads = 0;
+
+      function makeFrame(label) {
+        const box = document.createElement('div');
+        box.className = 'frame-box';
+        const el = document.createElement('iframe');
+        el.title = label;
+        box.append(el);
+        document.getElementById('stage').append(box);
+        const f = { el, box, lastMutation: performance.now(), observer: null, onClass: null, errors: [], requests: [] };
+        return f;
+      }
+      function sizeFrame(f, w) {
+        const h = heightOf(w);
+        const scale = Math.min(1, (COMPARE ? 520 : 760) / w);
+        f.el.width = String(w);
+        f.el.height = String(h);
+        f.el.style.width = w + 'px';
+        f.el.style.height = h + 'px';
+        f.el.style.transform = 'scale(' + scale + ')';
+        f.box.style.width = Math.round(w * scale) + 'px';
+        f.box.style.height = Math.round(h * scale) + 'px';
+      }
+      const docOf = (f) => f.el.contentDocument;
+      const winOf = (f) => f.el.contentWindow;
+
+      function harvestRequests(f) {
+        try {
+          for (const e of winOf(f).performance.getEntriesByType('resource')) {
+            if (!/^https?:/i.test(e.name)) continue;
+            const u = new URL(e.name);
+            if (u.origin !== location.origin) f.requests.push(u.origin + u.pathname);
+          }
+        } catch { /* document gone */ }
+      }
+
+      function attach(f) {
+        const doc = docOf(f);
+        const win = winOf(f);
+        if (f.observer) f.observer.disconnect();
+        const add = (v) => {
+          if (!v) return;
+          if (f.onClass) for (const tok of v.split(/\s+/)) if (tok) f.onClass(tok);
+          if (f.onList) f.onList(v); // whole class lists: same-kind conflicts on one element
+        };
+        const scan = (node) => {
+          if (node.nodeType !== 1) return;
+          add(node.getAttribute('class'));
+          for (const el of node.querySelectorAll('[class]')) add(el.getAttribute('class'));
+        };
+        f.observer = new MutationObserver((records) => {
+          f.lastMutation = performance.now();
+          for (const r of records) {
+            if (r.type === 'attributes') { add(r.oldValue); add(r.target.getAttribute('class')); }
+            else for (const n of r.addedNodes) scan(n);
+          }
+        });
+        f.observer.observe(doc.documentElement, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['class'], attributeOldValue: true });
+        scan(doc.documentElement);
+        win.addEventListener('error', (e) => f.errors.push(String(e.message || e.error)));
+        win.addEventListener('unhandledrejection', (e) => f.errors.push(String(e.reason && e.reason.message ? e.reason.message : e.reason)));
+        const style = doc.createElement('style');
+        style.id = 'ch-audit-no-motion';
+        style.textContent = NO_MOTION;
+        doc.head.append(style);
+      }
+
+      async function blank(f) {
+        harvestRequests(f);
+        if (f.observer) f.observer.disconnect();
+        let loaded = false;
+        f.el.addEventListener('load', () => { loaded = true; }, { once: true });
+        f.el.src = 'about:blank';
+        await waitFor(() => loaded, 10000, 'Khung không về trang trắng được.');
+      }
+
+      // A frame shows a built file (HashRouter: `/dist/<file>#/path`) or, with target 'dev', the no-build dev app
+      // (nobuild.html + sw.js, Tailwind Play from its CDN, BrowserRouter: `/path`).
+      const labelOf = (target) => (target === 'dev' ? 'ứng dụng dev' : 'dist/' + target);
+      function currentPath(f) {
+        const loc = winOf(f).location;
+        return f.target === 'dev' ? loc.pathname + loc.search : loc.hash.slice(1);
+      }
+      function go(f, path) {
+        const w = winOf(f);
+        if (f.target === 'dev') {
+          w.history.pushState(null, '', path);
+          w.dispatchEvent(new w.PopStateEvent('popstate', { state: null }));
+        } else {
+          w.location.hash = '#' + path;
+        }
+      }
+
+      async function load(f, target, path) {
+        harvestRequests(f);
+        loads += 1;
+        f.target = target;
+        let loaded = false;
+        f.el.addEventListener('load', () => { loaded = true; }, { once: true });
+        // a built file is one URL whatever the hash: the query makes every load a real reload
+        f.el.src = target === 'dev' ? path : '/dist/' + target + '?audit=' + loads + '#' + path;
+        const what = labelOf(target);
+        await waitFor(() => loaded, 60000, what + ' không tải xong sau 60 s.');
+        attach(f);
+        let doc = docOf(f);
+        const bootError = () => {
+          const box = doc.getElementById('boot-error');
+          return box && box.textContent.trim() ? new Error(what + ' báo lỗi khởi động: ' + box.textContent.trim().slice(0, 400)) : null;
+        };
+        let fatal = null;
+        await waitFor(() => {
+          if (docOf(f) !== doc) { attach(f); doc = docOf(f); } // the dev page reloads once while its service worker takes over
+          fatal = bootError();
+          return fatal || (!doc.getElementById('boot') && doc.getElementById('root') && doc.getElementById('root').childElementCount > 0);
+        }, 90000, what + ' không khởi động sau 90 s.');
+        if (fatal) throw fatal;
+      }
+
+      /** quiet: no DOM mutation for `quiet` ms in any frame and no skeleton on screen; false after `max` */
+      async function settle(frames, { quiet = 400, max = 9000 } = {}) {
+        const t0 = performance.now();
+        await sleep(120);
+        while (performance.now() - t0 < max) {
+          const now = performance.now();
+          const calm = frames.every((f) => {
+            const d = docOf(f);
+            return d && !d.querySelector('.skeleton, .skeleton-reveal, #boot') && now - f.lastMutation >= quiet;
+          });
+          if (calm) return true;
+          await sleep(60);
+        }
+        return false;
+      }
+
+      // ---------- user actions ----------
+      function press(el) {
+        const W = el.ownerDocument.defaultView;
+        const base = { bubbles: true, cancelable: true, composed: true, view: W, button: 0, buttons: 1, clientX: 2, clientY: 2 };
+        const ptr = { pointerId: 1, pointerType: 'mouse', isPrimary: true };
+        el.dispatchEvent(new W.PointerEvent('pointerdown', { ...base, ...ptr }));
+        el.dispatchEvent(new W.MouseEvent('mousedown', base));
+        el.dispatchEvent(new W.PointerEvent('pointerup', { ...base, ...ptr, buttons: 0 }));
+        el.dispatchEvent(new W.MouseEvent('mouseup', { ...base, buttons: 0 }));
+        el.dispatchEvent(new W.MouseEvent('click', { ...base, buttons: 0 }));
+      }
+      function key(f, init) {
+        const doc = docOf(f);
+        const W = winOf(f);
+        const target = doc.activeElement || doc.body;
+        target.dispatchEvent(new W.KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init }));
+        target.dispatchEvent(new W.KeyboardEvent('keyup', { bubbles: true, cancelable: true, ...init }));
+      }
+      const escape = (f) => key(f, { key: 'Escape', code: 'Escape' });
+      function typeInto(input, value) {
+        const W = input.ownerDocument.defaultView;
+        Object.getOwnPropertyDescriptor(W.HTMLInputElement.prototype, 'value').set.call(input, value);
+        input.dispatchEvent(new W.Event('input', { bubbles: true }));
+      }
+
+      const CARD = {
+        director: (t) => t.includes('Giám đốc'),
+        am: (t) => t.includes('Quản lý khách hàng'),
+        client_owner: (t) => t.includes('Người quyết định'),
+        client_member: (t) => t.includes('Khách hàng') && t.includes('Thành viên') && !t.includes('nội bộ'),
+        member: (t) => t.includes('Thành viên nội bộ'),
+      };
+      const CARD_ORDER = ['director', 'am', 'client_owner', 'client_member']; // DemoLoginPanel MAIN_ROLES (fallback)
+      function demoButton(doc, role) {
+        const panel = doc.querySelector('section[aria-labelledby="demo-login-title"]');
+        if (!panel) return null;
+        const buttons = [...panel.querySelectorAll('button')];
+        const hit = buttons.find((b) => CARD[role] && CARD[role](b.textContent.replace(/\s+/g, ' ')));
+        if (hit) return hit;
+        const cards = [...panel.querySelectorAll('ul button')];
+        const i = CARD_ORDER.indexOf(role);
+        return i >= 0 && cards.length === CARD_ORDER.length ? cards[i] : null;
+      }
+
+      function clearSession() {
+        try { sessionStorage.removeItem(SESSION_KEY); } catch { /* ignore */ }
+        try { localStorage.removeItem(SESSION_KEY); } catch { /* ignore */ }
+      }
+
+      /** fresh load of /login in frames[0], click the role's demo card; other frames (same tab session) reload after it */
+      async function signIn(frames, file, role) {
+        // a signed-in page still running in a frame may write its session back: unload every frame before clearing
+        for (const g of frames) await blank(g);
+        clearSession();
+        const f = frames[0];
+        await load(f, file, '/login');
+        await settle([f]);
+        const btn = await waitFor(() => demoButton(docOf(f), role), 20000, 'Không thấy thẻ đăng nhập demo cho vai trò ' + role + '.');
+        btn.click();
+        await waitFor(() => /^\/(app|portal)/.test(currentPath(f)), 20000, 'Bấm thẻ demo ' + role + ' nhưng không vào được app.');
+        for (const g of frames.slice(1)) await load(g, COMPARE, currentPath(f));
+      }
+
+      // ---------- ids from the shared mock db (read only) ----------
+      function pickIds() {
+        let db = null;
+        try { db = JSON.parse(localStorage.getItem(DB_KEY) || 'null'); } catch { db = null; }
+        const live = (rows) => (Array.isArray(rows) ? rows.filter((r) => r && !r.deleted_at) : []);
+        const projects = new Set(live(db && db.projects).filter((p) => p.account_id === ACCOUNT).map((p) => p.id));
+        const tasks = live(db && db.tasks).filter((t) => projects.has(t.project_id));
+        const open = (t) => t.status !== 'done';
+        const clientTask = tasks.find((t) => t.side === 'client' && open(t)) || tasks.find((t) => t.side === 'client');
+        const internalTask = tasks.find((t) => t.side === 'internal' && open(t)) || tasks[0];
+        const am = live(db && db.users).find((u) => u.email === 'ha.nguyen@newera.inc');
+        const opps = live(db && db.opportunities);
+        const opp = opps.find((o) => am && o.owner_id === am.id) || opps[0];
+        const leads = live(db && db.leads).filter((l) => l.status !== 'converted');
+        const lead = leads.find((l) => !l.owner_id || (am && l.owner_id === am.id)) || leads[0];
+        const quotes = live(db && db.quotes).filter((q) => q.account_id === ACCOUNT);
+        const quote = quotes[0] || live(db && db.quotes)[0];
+        const portalQuote = quotes.find((q) => ['sent', 'accepted', 'changes_requested', 'expired'].includes(q.status));
+        const id = (r) => (r ? r.id : null);
+        return { db: !!db, clientTask: id(clientTask), internalTask: id(internalTask), opp: id(opp), lead: id(lead), quote: id(quote), portalQuote: id(portalQuote) };
+      }
+
+      function routesFor(role, ids) {
+        const acc = '/app/accounts/' + ACCOUNT;
+        const opt = (id, path) => (id ? [path] : []);
+        const tabs = (base, list) => list.map((x) => base + '/' + x);
+        if (role === 'director' || role === 'am') {
+          return [
+            '/app', '/app/accounts',
+            ...tabs(acc, ['overview', 'tasks', 'roadmap', 'sales', 'commercial', 'documents', 'contacts', 'activity']),
+            ...opt(ids.internalTask, acc + '/tasks?task=' + ids.internalTask),
+            '/app/tasks', '/app/tasks?mine=1', ...opt(ids.clientTask, '/app/tasks?task=' + ids.clientTask),
+            '/app/crm', ...tabs('/app/crm', ['pipeline', 'list', 'forecast', 'followups']), ...opt(ids.opp, '/app/crm/opportunities/' + ids.opp),
+            '/app/targets', ...tabs('/app/targets', ['leads', 'segments', 'accounts', 'icp']), ...opt(ids.lead, '/app/targets/leads/' + ids.lead),
+            '/app/projects', ...tabs('/app/projects', ['portfolio', 'timeline', 'workload']),
+            '/app/map',
+            '/app/commercial', ...tabs('/app/commercial', ['quotes', 'contracts', 'receivables', 'prices']), ...opt(ids.quote, '/app/commercial/quotes/' + ids.quote),
+            '/app/notifications', '/app/digest',
+            '/app/settings', ...tabs('/app/settings', ['users', 'invites', 'templates', 'pricing', 'rules']),
+            '/app/accounts/new',
+            '/app/khong-co-trang-nay',
+          ];
+        }
+        if (role === 'member') {
+          return [
+            '/app', '/app/tasks', ...opt(ids.internalTask, '/app/tasks?task=' + ids.internalTask),
+            ...tabs('/app/projects', ['portfolio', 'timeline', 'workload']),
+            '/app/accounts', ...tabs(acc, ['overview', 'tasks', 'roadmap', 'documents', 'contacts', 'activity']),
+            '/app/notifications', '/app/digest', '/app/map',
+          ];
+        }
+        if (role === 'client_owner') {
+          return [
+            '/portal', '/portal/tasks', ...opt(ids.clientTask, '/portal/tasks/' + ids.clientTask), '/portal/progress',
+            '/portal/commercial', ...opt(ids.portalQuote, '/portal/commercial/quotes/' + ids.portalQuote),
+            '/portal/documents', '/portal/settings', '/portal/khong-co-trang-nay',
+          ];
+        }
+        return ['/portal', '/portal/tasks', '/portal/progress', '/portal/documents', '/portal/settings'];
+      }
+
+      // ---------- the static file ----------
+      function fileChecks(html) {
+        const styles = [...html.matchAll(/<style\b([^>]*)>([\s\S]*?)<\/style>/gi)];
+        const tw = styles.find((m) => /\bid=["']?ch-tailwind\b/.test(m[1]));
+        const markup = html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '<script><\/script>'); // script bodies are code
+        const staticRefs = [];
+        for (const m of markup.matchAll(/<(script|link|img|iframe|source|video|audio|embed|object)\b[^>]*\b(src|href|data)\s*=\s*["']?(?:https?:)?\/\/[^"'\s>]+/gi)) staticRefs.push(m[0].slice(0, 200));
+        for (const m of styles) {
+          for (const u of m[2].matchAll(/url\(\s*['"]?((?:https?:)?\/\/[^'")\s]+)/gi)) staticRefs.push('url(' + u[1] + ')');
+          if (/@import\b/i.test(m[2].replace(/\/\*[\s\S]*?\*\//g, ''))) staticRefs.push('@import trong <style>');
+        }
+        const hosts = {};
+        for (const m of html.matchAll(/https?:\/\/([a-z0-9.-]+\.[a-z]{2,})/gi)) hosts[m[1].toLowerCase()] = (hosts[m[1].toLowerCase()] || 0) + 1;
+        return {
+          tailwindRuntime: html.includes('should not be used in production'),
+          tailwindStyleTag: /<style[^>]*\btype\s*=\s*["']?text\/tailwindcss/i.test(html),
+          tailwindConfig: /window\.tailwind\.config\s*=/.test(html),
+          css: tw ? tw[2] : null,
+          staticRefs,
+          hostsMentioned: hosts,
+        };
+      }
+
+      async function readInputs(htmlBytes) {
+        const sidecar = inputsFileName(FILE);
+        try {
+          const res = await fetch('/dist/' + sidecar, { cache: 'no-store' });
+          if (res.ok) {
+            const j = await res.json();
+            if (j && j.htmlBytes === htmlBytes && Array.isArray(j.candidates)) return { from: 'dist/' + sidecar + ' (' + j.builtAt + ')', builtAt: j.builtAt, configJs: j.configJs, css: j.css, candidates: new Set(j.candidates) };
+            log('(ghi chú) dist/' + sidecar + ' không khớp file (' + (j && j.htmlBytes) + ' ≠ ' + htmlBytes + ' byte) — dùng mã nguồn hiện tại.');
+          }
+        } catch { /* fall back */ }
+        const files = await (await fetch('/__ls', { cache: 'no-store' })).json();
+        const candidates = new Set();
+        let css = '';
+        for (const f of files) {
+          if (/\.(tsx?|m?jsx?|html)$/.test(f)) extractCandidates(await (await fetch(f + '?raw', { cache: 'no-store' })).text(), candidates);
+          else if (f.endsWith('.css')) css += stripTailwindDirectives(await (await fetch(f + '?raw', { cache: 'no-store' })).text()) + '\n';
+        }
+        const configJs = configScriptFrom(await (await fetch('/tailwind.config.js', { cache: 'no-store' })).text());
+        return { from: 'mã nguồn hiện tại (không có sidecar khớp)', builtAt: null, configJs, css, candidates };
+      }
+
+      // ---------- rule parity ----------
+      function parity(refRules, builtRules) {
+        const at = new Map();
+        builtRules.forEach((r, i) => { const a = at.get(r); if (a) a.push(i); else at.set(r, [i]); });
+        const missing = [];
+        const inversions = [];
+        let last = -1;
+        for (const r of refRules) {
+          const list = at.get(r);
+          if (!list) { missing.push(r); continue; }
+          const next = list.find((i) => i > last);
+          if (next === undefined) { inversions.push(r); continue; }
+          last = next;
+        }
+        return { referenceRules: refRules.length, builtRules: builtRules.length, missing, inversions };
+      }
+
+      // ---------- conflicting utilities on one element ----------
+      // Two utilities of the SAME KIND on one element — same variant context (at-rules + selector around the class) and
+      // the same set of properties (custom properties included), e.g. text-caption's colour rule + text-primary, px-4 +
+      // px-5, flex + hidden, two animate-* — that set a property to different values: which one wins depends only on
+      // rule order, and the dev runtime (rules generated as classes appear) and the precompiled build need not share it.
+      // Kinds that combine on purpose are not counted: they set different property sets (p-4 + pt-2, inset-0 + top-2,
+      // translate + scale or shadow + ring through --tw-* variables, the zero-specificity :where(.skeleton) default), and
+      // neither are !important vs normal pairs (the property set records the priority).
+      function splitSelectors(sel) {
+        const parts = [];
+        let depth = 0;
+        let from = 0;
+        for (let i = 0; i < sel.length; i++) {
+          const c = sel[i];
+          if (c === '\\') { i++; continue; }
+          if (c === '(' || c === '[') depth++;
+          else if (c === ')' || c === ']') depth--;
+          else if (c === ',' && depth === 0) { parts.push(sel.slice(from, i).trim()); from = i + 1; }
+        }
+        parts.push(sel.slice(from).trim());
+        return parts;
+      }
+      /** Every class of a selector with its source range: `.hover\:x:hover` → [{ name: 'hover:x', start: 0, end: 9 }]. */
+      function classOccurrences(sel) {
+        const out = [];
+        let i = 0;
+        let depthBracket = 0;
+        while (i < sel.length) {
+          const ch = sel[i];
+          if (ch === '\\') { i += 2; continue; }
+          if (ch === '"' || ch === "'") { const q = ch; i++; while (i < sel.length && sel[i] !== q) i += sel[i] === '\\' ? 2 : 1; i++; continue; }
+          if (ch === '[') { depthBracket++; i++; continue; }
+          if (ch === ']') { depthBracket--; i++; continue; }
+          if (ch !== '.' || depthBracket > 0) { i++; continue; }
+          let j = i + 1;
+          while (j < sel.length) {
+            const c = sel[j];
+            if (c === '\\') {
+              const hex = /^[0-9a-fA-F]{1,6}[ \t\n\r\f]?/.exec(sel.slice(j + 1, j + 8));
+              j += hex ? 1 + hex[0].length : 2;
+            } else if (/[A-Za-z0-9_-]/.test(c) || c.charCodeAt(0) >= 0x80) j++;
+            else break;
+          }
+          const names = selectorClassNames(sel.slice(i, j));
+          if (names.length) out.push({ name: names[0], start: i, end: j });
+          i = j;
+        }
+        return out;
+      }
+      /** token → its style rules as { kind, decls } (kind = context | selector with the class as & | property set). */
+      function utilityRules(rules, ctx = '', into = new Map()) {
+        for (const r of rules) {
+          if (r.selectorText) {
+            const decls = [];
+            for (let k = 0; k < r.style.length; k++) {
+              const p = r.style.item(k);
+              decls.push([p, r.style.getPropertyValue(p).trim(), r.style.getPropertyPriority(p)]);
+            }
+            if (!decls.length) continue;
+            const props = decls.map((d) => d[0] + (d[2] ? '!' : '')).sort().join(',');
+            for (const part of splitSelectors(r.selectorText)) {
+              for (const occ of classOccurrences(part)) {
+                if (MARKER.test(occ.name)) continue;
+                const kind = ctx + '| ' + part.slice(0, occ.start) + '&' + part.slice(occ.end) + ' |' + props;
+                let list = into.get(occ.name);
+                if (!list) into.set(occ.name, (list = []));
+                list.push({ kind, decls });
+              }
+            }
+          } else if (r.cssRules && !/^@(-webkit-)?keyframes\b/i.test(r.cssText)) {
+            utilityRules(r.cssRules, ctx + r.cssText.slice(0, r.cssText.indexOf('{')).trim() + ' ', into);
+          }
+        }
+        return into;
+      }
+      function findConflicts(lists, byToken) {
+        const found = new Map();
+        for (const [value, where] of lists) {
+          const tokens = [...new Set(value.split(/\s+/).filter(Boolean))];
+          if (tokens.length < 2) continue;
+          const byKind = new Map();
+          for (const tok of tokens) {
+            for (const rule of byToken.get(tok) || []) {
+              const prev = byKind.get(rule.kind);
+              if (!prev) { byKind.set(rule.kind, { tok, decls: rule.decls }); continue; }
+              if (prev.tok === tok) continue;
+              const diff = rule.decls.find(([p, v]) => { const o = prev.decls.find((d) => d[0] === p); return o && o[1] !== v; });
+              if (!diff) continue;
+              const pair = [prev.tok, tok].sort();
+              const [context, subject] = rule.kind.split('|');
+              const key = pair.join(' + ') + ' ' + context + subject;
+              if (!found.has(key)) {
+                const other = prev.decls.find((d) => d[0] === diff[0]);
+                found.set(key, { pair, context: (context.trim() + ' ' + subject.trim()).trim(), property: diff[0], values: { [prev.tok]: other[1], [tok]: diff[1] }, first: where, classList: value.slice(0, 240) });
+              }
+            }
+          }
+        }
+        return [...found.values()];
+      }
+
+      // ---------- computed-style comparison (?compare=) ----------
+      const PROPS = [
+        'display', 'position', 'float', 'box-sizing', 'flex-direction', 'flex-wrap', 'flex-grow', 'flex-shrink', 'align-items',
+        'align-self', 'justify-content', 'row-gap', 'column-gap', 'grid-template-columns', 'order', 'z-index', 'overflow-x',
+        'overflow-y', 'padding-top', 'padding-right', 'padding-bottom', 'padding-left', 'margin-top', 'margin-right',
+        'margin-bottom', 'margin-left', 'border-top-width', 'border-right-width', 'border-bottom-width', 'border-left-width',
+        'border-top-style', 'border-top-color', 'border-right-color', 'border-bottom-color', 'border-left-color',
+        'border-top-left-radius', 'border-bottom-right-radius', 'color', 'background-color', 'background-image', 'box-shadow',
+        'outline-style', 'opacity', 'visibility', 'transform', 'font-family', 'font-size', 'font-weight', 'line-height',
+        'letter-spacing', 'text-align', 'text-transform', 'text-decoration-line', 'white-space', 'text-overflow', 'cursor',
+        'pointer-events', 'fill', 'stroke', 'min-height', 'min-width', 'max-width', 'object-fit', 'width', 'height',
+      ];
+      // resolved from layout (auto margins, sizes) or written by JS from a measurement (sliding indicators, Radix
+      // bubble inputs): a difference there is timing, not a stylesheet difference — reported apart
+      const LAYOUT_PROPS = new Set(['width', 'height', 'transform', 'margin-left', 'margin-right']);
+      function pathOf(el) {
+        const parts = [];
+        for (let n = el; n && n.nodeType === 1 && parts.length < 4; n = n.parentElement) {
+          const cls = (n.getAttribute('class') || '').split(/\s+/).filter(Boolean).slice(0, 3).join('.');
+          parts.unshift(n.tagName.toLowerCase() + (cls ? '.' + cls : ''));
+        }
+        return parts.join(' > ');
+      }
+      function compareStyles(fa, fb) {
+        // Recharts draws once ResizeObserver has measured its container (and leaves a text-measuring span in <body>),
+        // the client map draws inside <svg> from a running simulation: those nodes vary with timing, so charts are
+        // skipped and of an <svg> only the element itself is compared
+        const skip = (el) => el.closest('#boot-error, script, style, .recharts-wrapper, #recharts_measurement_span')
+          || (el.parentElement && el.parentElement.closest('svg'));
+        const A = [...docOf(fa).body.querySelectorAll('*')].filter((e) => !skip(e));
+        const B = [...docOf(fb).body.querySelectorAll('*')].filter((e) => !skip(e));
+        const sig = (e) => e.tagName + '|' + (e.getAttribute('class') || '');
+        if (A.length !== B.length || A.some((e, i) => sig(e) !== sig(B[i]))) {
+          const found = A.findIndex((e, k) => !B[k] || sig(e) !== sig(B[k]));
+          const i = found >= 0 ? found : A.length; // A is a prefix of B: B's first extra element
+          const snippet = (e) => (e ? e.outerHTML.slice(0, 140) : '(hết)');
+          return { structural: false, elements: A.length, otherElements: B.length, firstDifference: pathOf(A[i] || B[i]) + ' :: ' + snippet(A[i]) + ' ≠ ' + snippet(B[i]) };
+        }
+        const wa = winOf(fa);
+        const wb = winOf(fb);
+        const css = [];
+        const measured = [];
+        let cssCount = 0;
+        let measuredCount = 0;
+        A.forEach((ea, i) => {
+          const eb = B[i];
+          const ca = wa.getComputedStyle(ea);
+          const cb = wb.getComputedStyle(eb);
+          for (const p of PROPS) {
+            const va = ca.getPropertyValue(p);
+            const vb = cb.getPropertyValue(p);
+            if (va === vb) continue;
+            const d = { el: pathOf(ea), prop: p, precompiled: va, other: vb };
+            if (LAYOUT_PROPS.has(p) || ea.style.getPropertyValue(p) !== '' || eb.style.getPropertyValue(p) !== '') {
+              measuredCount += 1;
+              if (measured.length < 6) measured.push(d);
+            } else {
+              cssCount += 1;
+              if (css.length < 12) css.push(d);
+            }
+          }
+        });
+        return { structural: true, elements: A.length, differences: cssCount, samples: css, measuredDifferences: measuredCount, measuredSamples: measured };
+      }
+
+      // ---------- run ----------
+      async function audit() {
+        const t0 = performance.now();
+        logEl.textContent = '';
+        window.__CSS_AUDIT__ = undefined;
+        if (!NAME_OK.test(FILE) || (COMPARE && COMPARE !== 'dev' && !NAME_OK.test(COMPARE))) throw new Error('?file= / ?compare= phải là tên file .html trong dist/ (hoặc ?compare=dev).');
+        const savedTab = sessionStorage.getItem(SESSION_KEY);
+        const savedDevice = localStorage.getItem(SESSION_KEY);
+        const restore = () => {
+          try { if (savedTab === null) sessionStorage.removeItem(SESSION_KEY); else sessionStorage.setItem(SESSION_KEY, savedTab); } catch { /* ignore */ }
+          try { if (savedDevice === null) localStorage.removeItem(SESSION_KEY); else localStorage.setItem(SESSION_KEY, savedDevice); } catch { /* ignore */ }
+        };
+
+        status('Đọc dist/' + FILE + '…');
+        const res = await fetch('/dist/' + FILE, { cache: 'no-store' });
+        if (!res.ok) throw new Error('Không đọc được dist/' + FILE + ' (HTTP ' + res.status + '). Chạy tools/build-standalone.html?auto=1 trước.');
+        const html = await res.text();
+        const htmlBytes = utf8Bytes(html);
+        const file = fileChecks(html);
+        log('dist/' + FILE + ': ' + kb(htmlBytes) + (file.css != null ? ', CSS biên dịch sẵn ' + kb(utf8Bytes(file.css)) : ', KHÔNG có CSS biên dịch sẵn (#ch-tailwind)') + '.');
+        log('  Tailwind runtime trong file: ' + (file.tailwindRuntime ? 'CÓ' : 'không') + ' · style[type=text/tailwindcss]: ' + (file.tailwindStyleTag ? 'CÓ' : 'không')
+          + ' · tham chiếu tài nguyên ngoài trong markup/CSS: ' + file.staticRefs.length);
+        log('  Host được nhắc trong file (mã/chú thích, không phải request tĩnh): ' + Object.entries(file.hostsMentioned).map(([h, n]) => h + '×' + n).join(', '));
+        if (file.css == null) throw new Error('dist/' + FILE + ' không có <style id="ch-tailwind"> — đây không phải bản CSS biên dịch sẵn.');
+        const builtSheet = parseCss(file.css);
+        const builtClasses = ruleClassNames(builtSheet.cssRules);
+        const builtRules = flattenRules(builtSheet.cssRules);
+        log('  CSS nhúng: ' + builtRules.length + ' rule, ' + builtClasses.size + ' tên lớp trong selector.');
+
+        const inputs = await readInputs(htmlBytes);
+        log('Đầu vào Tailwind của bản build: ' + inputs.from + ' · ' + inputs.candidates.size + ' lớp ứng viên.');
+        const ids = pickIds();
+        log('Id dùng để mở màn chi tiết: ' + JSON.stringify(ids));
+
+        const seen = new Map(); // token → first place it appeared
+        const lists = new Map(); // whole class attribute → first place it appeared
+        let where = 'boot';
+        const visits = [];
+        const errors = [];
+        const opened = new Set();
+        let overlaysOpened = 0;
+        const main = makeFrame('Bản build: ' + FILE);
+        main.onClass = (tok) => { if (!seen.has(tok)) seen.set(tok, where); };
+        main.onList = (v) => { if (!lists.has(v)) lists.set(v, where); };
+        let other = null;
+        const comparisons = [];
+
+        async function overlaysOn(width, path) {
+          const doc = docOf(main);
+          const triggers = [...doc.querySelectorAll('[aria-haspopup]:not([aria-haspopup="false"]), [role="combobox"]')]
+            .filter((el) => el.getAttribute('aria-expanded') !== 'true' && !el.disabled && el.getAttribute('aria-disabled') !== 'true'
+              && el.getClientRects().length > 0 && !el.closest('[role="dialog"], [role="menu"], [role="listbox"]'));
+          let n = 0;
+          for (const el of triggers) {
+            if (n >= 5) break;
+            if (!el.isConnected) continue;
+            const label = (el.getAttribute('aria-label') || el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 40);
+            const chrome = !!el.closest('header, nav, aside');
+            const sigKey = width + '|' + (chrome ? '' : path.replace(/[?#].*$/, '')) + '|' + (el.getAttribute('aria-haspopup') || el.getAttribute('role')) + '|' + label;
+            if (opened.has(sigKey)) continue;
+            opened.add(sigKey);
+            n += 1;
+            overlaysOpened += 1;
+            where = where.split(' › ')[0] + ' › ' + (label || el.tagName.toLowerCase());
+            press(el);
+            await settle([main], { quiet: 250, max: 2500 });
+            escape(main);
+            await settle([main], { quiet: 200, max: 1500 });
+          }
+        }
+
+        async function palette(width) {
+          const sigKey = width + '|palette';
+          if (opened.has(sigKey)) return;
+          opened.add(sigKey);
+          where = where.split(' › ')[0] + ' › Ctrl+K';
+          key(main, { key: 'k', code: 'KeyK', ctrlKey: true });
+          await settle([main], { quiet: 250, max: 2500 });
+          const input = docOf(main).querySelector('[role="dialog"] input');
+          if (input) {
+            typeInto(input, 'co');
+            await settle([main], { quiet: 250, max: 2500 });
+            overlaysOpened += 1;
+          }
+          escape(main);
+          await settle([main], { quiet: 200, max: 1500 });
+        }
+
+        try {
+          for (const width of WIDTHS) {
+            sizeFrame(main, width);
+            for (const role of ROLES) {
+              status('Kiểm tra: ' + role + ' @ ' + width + ' — đăng nhập…');
+              where = role + '@' + width + ' /login';
+              await signIn([main], FILE, role);
+              const routes = routesFor(role, ids);
+              for (let i = 0; i < routes.length; i++) {
+                const path = routes[i];
+                status('Kiểm tra: ' + role + ' @ ' + width + ' — ' + (i + 1) + '/' + routes.length + ' ' + path);
+                where = role + '@' + width + ' ' + path;
+                go(main, path);
+                const settled = await settle([main]);
+                const doc = docOf(main);
+                const h1 = doc.querySelector('main h1, h1');
+                visits.push({ role, width, path, final: currentPath(main), title: h1 ? h1.textContent.trim().slice(0, 60) : '', settled });
+                if (OVERLAYS) {
+                  if (i === 0 && role !== 'client_owner' && role !== 'client_member') await palette(width);
+                  await overlaysOn(width, path);
+                }
+              }
+              errors.push(...main.errors.map((e) => role + '@' + width + ': ' + e));
+              main.errors = [];
+              log('  ' + role + ' @ ' + width + ': ' + routes.length + ' màn · ' + seen.size + ' lớp tích lũy · ' + overlaysOpened + ' overlay đã mở.');
+            }
+          }
+
+          // optional: computed style vs another build of the same sources, or vs the dev app
+          if (COMPARE) {
+            other = makeFrame('So sánh: ' + labelOf(COMPARE));
+            const CMP_ROUTES = {
+              director: ['/app', '/app/accounts', '/app/accounts/' + ACCOUNT + '/overview', '/app/accounts/' + ACCOUNT + '/tasks', '/app/accounts/' + ACCOUNT + '/roadmap',
+                '/app/tasks', '/app/crm/pipeline', '/app/targets/leads', '/app/projects/portfolio', '/app/map', '/app/commercial/quotes', '/app/settings/users', '/app/notifications'],
+              client_owner: ['/portal', '/portal/tasks', '/portal/progress', '/portal/commercial', '/portal/documents'],
+            };
+            for (const width of WIDTHS) {
+              sizeFrame(main, width);
+              sizeFrame(other, width);
+              status('So sánh computed style: /login @ ' + width + '…');
+              // a signed-in page still running in a frame may write its session back: unload both before clearing
+              for (const f of [main, other]) await blank(f);
+              clearSession();
+              await load(main, FILE, '/login');
+              await load(other, COMPARE, '/login');
+              await settle([main, other], { quiet: 600, max: 12000 });
+              comparisons.push({ role: '-', width, path: '/login', ...compareStyles(main, other) });
+              for (const role of Object.keys(CMP_ROUTES)) {
+                status('So sánh computed style: ' + role + ' @ ' + width + ' — đăng nhập…');
+                await signIn([main, other], FILE, role);
+                // the card was clicked in `main`: reload it too, so both documents start from the same state
+                await load(main, FILE, currentPath(other));
+                for (const path of CMP_ROUTES[role]) {
+                  status('So sánh computed style: ' + role + ' @ ' + width + ' — ' + path);
+                  go(main, path);
+                  go(other, path);
+                  await settle([main, other], { quiet: 600, max: 12000 });
+                  comparisons.push({ role, width, path, ...compareStyles(main, other) });
+                }
+              }
+            }
+            const compared = comparisons.filter((c) => c.structural);
+            const bad = compared.filter((c) => c.differences);
+            log('So computed style với ' + labelOf(COMPARE) + ': ' + compared.length + '/' + comparisons.length + ' màn so được ('
+              + compared.reduce((s, c) => s + c.elements, 0) + ' phần tử × ' + PROPS.length + ' thuộc tính) · khác do stylesheet: '
+              + bad.length + ' màn · khác do đo đạc/JS (bỏ qua): ' + compared.reduce((s, c) => s + c.measuredDifferences, 0) + ' giá trị.');
+            for (const c of bad.slice(0, 10)) log('  KHÁC ' + c.role + '@' + c.width + ' ' + c.path + ': ' + JSON.stringify(c.samples.slice(0, 3)));
+            for (const c of comparisons.filter((x) => !x.structural)) log('  (không so được — DOM khác nhau) ' + c.role + '@' + c.width + ' ' + c.path + ': ' + c.elements + ' ≠ ' + c.otherElements + ' phần tử, từ ' + c.firstDifference);
+          }
+        } finally {
+          harvestRequests(main);
+          if (other) harvestRequests(other);
+          restore();
+        }
+
+        // stylesheets of the running page other than the precompiled one (fonts, boot screen, sonner's own CSS)
+        const otherClasses = new Set();
+        for (const sheet of docOf(main).styleSheets) {
+          const owner = sheet.ownerNode;
+          if (owner && (owner.id === 'ch-tailwind' || owner.id === 'ch-audit-no-motion')) continue;
+          try { ruleClassNames(sheet.cssRules, otherClasses); } catch { /* cross-origin */ }
+        }
+
+        status('Biên dịch tham chiếu (Tailwind trên các lớp đã thấy trong DOM)…');
+        const domTokens = [...seen.keys()];
+        const ref = await compileTailwind({ runtimeUrl: TAILWIND_LOCAL, configJs: inputs.configJs, css: inputs.css, candidates: domTokens });
+        const refSheet = parseCss(ref.css);
+        const refClasses = ruleClassNames(refSheet.cssRules);
+        const refRules = flattenRules(refSheet.cssRules);
+        const par = parity(refRules, builtRules);
+        const conflicts = findConflicts(lists, utilityRules(refSheet.cssRules));
+
+        const expected = domTokens.filter((t) => refClasses.has(t));
+        const misses = expected.filter((t) => !builtClasses.has(t)).map((t) => ({ token: t, first: seen.get(t) }));
+        const noCss = { markers: [], library: [], hooks: [] };
+        for (const t of domTokens) {
+          if (builtClasses.has(t) || refClasses.has(t) || otherClasses.has(t)) continue;
+          if (MARKER.test(t)) noCss.markers.push(t);
+          else if (LIBRARY.test(t) || !inputs.candidates.has(t)) noCss.library.push(t);
+          else noCss.hooks.push(t);
+        }
+        // every DOM class with CSS must come from the sources literally (else the build could not have seen it)
+        const notInCandidates = domTokens.filter((t) => !inputs.candidates.has(t)).map((t) => ({ token: t, hasCss: refClasses.has(t) || builtClasses.has(t), first: seen.get(t) }));
+        const generatedButMissing = notInCandidates.filter((x) => x.hasCss && !builtClasses.has(x.token));
+        const requests = [...new Set(main.requests.concat(other ? other.requests : []))];
+        const unsettled = visits.filter((v) => !v.settled);
+
+        const result = {
+          ok: misses.length === 0 && par.missing.length === 0 && file.staticRefs.length === 0 && !file.tailwindRuntime
+            && !file.tailwindStyleTag && !file.tailwindConfig && errors.length === 0 && generatedButMissing.length === 0
+            && conflicts.length === 0
+            && (!COMPARE || (comparisons.every((c) => !c.differences) && comparisons.filter((c) => c.structural).length * 2 >= comparisons.length)),
+          file: 'dist/' + FILE,
+          htmlBytes,
+          cssBytes: utf8Bytes(file.css),
+          inputs: inputs.from,
+          candidateCount: inputs.candidates.size,
+          fileChecks: { tailwindRuntime: file.tailwindRuntime, tailwindStyleTag: file.tailwindStyleTag, tailwindConfig: file.tailwindConfig, staticExternalRefs: file.staticRefs, hostsMentioned: file.hostsMentioned },
+          widths: WIDTHS,
+          roles: ROLES,
+          visits: visits.length,
+          unsettled: unsettled.map((v) => v.role + '@' + v.width + ' ' + v.path),
+          redirects: visits.filter((v) => v.final !== v.path).map((v) => v.role + '@' + v.width + ' ' + v.path + ' → ' + v.final),
+          overlaysOpened,
+          pageErrors: errors,
+          externalRequests: requests,
+          domTokens: domTokens.length,
+          tokensWithTailwindCss: expected.length,
+          misses,
+          ruleParity: { referenceRules: par.referenceRules, builtRules: par.builtRules, missing: par.missing.length, missingSamples: par.missing.slice(0, 20), orderInversions: par.inversions.length, inversionSamples: par.inversions.slice(0, 10) },
+          notInCandidates: { count: notInCandidates.length, withCssButMissing: generatedButMissing, tokens: notInCandidates.map((x) => x.token).sort() },
+          conflicts: { count: conflicts.length, classListsChecked: lists.size, samples: conflicts.slice(0, 40) },
+          noCss: { markers: noCss.markers.sort(), library: noCss.library.sort(), hooks: noCss.hooks.sort() },
+          filtered: {
+            markers: 'group, peer, group/<name>, peer/<name>: Tailwind marker classes — they never carry CSS themselves; a group-*/peer-* variant on another element selects them (.group:hover .group-hover\\:x).',
+            library: 'classes set by third-party code, not by our sources (recharts-*, lucide-<icon>, sonner, the Google Sign-In button\'s own obfuscated classes styled by its cross-origin stylesheet): styled by inline styles / the library\'s own CSS or not at all, same in the dev app.',
+            hooks: 'classes written in our sources that no CSS rule targets (also none in the dev app): JS / test hooks or names kept for readability.',
+          },
+          comparisons: COMPARE ? comparisons : undefined,
+          ms: Math.round(performance.now() - t0),
+        };
+
+        log('');
+        log('Đã đi ' + visits.length + ' lượt màn (' + unsettled.length + ' chưa yên sau 9 s), mở ' + overlaysOpened + ' overlay. Lỗi trang: ' + errors.length + '.');
+        log('Lớp trong DOM: ' + domTokens.length + ' · có CSS Tailwind (tham chiếu): ' + expected.length + ' · THIẾU trong CSS nhúng: ' + misses.length);
+        for (const m of misses.slice(0, 30)) log('  THIẾU ' + m.token + '  (thấy ở ' + m.first + ')');
+        log('Rule tham chiếu: ' + par.referenceRules + ' · thiếu trong CSS nhúng: ' + par.missing.length + ' · đảo thứ tự: ' + par.inversions.length);
+        for (const r of par.missing.slice(0, 10)) log('  thiếu rule: ' + r.slice(0, 200));
+        for (const r of par.inversions.slice(0, 5)) log('  đảo thứ tự: ' + r.slice(0, 200));
+        log('Lớp trong DOM không có trong danh sách ứng viên: ' + notInCandidates.length + ' (có CSS mà thiếu: ' + generatedButMissing.length + ')');
+        log('Không có CSS ở đâu cả (bỏ qua, có lý do): marker ' + noCss.markers.length + ' [' + noCss.markers.join(' ') + '] · thư viện ' + noCss.library.length
+          + ' · móc của app ' + noCss.hooks.length + ' [' + noCss.hooks.slice(0, 40).join(' ') + (noCss.hooks.length > 40 ? ' …' : '') + ']');
+        log('Xung đột cùng loại trên một phần tử (' + lists.size + ' danh sách lớp): ' + conflicts.length);
+        for (const c of conflicts.slice(0, 20)) log('  XUNG ĐỘT ' + c.pair.join(' + ') + ' · ' + c.property + ' · ' + c.context + '  (thấy ở ' + c.first + ')');
+        log('Request ra host khác khi chạy: ' + (requests.length ? requests.join(', ') : 'không có'));
+        log('KẾT QUẢ: ' + (result.ok ? 'ĐẠT' : 'CHƯA ĐẠT') + ' (' + Math.round(result.ms / 1000) + ' s)');
+        status('Xong: ' + (result.ok ? 'ĐẠT' : 'CHƯA ĐẠT') + ' — ' + misses.length + ' lớp thiếu, ' + par.missing.length + ' rule thiếu.');
+        window.__CSS_AUDIT__ = result;
+      }
+
+      const runBtn = document.getElementById('run');
+      runBtn.addEventListener('click', () => {
+        runBtn.disabled = true;
+        audit()
+          .catch((err) => {
+            log('LỖI: ' + (err && err.message ? err.message : err));
+            status('Lỗi: ' + (err && err.message ? err.message : err));
+            window.__CSS_AUDIT__ = { ok: false, error: String(err && err.message ? err.message : err) };
+          })
+          .finally(() => { runBtn.disabled = false; });
+      });
+      if (params.has('auto')) runBtn.click();
+    </script>
+  </body>
+</html>

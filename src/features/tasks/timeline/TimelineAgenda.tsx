@@ -75,7 +75,7 @@ function AgendaTask({ task }: { task: TaskView }) {
     <button
       type="button"
       onClick={() => open(task.id)}
-      className="flex min-h-tap w-full items-start gap-3 px-4 py-3 text-left transition-colors duration-150 hover:bg-subtle focus-visible:bg-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
+      className="flex min-h-tap w-full items-start gap-3 px-4 py-3 text-left transition-colors duration-150 ease-out-quart hover:bg-subtle focus-visible:bg-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
     >
       <span className="flex w-11 shrink-0 flex-col items-center rounded-lg bg-subtle py-1 tabular ring-1 ring-inset ring-border/70">
         <span className={cn('font-semibold text-foreground', SMALL)}>{formatDateShort(task.due_date)}</span>

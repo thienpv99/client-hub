@@ -9,9 +9,13 @@ function lineWidth(i: number): string {
   return LINE_WIDTHS[i % LINE_WIDTHS.length] ?? 'w-3/4';
 }
 
+/**
+ * Loading region. `skeleton-reveal` (index.css): the whole placeholder — frames and blocks — stays invisible for the
+ * first 120 ms and then fades in as one, so a fast load never flashes empty cards or grey bars.
+ */
 function Loading({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <div role="status" aria-busy="true" aria-live="polite" className={className}>
+    <div role="status" aria-busy="true" aria-live="polite" className={cx('skeleton-reveal', className)}>
       <span className="sr-only">{t('components.loading')}</span>
       {children}
     </div>

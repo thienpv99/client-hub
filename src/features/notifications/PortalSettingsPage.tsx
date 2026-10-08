@@ -135,7 +135,7 @@ export function PortalSettingsPage() {
         </div>
 
         <section aria-labelledby="digest-preview-title" className="min-w-0 space-y-3">
-          <div className="px-1">
+          <div>
             <h2 id="digest-preview-title" className="text-heading font-semibold tracking-tightish text-ink">
               {t('notify.settings.previewTitle', { salutation })}
             </h2>

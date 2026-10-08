@@ -7,6 +7,7 @@ import { Link } from 'react-router-dom';
 import { ArrowUpRight, ChevronDown, CircleAlert } from 'lucide-react';
 import type { TaskView } from '@/services/contract';
 import { t } from '@/i18n';
+import type { RiseProps } from '@/hooks/useMotion';
 import { cn } from '@/components/ui/cn';
 import { Checkbox } from '@/components/ui/checkbox';
 import { TaskRow } from '@/components/task/TaskRow';
@@ -22,10 +23,14 @@ export interface TaskGroupCardProps {
   showAccount: boolean;
   selection: ReadonlySet<string>;
   onSelect: (ids: string[], selected: boolean) => void;
+  /** stagger recipe props of the page's first paint (DESIGN §8.4) */
+  rise?: RiseProps;
 }
 
-export function TaskGroupCard({ title, subtitle, avatar, tasks, href, showAccount, selection, onSelect }: TaskGroupCardProps) {
+export function TaskGroupCard({ title, subtitle, avatar, tasks, href, showAccount, selection, onSelect, rise }: TaskGroupCardProps) {
   const [open, setOpen] = useState(true);
+  // re-opened by the user: the rows fade in (150 ms, opacity only); never on the page's first paint
+  const [reopened, setReopened] = useState(false);
   const bodyId = useId();
   const overdue = tasks.filter((x) => x.due.overdue).length;
   const eligible = tasks.filter(isRemindEligible).map((x) => x.id);
@@ -33,7 +38,11 @@ export function TaskGroupCard({ title, subtitle, avatar, tasks, href, showAccoun
   const groupState: boolean | 'indeterminate' = chosen === 0 ? false : chosen === eligible.length ? true : 'indeterminate';
 
   return (
-    <section className="min-w-0 overflow-hidden rounded-xl border border-border/70 bg-card shadow-card" aria-label={title}>
+    <section
+      className={cn('min-w-0 overflow-hidden rounded-xl border border-border/70 bg-card shadow-card', rise?.className)}
+      style={rise?.style}
+      aria-label={title}
+    >
       <header className={cn('flex items-center gap-3 px-4 py-3 sm:px-5', open && 'border-b border-border/60')}>
         {eligible.length > 0 ? (
           <Checkbox
@@ -44,7 +53,10 @@ export function TaskGroupCard({ title, subtitle, avatar, tasks, href, showAccoun
         ) : null}
         <button
           type="button"
-          onClick={() => setOpen((o) => !o)}
+          onClick={() => {
+            setReopened(!open);
+            setOpen((o) => !o);
+          }}
           aria-expanded={open}
           aria-controls={bodyId}
           className="touch-tap flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-lg text-left"
@@ -95,7 +107,7 @@ export function TaskGroupCard({ title, subtitle, avatar, tasks, href, showAccoun
         ) : null}
       </header>
       {open ? (
-        <div id={bodyId} className="divide-y divide-border/60">
+        <div id={bodyId} className={cn('divide-y divide-border/60', reopened && 'animate-fade-in')}>
           {tasks.map((task) => {
             const can = isRemindEligible(task);
             return (

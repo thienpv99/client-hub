@@ -39,6 +39,7 @@ export function CommercialPage() {
       <PageHeader
         title={t('commercial.page.title')}
         description={t('commercial.page.description')}
+        actionsInline
         actions={
           canManageCommercial(viewer) ? (
             <Button asChild>

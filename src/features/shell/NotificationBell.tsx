@@ -1,6 +1,6 @@
 // Bell in both layouts: latest 20 notifications grouped Hôm nay / Trước đó, unread dots, mark all read.
 // Tablet / desktop: popover. Phone: full-screen sheet.
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import type { LucideIcon } from 'lucide-react';
 import {
@@ -25,6 +25,7 @@ import type { NotificationView } from '@/services/contract';
 import type { NotificationKind } from '@/domain/types';
 import { api } from '@/services/api';
 import { dateOf, todayISO } from '@/domain/clock';
+import { EmptyState } from '@/components/common/empty-state';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Sheet, SheetBody, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
@@ -104,7 +105,8 @@ export function NotificationBell({ side }: NotificationBellProps) {
           title={t('layout.bell.markAllRead')}
           onClick={() => void run(() => api.markNotificationsRead())}
         >
-          {!pending ? <CheckCheck aria-hidden /> : null}
+          {/* kept while busy: the Button swaps it for its spinner after 150 ms (DESIGN §8.2) */}
+          <CheckCheck aria-hidden />
           <span className="whitespace-nowrap sm:hidden" aria-hidden>
             {t('layout.bell.markAllReadShort')}
           </span>
@@ -115,6 +117,15 @@ export function NotificationBell({ side }: NotificationBellProps) {
   );
 
   const list = <NotificationList items={items} loading={query.loading} onOpen={openItem} />;
+  // opening the panel lands on the first notification, not on the bulk "Đọc hết" (a second Enter would mark all
+  // read); while the list loads, the panel itself takes focus
+  const listRef = useRef<HTMLDivElement>(null);
+  const focusFirstItem = (event: Event) => {
+    event.preventDefault();
+    const first = listRef.current?.querySelector<HTMLElement>('a[href], button:not([disabled])');
+    if (first) first.focus();
+    else if (event.currentTarget instanceof HTMLElement) event.currentTarget.focus();
+  };
 
   const footer = (
     <Link
@@ -146,12 +157,14 @@ export function NotificationBell({ side }: NotificationBellProps) {
     return (
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetTrigger asChild>{trigger}</SheetTrigger>
-        <SheetContent side="right" mobileFullScreen closeLabel={t('common.close')} aria-describedby={undefined}>
+        <SheetContent side="right" mobileFullScreen closeLabel={t('common.close')} aria-describedby={undefined} onOpenAutoFocus={focusFirstItem}>
           <SheetHeader className="border-b border-border/60 pb-3">
             <SheetTitle className="sr-only">{t('layout.bell.title')}</SheetTitle>
             {header}
           </SheetHeader>
-          <SheetBody className="px-2 pt-2">{list}</SheetBody>
+          <SheetBody ref={listRef} className="px-2 pt-2">
+            {list}
+          </SheetBody>
           <div className="border-t border-border/60 px-4 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">{footer}</div>
         </SheetContent>
       </Sheet>
@@ -161,9 +174,11 @@ export function NotificationBell({ side }: NotificationBellProps) {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-      <PopoverContent align="end" sideOffset={8} className="w-[400px] overflow-hidden p-0">
+      <PopoverContent align="end" sideOffset={8} className="w-[400px] overflow-hidden p-0" onOpenAutoFocus={focusFirstItem}>
         <div className="border-b border-border/60 px-4 py-3">{header}</div>
-        <div className="max-h-[min(520px,70vh)] overflow-y-auto overscroll-contain p-1.5">{list}</div>
+        <div ref={listRef} className="max-h-[min(520px,70vh)] overflow-y-auto overscroll-contain p-1.5">
+          {list}
+        </div>
         <div className="border-t border-border/60 bg-subtle p-1.5">{footer}</div>
       </PopoverContent>
     </Popover>
@@ -181,7 +196,7 @@ function NotificationList({
 }) {
   if (loading) {
     return (
-      <div className="space-y-1 p-2" aria-label={t('common.a11y.loading')}>
+      <div role="status" className="space-y-1 p-2" aria-label={t('common.a11y.loading')}>
         {[0, 1, 2, 3].map((i) => (
           <div key={i} className="flex gap-3 py-2.5">
             <Skeleton className="h-8 w-8 rounded-full" />
@@ -195,17 +210,8 @@ function NotificationList({
     );
   }
   if (items.length === 0) {
-    return (
-      <div className="flex flex-col items-center px-6 py-12 text-center">
-        <span className="flex h-[72px] w-[72px] items-center justify-center rounded-full bg-primary-soft">
-          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-card text-primary shadow-xs">
-            <Bell className="h-6 w-6" strokeWidth={1.75} aria-hidden />
-          </span>
-        </span>
-        <p className="mt-4 text-heading font-semibold text-ink">{t('layout.bell.emptyTitle')}</p>
-        <p className="mt-1 max-w-xs text-table text-muted-foreground">{t('layout.bell.emptyDescription')}</p>
-      </div>
-    );
+    // the app's one empty state (96px illustration, DESIGN §8.7) instead of a look of its own
+    return <EmptyState icon={Bell} title={t('layout.bell.emptyTitle')} description={t('layout.bell.emptyDescription')} className="py-10 md:py-10" />;
   }
   const today = todayISO();
   const groups = [

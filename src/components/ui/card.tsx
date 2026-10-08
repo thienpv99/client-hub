@@ -13,22 +13,32 @@ export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
   asChild?: boolean;
 }
 
-const Card = React.forwardRef<HTMLDivElement, CardProps>(({ className, interactive = false, asChild = false, ...props }, ref) => {
-  const Comp = asChild ? Slot.Root : 'div';
-  return (
-    <Comp
-      ref={ref}
-      data-interactive={interactive || undefined}
-      className={cn(
-        'rounded-xl border border-border/70 bg-card text-foreground shadow-card',
-        interactive &&
-          'block cursor-pointer transition-[transform,box-shadow,border-color] duration-200 ease-out-quart hover:-translate-y-px hover:border-border hover:shadow-card-hover active:translate-y-0 active:shadow-card',
-        className,
-      )}
-      {...props}
-    />
-  );
-});
+const Card = React.forwardRef<HTMLDivElement, CardProps>(
+  ({ className, interactive = false, asChild = false, children, ...props }, ref) => {
+    // asChild: the child's own classes join the merge, so a child's `flex` replaces the card's `block` instead of
+    // sitting next to it (Slot alone just concatenates both — two display utilities on one element, DESIGN §7.1)
+    const child = asChild && React.isValidElement<{ className?: string }>(children) ? children : null;
+    const classes = cn(
+      'rounded-xl border border-border/70 bg-card text-foreground shadow-card',
+      interactive &&
+        'block cursor-pointer transition-[transform,box-shadow,border-color] duration-200 ease-out-quart hover:-translate-y-px hover:border-border hover:shadow-card-hover active:translate-y-0 active:shadow-card',
+      child?.props.className,
+      className,
+    );
+    if (asChild) {
+      return (
+        <Slot.Root ref={ref} data-interactive={interactive || undefined} className={classes} {...props}>
+          {child ? React.cloneElement(child, { className: undefined }) : children}
+        </Slot.Root>
+      );
+    }
+    return (
+      <div ref={ref} data-interactive={interactive || undefined} className={classes} {...props}>
+        {children}
+      </div>
+    );
+  },
+);
 Card.displayName = 'Card';
 
 /** Title + description; a <CardAction> child sits at the right of the title row. */

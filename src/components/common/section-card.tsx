@@ -59,8 +59,9 @@ export function SectionCard({
       {hasHeader ? (
         <div className="px-4 pt-4 sm:px-5 sm:pt-5">
           {/* title row: the title keeps its one-line width (basis-auto) — actions that do not fit beside it wrap
-              under it instead of squeezing it; the description runs full width under the row, never squeezed */}
-          <div className={cx('flex flex-wrap items-start justify-between gap-x-4 gap-y-2', headerClassName)}>
+              under it instead of squeezing it; the description runs full width under the row, never squeezed.
+              items-center: a small action (44px touch target, 32px mouse) sits level with the 24px title line */}
+          <div className={cx('flex flex-wrap items-center justify-between gap-x-4 gap-y-2', headerClassName)}>
             {title ? (
               <Heading className="min-w-0 flex-1 basis-auto text-heading font-semibold tracking-tightish text-ink">{title}</Heading>
             ) : (

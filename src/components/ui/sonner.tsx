@@ -74,6 +74,8 @@ function Toaster({
       position={position ?? (desktop ? 'bottom-right' : 'bottom-center')}
       offset={offset ?? (desktop ? 24 : mobileOffset)}
       gap={10}
+      // a calm stack: three at most, the older ones tucked behind (hover / focus fans them out)
+      visibleToasts={3}
       containerAriaLabel={containerAriaLabel ?? t('layout.bell.title')}
       style={tokenStyle}
       icons={{

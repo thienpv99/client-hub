@@ -54,7 +54,8 @@ function ChoiceCard({
           {meta ? <span className="mt-1 block text-micro tabular text-muted-foreground">{meta}</span> : null}
         </span>
       </label>
-      {children ? <div className="px-3.5 pb-4 pl-[2.75rem] sm:px-4 sm:pl-12">{children}</div> : null}
+      {/* the chain of the chosen template fades in under it (it mounts on selection) */}
+      {children ? <div className="animate-fade-in px-3.5 pb-4 pl-[2.75rem] sm:px-4 sm:pl-12">{children}</div> : null}
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { TableSkeleton } from '@/components/common/skeletons';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useBreakpoint } from '@/hooks/useMedia';
+import { useStagger } from '@/hooks/useMotion';
 import { t } from '@/i18n';
 import { PortfolioCards } from './PortfolioCards';
 import { PortfolioTable } from './PortfolioTable';
@@ -16,7 +17,8 @@ export function PortfolioSkeleton({ rows = 6, showMoney = true }: { rows?: numbe
   const breakpoint = useBreakpoint();
   if (breakpoint === 'desktop') return <TableSkeleton rows={rows} cols={showMoney ? 8 : 6} />;
   return (
-    <div role="status" aria-busy="true" aria-live="polite">
+    // skeleton-reveal: the card frames wait 120 ms with their blocks and fade in as one (DESIGN §8.2)
+    <div role="status" aria-busy="true" aria-live="polite" className="skeleton-reveal">
       <span className="sr-only">{t('common.a11y.loading')}</span>
       <div className="grid gap-3 sm:gap-4 md:grid-cols-2" aria-hidden="true">
         {Array.from({ length: Math.min(rows, 4) }, (_, i) => (
@@ -67,10 +69,14 @@ export interface PortfolioListProps {
   onClear(): void;
   /** extra action for the "no accounts at all" state (e.g. "Tạo account") */
   emptyAction?: ReactNode;
+  /** rows / cards rise one after another on the first paint — only where the list is the page's focal block */
+  stagger?: boolean;
 }
 
-export function PortfolioList({ accounts, total, showMoney, query, onClear, emptyAction }: PortfolioListProps) {
+export function PortfolioList({ accounts, total, showMoney, query, onClear, emptyAction, stagger = false }: PortfolioListProps) {
   const breakpoint = useBreakpoint();
+  // held here, not in the table / cards: a filter that empties the list and brings it back never replays it
+  const rise = useStagger(stagger);
 
   if (accounts.length === 0) {
     const q = query?.trim() ?? '';
@@ -91,8 +97,8 @@ export function PortfolioList({ accounts, total, showMoney, query, onClear, empt
   }
 
   return breakpoint === 'desktop' ? (
-    <PortfolioTable accounts={accounts} showMoney={showMoney} />
+    <PortfolioTable accounts={accounts} showMoney={showMoney} rise={rise} />
   ) : (
-    <PortfolioCards accounts={accounts} showMoney={showMoney} />
+    <PortfolioCards accounts={accounts} showMoney={showMoney} rise={rise} />
   );
 }

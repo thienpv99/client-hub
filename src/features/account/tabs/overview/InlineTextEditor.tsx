@@ -2,6 +2,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { CircleAlert } from 'lucide-react';
+import { useDelayedFlag } from '@/hooks/useMotion';
 import { t } from '@/i18n';
 import { cn } from '@/components/ui/cn';
 import { Button } from '@/components/ui/button';
@@ -41,6 +42,8 @@ export function InlineTextEditor({
   const id = useId();
   const [value, setValue] = useState(initialValue);
   const [saving, setSaving] = useState(false);
+  // Cancel dims only once a save has taken 150 ms (DESIGN §8.2); its click is guarded by `saving` at once
+  const savingVisible = useDelayedFlag(saving);
   const mounted = useRef(true);
   useEffect(() => {
     mounted.current = true;
@@ -68,7 +71,8 @@ export function InlineTextEditor({
   }
 
   return (
-    <div className={cn('space-y-2', className)}>
+    // swaps in for the text with a 150 ms fade (opacity only), not a jump
+    <div className={cn('animate-fade-in space-y-2', className)}>
       <Textarea
         id={id}
         aria-label={label}
@@ -108,7 +112,7 @@ export function InlineTextEditor({
           <span className="hidden md:inline">{t('account.editor.shortcut')}</span>
         </p>
         <div className="flex shrink-0 justify-end gap-2">
-          <Button type="button" variant="ghost" size="sm" onClick={onCancel} disabled={saving}>
+          <Button type="button" variant="ghost" size="sm" onClick={() => (saving ? undefined : onCancel())} disabled={savingVisible}>
             {t('common.cancel')}
           </Button>
           <Button type="button" size="sm" onClick={() => void save()} loading={saving} disabled={tooMany}>

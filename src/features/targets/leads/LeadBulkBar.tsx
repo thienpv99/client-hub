@@ -34,12 +34,13 @@ export interface LeadBulkBarProps {
 const ON_INK = 'text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground data-[state=open]:bg-primary-foreground/10 focus-visible:ring-offset-ink';
 
 export function LeadBulkBar({ ids, people, isDirector, meId, onDone, onClear }: LeadBulkBarProps) {
-  const { run, pending } = useAction();
+  const { run, pending, pendingVisible } = useAction();
   const [disqualifyOpen, setDisqualifyOpen] = useState(false);
   const disqualified = useRef(false);
   const count = ids.length;
 
   async function assign(ownerId: string | null) {
+    if (pending) return;
     const person = ownerId ? people.find((p) => p.id === ownerId) : null;
     const success =
       ownerId === null
@@ -52,6 +53,7 @@ export function LeadBulkBar({ ids, people, isDirector, meId, onDone, onClear }: 
   }
 
   async function setStatus(status: Exclude<LeadStatus, 'converted'>, reason?: string): Promise<boolean> {
+    if (pending) return false;
     const r = await run(
       async () => {
         // one request per lead, in order; the first failure stops the run and is toasted
@@ -75,7 +77,7 @@ export function LeadBulkBar({ ids, people, isDirector, meId, onDone, onClear }: 
       <span className="mr-auto whitespace-nowrap pr-2 text-table font-medium tabular sm:mr-2">{t('targets.bulk.selected', { count })}</span>
       <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
-          <Button type="button" variant="ghost" size="sm" disabled={pending} className={ON_INK}>
+          <Button type="button" variant="ghost" size="sm" disabled={pendingVisible} className={ON_INK}>
             <UserPlus aria-hidden="true" />
             <span className="sm:hidden">{t('targets.bulk.assignShort')}</span>
             <span className="hidden sm:inline">{t('targets.bulk.assign')}</span>
@@ -101,7 +103,7 @@ export function LeadBulkBar({ ids, people, isDirector, meId, onDone, onClear }: 
       </DropdownMenu>
       <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
-          <Button type="button" variant="ghost" size="sm" disabled={pending} className={ON_INK}>
+          <Button type="button" variant="ghost" size="sm" disabled={pendingVisible} className={ON_INK}>
             <ArrowRightLeft aria-hidden="true" />
             <span className="sm:hidden">{t('targets.bulk.changeStatusShort')}</span>
             <span className="hidden sm:inline">{t('targets.bulk.changeStatus')}</span>

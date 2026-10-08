@@ -1,5 +1,6 @@
 // Account detail (SPEC §4.2): /app/accounts/:accountId/:tab? — sticky header + URL-synced tabs.
 // The browser tab title ("Cỏ Xanh Retail · Client Hub") comes from InternalLayout (breadcrumb leaf).
+import { useLayoutEffect, useRef } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import type { AccountDetail, ApiErrorCode } from '@/services/contract';
 import { api } from '@/services/api';
@@ -39,7 +40,8 @@ function isFinalError(error: unknown): boolean {
 /** Same frame as the page: identity row, badges, facts, tabs, then the overview's 2/3 + 1/3 columns. */
 function AccountPageSkeleton() {
   return (
-    <div role="status" aria-busy="true">
+    // skeleton-reveal: the whole frame (tab hairline included) waits 120 ms, then fades in as one (DESIGN §8.2)
+    <div role="status" aria-busy="true" className="skeleton-reveal">
       <span className="sr-only">{t('common.a11y.loading')}</span>
       <div className="flex h-14 items-center gap-3 md:gap-4">
         <Skeleton className="h-10 w-10 shrink-0 rounded-lg" />
@@ -121,6 +123,14 @@ export function AccountDetailPage() {
   const viewer = useViewer();
   const query = useQuery(() => api.getAccount(accountId), [accountId], { enabled: accountId !== '' });
   const account = query.data;
+  // a tab switch while scrolled down keeps the tab bar where it is — measured AFTER the new tab committed (the phone
+  // header changes height with compactFacts; the panel's min height keeps the anchor reachable while it loads)
+  const keepTabs = useRef(false);
+  useLayoutEffect(() => {
+    if (!keepTabs.current) return;
+    keepTabs.current = false;
+    keepTabsInView();
+  }, [params.tab]);
 
   if (query.error && (!account || isFinalError(query.error))) {
     return <AccountErrorState error={query.error} onRetry={query.refetch} />;
@@ -137,8 +147,8 @@ export function AccountDetailPage() {
 
   function selectTab(value: string) {
     if (!isAccountTab(value) || value === current || !account) return;
+    keepTabs.current = true;
     navigate(accountTabPath(account.id, value));
-    keepTabsInView();
   }
 
   // "Việc" carries the overdue count (both sides, blocked tasks excluded — same rule as the counters)
@@ -179,7 +189,9 @@ export function AccountDetailPage() {
         }
       />
       {tabs.map((tab) => (
-        <TabsContent key={tab} value={tab} className="mt-6 focus-visible:ring-offset-background md:mt-8">
+        // min height = the viewport under the sticky rows (112px = AccountHeader STICK_TOP): a tab that first shows a
+        // short loading state never makes the page too short to keep the tab bar pinned on a switch
+        <TabsContent key={tab} value={tab} className="mt-6 min-h-[calc(100dvh-112px)] focus-visible:ring-offset-background md:mt-8">
           <TabBody tab={tab} account={account} />
         </TabsContent>
       ))}

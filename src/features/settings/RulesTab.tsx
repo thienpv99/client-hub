@@ -158,7 +158,7 @@ function RuleRow({
 
 export function RulesTab({ canEdit }: { canEdit: boolean }) {
   const { data, loading, error, refetch } = useQuery(() => api.getSettings(), []);
-  const { run, pending } = useAction();
+  const { run, pending, pendingVisible } = useAction();
   const [base, setBase] = useState<RulesForm | null>(null);
   const [edit, setEdit] = useState<RulesForm | null>(null);
 
@@ -186,10 +186,14 @@ export function RulesTab({ canEdit }: { canEdit: boolean }) {
   const form = edit ?? base;
   const dirty = edit !== null && !sameForm(edit, base);
   const { patch, errors } = validate(form);
-  const disabled = !canEdit || pending;
+  // fields only dim once a save takes 150 ms (DESIGN §8.2); an edit during the save is ignored at once
+  const disabled = !canEdit || pendingVisible;
   const reminderChoices = [...new Set([...REMINDER_CHOICES, ...form.reminders])].sort((a, b) => b - a);
 
-  const set = (p: Partial<RulesForm>) => setEdit((prev) => ({ ...(prev ?? base), ...p }));
+  const set = (p: Partial<RulesForm>) => {
+    if (pending) return;
+    setEdit((prev) => ({ ...(prev ?? base), ...p }));
+  };
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -385,17 +389,26 @@ export function RulesTab({ canEdit }: { canEdit: boolean }) {
 
       {canEdit && dirty ? (
         // phones: full-bleed bar on the bottom edge; from md a floating card bar (DESIGN §5 forms: sticky footer)
-        <div className="sticky bottom-0 z-20 -mx-4 animate-pop-in md:bottom-4 md:mx-0">
+        // rises into place when the first change makes the form dirty (DESIGN §8 rise, not a popover's pop)
+        <div className="sticky bottom-0 z-20 -mx-4 animate-rise md:bottom-4 md:mx-0">
           <div className="flex flex-col gap-3 border-t border-border/70 bg-card/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-md sm:flex-row sm:items-center sm:justify-between md:rounded-xl md:border md:px-5 md:pb-3 md:shadow-pop">
             <p role="status" className="text-table text-muted-foreground">
               {patch ? t('settings.rules.saveBar.dirty') : t('settings.rules.saveBar.invalid')}
             </p>
             <div className="flex gap-2">
-              <Button type="button" variant="secondary" className="flex-1 sm:flex-none" disabled={pending} onClick={() => setEdit(null)}>
+              <Button
+                type="button"
+                variant="secondary"
+                className="flex-1 sm:flex-none"
+                disabled={pendingVisible}
+                onClick={() => {
+                  if (!pending) setEdit(null);
+                }}
+              >
                 {t('settings.rules.saveBar.discard')}
               </Button>
               <Button type="submit" className="flex-1 sm:flex-none" loading={pending}>
-                {!pending ? <Save aria-hidden="true" /> : null}
+                <Save aria-hidden="true" />
                 {t('settings.rules.saveBar.save')}
               </Button>
             </div>

@@ -1,6 +1,7 @@
 // /app/crm/:tab? — Bán hàng: header with the underline tabs Theo giai đoạn · Danh sách · Dự báo · Cần theo dõi
 // (they follow the URL), then the tab: the three deal views open with the KPI row (DESIGN §3 tabs under the header).
-// Owner filter in `?owner=` (director: everyone by default; AM: their own deals by default).
+// The KPI row sits above the tab panels, so it stays put (and does not count up again) when switching between the
+// deal views. Owner filter in `?owner=` (director: everyone by default; AM: their own deals by default).
 import { useState } from 'react';
 import type { ReactElement } from 'react';
 import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -21,6 +22,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CreateOpportunityDialog } from '@/components/crm/CreateOpportunityDialog';
 import { useDealOwners } from '@/components/crm/fields';
+import { useEntryView } from '@/components/crm/useEntryView';
 import { CrmKpis } from './CrmKpis';
 import { CRM_TABS, crmTabPath, isCrmTab, ownerParams, resolveOwner } from './crmModel';
 import type { CrmTab } from './crmModel';
@@ -67,7 +69,7 @@ function OwnerFilter({ viewer, value, onChange }: { viewer: Viewer; value: strin
 /** same frame as the board: 4 columns from xl, a 2×2 grid from md, one column on phones */
 function BoardSkeleton() {
   return (
-    <div role="status" aria-busy="true" className="grid gap-3 md:grid-cols-2 xl:grid-cols-4 xl:gap-4">
+    <div role="status" aria-busy="true" className="skeleton-reveal grid gap-3 md:grid-cols-2 xl:grid-cols-4 xl:gap-4">
       <span className="sr-only">{t('common.a11y.loading')}</span>
       {Array.from({ length: 4 }, (_, c) => (
         <div key={c} className={c > 0 ? 'hidden md:block' : undefined}>
@@ -106,9 +108,13 @@ export function CrmPage() {
   const viewer = useViewer();
   const [createOpen, setCreateOpen] = useState(false);
   const close = useCloseFlow();
+  // the list's search lives here: the list tab unmounts on a tab switch, what was typed survives it
+  const [listQuery, setListQuery] = useState('');
   const today = todayISO();
 
   const tab: CrmTab = isCrmTab(rawTab) ? rawTab : 'pipeline';
+  // the focal list staggers in on the tab the page was opened on only (a tab switch just fades, DESIGN §8.3)
+  const stagger = useEntryView(tab);
   const owner = resolveOwner(params.get('owner'), viewer);
   const needOpps = tab === 'pipeline' || tab === 'list';
   const dash = useQuery(() => api.getCrmDashboard(ownerParams(owner)), [owner], { keepPreviousData: true });
@@ -139,11 +145,11 @@ export function CrmPage() {
     opps.data ? render(opps.data) : opps.loading ? skeleton : <Failed error={opps.error} onRetry={opps.refetch} />;
 
   // the deal views (pipeline, list, forecast) open with the KPI row; "Cần theo dõi" goes straight to its to-do list
-  const kpiSkeleton = <KpiSkeleton count={4} className="grid-cols-2 gap-3 sm:gap-4" />;
+  const dealView = tab !== 'followups';
   const kpis = dash.data ? (
     <CrmKpis data={dash.data} year={today.slice(0, 4)} />
   ) : dash.loading ? (
-    kpiSkeleton
+    <KpiSkeleton count={4} className="grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4" />
   ) : (
     <Failed error={dash.error} onRetry={dash.refetch} />
   );
@@ -185,41 +191,33 @@ export function CrmPage() {
         }
       />
 
-      <TabsContent value="pipeline" className="mt-0 space-y-6 md:space-y-8">
-        {tab === 'pipeline' ? (
-          <>
-            {kpis}
-            {oppsBody((items) => <PipelineBoard items={items} today={today} close={close} listHref={listHref} />, <BoardSkeleton />)}
-          </>
-        ) : null}
+      {dealView ? kpis : null}
+
+      <TabsContent value="pipeline" className="mt-0">
+        {tab === 'pipeline'
+          ? oppsBody((items) => <PipelineBoard items={items} today={today} close={close} listHref={listHref} stagger={stagger} />, <BoardSkeleton />)
+          : null}
       </TabsContent>
-      <TabsContent value="list" className="mt-0 space-y-6 md:space-y-8">
-        {tab === 'list' ? (
-          <>
-            {kpis}
-            {oppsBody((items) => <OpportunityList items={items} today={today} />, <TableSkeleton rows={6} cols={6} />)}
-          </>
-        ) : null}
+      <TabsContent value="list" className="mt-0">
+        {tab === 'list'
+          ? oppsBody(
+              (items) => <OpportunityList items={items} today={today} stagger={stagger} query={listQuery} onQueryChange={setListQuery} />,
+              <TableSkeleton rows={6} cols={6} />,
+            )
+          : null}
       </TabsContent>
-      <TabsContent value="forecast" className="mt-0 space-y-6 md:space-y-8">
+      <TabsContent value="forecast" className="mt-0">
+        {/* a failed dashboard shows its error once, in the KPI row's place */}
         {tab === 'forecast' ? (
           dash.data ? (
-            <>
-              {kpis}
-              <ForecastTab dashboard={dash.data} />
-            </>
+            <ForecastTab dashboard={dash.data} />
           ) : dash.loading ? (
-            <>
-              {kpiSkeleton}
-              <TableSkeleton rows={4} cols={4} />
-            </>
-          ) : (
-            <Failed error={dash.error} onRetry={dash.refetch} />
-          )
+            <TableSkeleton rows={4} cols={4} />
+          ) : null
         ) : null}
       </TabsContent>
       <TabsContent value="followups" className="mt-0">
-        {tab === 'followups' ? <FollowUpsTab owner={owner} today={today} /> : null}
+        {tab === 'followups' ? <FollowUpsTab owner={owner} today={today} stagger={stagger} /> : null}
       </TabsContent>
 
       <CreateOpportunityDialog open={createOpen} onOpenChange={setCreateOpen} />

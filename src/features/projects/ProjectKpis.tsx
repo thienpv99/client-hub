@@ -6,14 +6,16 @@ import { t } from '@/i18n';
 import { cn } from '@/components/ui/cn';
 import { slipTone, type PortfolioKpis, type ProjectFilter } from './projectsModel';
 
-/** "A · B" that wraps at the separator only */
+/** "A · B" that wraps at the separator only — the "·" travels with B, so a wrapped line never ends on it (DESIGN §8.8) */
 function Pair({ a, b }: { a: string; b: string }) {
   return (
     <>
       <span className="whitespace-nowrap">{a}</span>
-      <span aria-hidden="true"> · </span>
-      <span className="sr-only">, </span>
-      <span className="whitespace-nowrap">{b}</span>
+      <span className="sr-only">, </span>{' '}
+      <span className="whitespace-nowrap">
+        <span aria-hidden="true">· </span>
+        {b}
+      </span>
     </>
   );
 }
@@ -39,7 +41,7 @@ export function ProjectKpis({ kpis: k, active, onFilter }: ProjectKpisProps) {
   const worstTone = worst ? slipTone(worst) : 'warning';
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
       <KpiCard
         label={t('projects.kpi.running.label')}
         value={String(k.running)}

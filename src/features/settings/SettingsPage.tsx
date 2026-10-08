@@ -11,6 +11,7 @@ import { useViewer } from '@/hooks/useViewer';
 import { PageHeader } from '@/components/common/page-header';
 import { cn } from '@/components/ui/cn';
 import { SCROLL_FADE_CLASS, useScrollFade } from '@/components/ui/use-scroll-fade';
+import { useSlidingIndicator } from '@/components/ui/use-sliding-indicator';
 import { t } from '@/i18n';
 import { InvitesTab } from './InvitesTab';
 import { PricingTab } from './PricingTab';
@@ -43,7 +44,10 @@ export function settingsPath(tab: SettingsTab): string {
 /** < xl: underline strip under the header (same look as the kit's page tabs; these are links, one per URL) */
 function SettingsStrip({ active }: { active: SettingsTab }) {
   const ref = useRef<HTMLDivElement | null>(null);
+  const barRef = useRef<HTMLSpanElement | null>(null);
   useScrollFade(ref);
+  // the same gliding 2px bar as the kit's underline tabs (DESIGN §8.3)
+  useSlidingIndicator(ref, barRef, { activeSelector: 'a[aria-current="page"]', itemSelector: 'a', mode: 'underline' });
 
   // keep the current tab in view when the strip scrolls (phones). Re-checked when the strip resizes: the first layout
   // pass may happen before styles and fonts are in, when nothing overflows yet.
@@ -69,10 +73,15 @@ function SettingsStrip({ active }: { active: SettingsTab }) {
       <div
         ref={ref}
         className={cn(
-          'no-scrollbar relative -mx-4 flex items-stretch gap-1 overflow-x-auto px-4 shadow-[inset_0_-1px_0_0_rgb(var(--border))] md:-mx-6 md:gap-2 md:px-6',
+          'group/strip no-scrollbar relative -mx-4 flex items-stretch gap-1 overflow-x-auto px-4 shadow-[inset_0_-1px_0_0_rgb(var(--border))] md:-mx-6 md:gap-2 md:px-6',
           SCROLL_FADE_CLASS,
         )}
       >
+        <span
+          ref={barRef}
+          aria-hidden="true"
+          className="pointer-events-none absolute left-0 top-0 h-0.5 rounded-full bg-primary opacity-0 transition-transform duration-250 ease-out-quart"
+        />
         {TABS.map((tab) => {
           const current = tab === active;
           return (
@@ -84,7 +93,10 @@ function SettingsStrip({ active }: { active: SettingsTab }) {
                 'touch-tap relative inline-flex h-11 shrink-0 items-center whitespace-nowrap rounded-t-md px-3 text-table font-medium transition-colors duration-150 ease-out-quart',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary',
                 'after:pointer-events-none after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-full after:transition-colors after:duration-150',
-                current ? 'text-foreground after:bg-primary' : 'text-muted-foreground hover:text-foreground hover:after:bg-border-strong',
+                // once the gliding bar is placed, the current link's own bar steps aside (it draws it until then)
+                current
+                  ? 'text-foreground after:bg-primary group-data-[indicator=ready]/strip:after:bg-transparent'
+                  : 'text-muted-foreground hover:text-foreground hover:after:bg-border-strong',
               )}
             >
               {t(`settings.navShort.${tab}`)}
@@ -98,8 +110,17 @@ function SettingsStrip({ active }: { active: SettingsTab }) {
 
 /** ≥ xl: vertical section list beside the content */
 function SettingsSideNav({ active }: { active: SettingsTab }) {
+  const navRef = useRef<HTMLElement | null>(null);
+  const pillRef = useRef<HTMLSpanElement | null>(null);
+  // one white segment glides to the current section (DESIGN §8.3), like the app sidebar's pill
+  useSlidingIndicator(navRef, pillRef, { activeSelector: 'a[aria-current="page"]', itemSelector: 'a' });
   return (
-    <nav aria-label={t('settings.nav.label')} className="sticky top-[88px]">
+    <nav ref={navRef} aria-label={t('settings.nav.label')} className="group/side sticky top-[88px]">
+      <span
+        ref={pillRef}
+        aria-hidden="true"
+        className="pointer-events-none absolute left-0 top-0 rounded-lg bg-card opacity-0 shadow-segment transition-[transform,width,height] duration-250 ease-out-quart"
+      />
       <ul className="space-y-0.5">
         {TABS.map((tab) => {
           const Icon = ICONS[tab];
@@ -110,8 +131,10 @@ function SettingsSideNav({ active }: { active: SettingsTab }) {
                 to={settingsPath(tab)}
                 aria-current={current ? 'page' : undefined}
                 className={cn(
-                  'touch-tap flex h-9 items-center gap-3 rounded-lg px-3 text-table font-medium transition-colors duration-150 ease-out-quart',
-                  current ? 'bg-card text-ink shadow-segment' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                  'touch-tap relative flex h-9 items-center gap-3 rounded-lg px-3 text-table font-medium transition-colors duration-150 ease-out-quart',
+                  current
+                    ? 'bg-card text-ink shadow-segment group-data-[indicator=ready]/side:bg-transparent group-data-[indicator=ready]/side:shadow-none'
+                    : 'text-muted-foreground hover:bg-muted/70 hover:text-foreground',
                 )}
               >
                 <Icon className={cn('h-4 w-4 shrink-0', current ? 'text-primary' : 'text-muted-foreground')} aria-hidden="true" />
@@ -183,7 +206,10 @@ export function SettingsPage() {
               <span>{t(`settings.readOnly.${active}`)}</span>
             </p>
           ) : null}
-          <TabBody key={active} tab={active} viewer={viewer} />
+          {/* a section switch is a tab switch: its body fades in (150 ms, like TabsContent); the page itself stays */}
+          <div key={active} className="animate-fade-in">
+            <TabBody tab={active} viewer={viewer} />
+          </div>
         </section>
       </div>
     </div>

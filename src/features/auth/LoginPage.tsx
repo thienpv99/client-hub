@@ -36,9 +36,11 @@ export function LoginPage() {
 
         {/* lg:py-6: the email step + demo cards fit a 1440×900 laptop without a scroll (the content is centred anyway) */}
         <div className="mx-auto flex w-full max-w-[460px] flex-1 flex-col justify-center gap-8 py-8 lg:py-6">
+          {/* outside both app frames (no PageTransition): the sign-in card arrives with the same page enter, the
+              demo cards follow it (DemoLoginPanel) */}
           <section
             aria-labelledby="login-title"
-            className="rounded-xl border border-border/70 bg-card p-5 shadow-card sm:p-6"
+            className="animate-page-enter rounded-xl border border-border/70 bg-card p-5 shadow-card sm:p-6"
           >
             <h1
               id="login-title"

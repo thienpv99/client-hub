@@ -11,7 +11,11 @@ const DropdownMenuPortal = DropdownMenuPrimitive.Portal;
 const DropdownMenuSub = DropdownMenuPrimitive.Sub;
 const DropdownMenuRadioGroup = DropdownMenuPrimitive.RadioGroup;
 
-const menuPanel = cn(menuPanelBase, 'min-w-[12rem] overflow-y-auto overflow-x-hidden');
+// scales in from the corner that touches the trigger (Radix transform origin)
+const menuPanel = cn(
+  menuPanelBase,
+  'min-w-[12rem] origin-[var(--radix-dropdown-menu-content-transform-origin)] overflow-y-auto overflow-x-hidden',
+);
 
 const DropdownMenuSubTrigger = React.forwardRef<
   React.ElementRef<typeof DropdownMenuPrimitive.SubTrigger>,

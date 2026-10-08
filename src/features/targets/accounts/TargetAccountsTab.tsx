@@ -7,6 +7,8 @@ import { Plus, Search, TrendingUp } from 'lucide-react';
 import type { TargetAccountView } from '@/services/crmContract';
 import { api } from '@/services/api';
 import { useMediaQuery } from '@/hooks/useMedia';
+import { useStagger } from '@/hooks/useMotion';
+import type { RiseProps } from '@/hooks/useMotion';
 import { useQuery } from '@/hooks/useQuery';
 import { useViewer } from '@/hooks/useViewer';
 import { CreateOpportunityDialog } from '@/components/crm/CreateOpportunityDialog';
@@ -82,24 +84,41 @@ function Whitespace({ account: a, limit = WHITESPACE_SHOWN }: { account: TargetA
   );
 }
 
-function CreateButton({ account, onCreate, variant, className }: { account: TargetAccountView; onCreate: (a: TargetAccountView) => void; variant: 'ghost' | 'secondary'; className?: string }) {
+function CreateButton({
+  account,
+  onCreate,
+  variant,
+  iconOnly = false,
+  className,
+}: {
+  account: TargetAccountView;
+  onCreate: (a: TargetAccountView) => void;
+  variant: 'ghost' | 'secondary';
+  /** table rows below 1440: the plus alone (label in aria-label + tooltip), the products column gets the width */
+  iconOnly?: boolean;
+  className?: string;
+}) {
   return (
     <Button
       type="button"
       // neutral: the fit grade is the row's one blue accent
       variant={variant}
-      size="sm"
+      size={iconOnly ? 'icon-sm' : 'sm'}
       onClick={() => onCreate(account)}
       aria-label={t('targets.accounts.createOppFor', { name: account.name })}
+      title={iconOnly ? t('targets.accounts.createOpp') : undefined}
       className={cn(variant === 'ghost' && 'text-foreground', className)}
     >
       <Plus aria-hidden="true" />
-      {t('targets.accounts.createOpp')}
+      {iconOnly ? null : t('targets.accounts.createOpp')}
     </Button>
   );
 }
 
-function AccountsTable({ accounts, onCreate }: { accounts: TargetAccountView[]; onCreate: (a: TargetAccountView) => void }) {
+type Rise = (index: number) => RiseProps;
+
+function AccountsTable({ accounts, onCreate, rise }: { accounts: TargetAccountView[]; onCreate: (a: TargetAccountView) => void; rise: Rise }) {
+  const roomy = useMediaQuery('(min-width: 1440px)');
   return (
     <Card className="overflow-hidden">
       <Table>
@@ -109,17 +128,17 @@ function AccountsTable({ accounts, onCreate }: { accounts: TargetAccountView[]; 
             <TableHead>{t('targets.accounts.columns.account')}</TableHead>
             <TableHead>{t('targets.accounts.columns.health')}</TableHead>
             <TableHead>{t('targets.accounts.columns.fit')}</TableHead>
-            <TableHead className="text-right">{t('targets.accounts.columns.contract')}</TableHead>
+            <TableHead numeric>{t('targets.accounts.columns.contract')}</TableHead>
             <TableHead>{t('targets.accounts.columns.whitespace')}</TableHead>
-            <TableHead className="text-right">{t('targets.accounts.columns.opportunities')}</TableHead>
+            <TableHead numeric>{t('targets.accounts.columns.opportunities')}</TableHead>
             <TableHead>
               <span className="sr-only">{t('targets.accounts.createOpp')}</span>
             </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {accounts.map((a) => (
-            <TableRow key={a.id} className="group">
+          {accounts.map((a, i) => (
+            <TableRow key={a.id} className={cn('group', rise(i).className)} style={rise(i).style}>
               <TableCell>
                 <div className="flex min-w-[11rem] items-center gap-3">
                   <AccountLogo account={a} size="sm" />
@@ -142,13 +161,13 @@ function AccountsTable({ accounts, onCreate }: { accounts: TargetAccountView[]; 
               <TableCell>
                 <FitScoreBadge fit={a.fit} />
               </TableCell>
-              <TableCell className="text-right">
+              <TableCell numeric>
                 <Money value={a.contract_value} compact className="font-semibold text-ink" />
               </TableCell>
-              <TableCell className="w-[13rem] max-w-[13rem]">
+              <TableCell className="w-[15rem] max-w-[15rem]">
                 <Whitespace account={a} limit={2} />
               </TableCell>
-              <TableCell className="text-right tabular">
+              <TableCell numeric>
                 {a.open_opportunities > 0 ? a.open_opportunities : <span className="text-muted-foreground">0</span>}
               </TableCell>
               <TableCell className="w-px text-right">
@@ -156,6 +175,7 @@ function AccountsTable({ accounts, onCreate }: { accounts: TargetAccountView[]; 
                   account={a}
                   onCreate={onCreate}
                   variant="ghost"
+                  iconOnly={!roomy}
                   className="md:opacity-0 md:focus-visible:opacity-100 md:group-hover:opacity-100 [@media(pointer:coarse)]:opacity-100"
                 />
               </TableCell>
@@ -167,11 +187,11 @@ function AccountsTable({ accounts, onCreate }: { accounts: TargetAccountView[]; 
   );
 }
 
-function AccountCards({ accounts, onCreate }: { accounts: TargetAccountView[]; onCreate: (a: TargetAccountView) => void }) {
+function AccountCards({ accounts, onCreate, rise }: { accounts: TargetAccountView[]; onCreate: (a: TargetAccountView) => void; rise: Rise }) {
   return (
     <ul className="grid gap-3 md:grid-cols-2">
-      {accounts.map((a) => (
-        <li key={a.id} className="min-w-0">
+      {accounts.map((a, i) => (
+        <li key={a.id} className={cn('min-w-0', rise(i).className)} style={rise(i).style}>
           <Card className="flex h-full flex-col">
             <div className="flex flex-1 flex-col gap-3 p-4">
               <div className="flex items-start gap-3">
@@ -224,10 +244,12 @@ function AccountCards({ accounts, onCreate }: { accounts: TargetAccountView[]; o
   );
 }
 
-export function TargetAccountsTab() {
+/** stagger: the list rises in on first appearance (the page's entry tab only) */
+export function TargetAccountsTab({ stagger = false }: { stagger?: boolean }) {
   const viewer = useViewer();
   const wide = useMediaQuery('(min-width: 1280px)');
   const query = useQuery(() => api.listTargetAccounts(), [viewer?.user.id]);
+  const rise = useStagger(stagger && query.data !== undefined);
   const [search, setSearch] = useState('');
   const [minFit, setMinFit] = useState<MinFit>(0);
   const [sort, setSort] = useState<AccountSort>('fit');
@@ -309,7 +331,7 @@ export function TargetAccountsTab() {
             <p className="text-caption tabular" aria-live="polite">
               {filtered ? t('targets.accounts.summary', { shown: shown.length, total: all.length }) : t('targets.accounts.count', { count: all.length })}
             </p>
-            {wide ? <AccountsTable accounts={shown} onCreate={openCreate} /> : <AccountCards accounts={shown} onCreate={openCreate} />}
+            {wide ? <AccountsTable accounts={shown} onCreate={openCreate} rise={rise} /> : <AccountCards accounts={shown} onCreate={openCreate} rise={rise} />}
           </>
         ) : all.length === 0 ? (
           <Card>

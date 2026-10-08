@@ -18,8 +18,10 @@ import { MICRO_MUTED } from '@/components/common/cx';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/components/ui/cn';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { SCROLL_FADE_END_CLASS, useScrollFade } from '@/components/ui/use-scroll-fade';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useMediaQuery } from '@/hooks/useMedia';
+import { useArrivalMotion } from '@/hooks/useMotion';
 import { t } from '@/i18n';
 import { formatDate } from '@/lib/format';
 import { plannedEndDate, roadmapHref, slipTone } from './projectsModel';
@@ -80,19 +82,25 @@ export function GanttChart({ rows, summary }: { rows: ProjectPortfolioRow[]; sum
   const x: XFn = (d) => Math.max(0, Math.min(range.days, diffDays(d, range.start))) * dayW;
   const todayX = x(today) + half;
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  useScrollFade(scrollRef);
 
-  // open with today about a quarter into the visible chart (again when the scale or the zoom changes)
+  // open with today about a quarter into the visible chart (again when the scale or the zoom changes), snapped back to
+  // the month line at or before that point so the first month label is never half under the pinned project column
   useLayoutEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
     const visible = el.clientWidth - labelW;
-    el.scrollLeft = Math.max(0, todayX - visible * 0.25);
+    const target = Math.max(0, todayX - visible * 0.25);
+    el.scrollLeft = months.reduce((snap, m) => {
+      const mx = x(m);
+      return mx <= target && mx > snap ? mx : snap;
+    }, 0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [range.start, range.days, labelW, dayW]);
 
   return (
     <Card className="overflow-hidden">
-      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3 px-4 pb-4 pt-4 sm:px-5 sm:pt-5">
+      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3 border-b border-border/60 px-4 pb-4 pt-4 sm:px-5 sm:pt-5">
         <div className="min-w-0 flex-1">
           <h2 className="text-heading font-semibold tracking-tightish text-ink">{summary}</h2>
           <p className="mt-0.5 text-caption">{t('projects.timeline.hint')}</p>
@@ -113,9 +121,11 @@ export function GanttChart({ rows, summary }: { rows: ProjectPortfolioRow[]; sum
         </ToggleGroup>
       </div>
 
+      {/* end-edge fade while later months are cut off (the pinned project column covers the start edge); the hairline
+          above lives on the header so the fade never fades it */}
       <div
         ref={scrollRef}
-        className="scrollbar-thin overflow-x-auto border-t border-border/60"
+        className={cn('scrollbar-thin overflow-x-auto', SCROLL_FADE_END_CLASS)}
         role="region"
         aria-label={t('projects.timeline.label')}
         tabIndex={0}
@@ -174,6 +184,8 @@ interface GanttRowProps {
 }
 
 function GanttRow({ project: p, labelW, chartW, x, range, dayW }: GanttRowProps) {
+  // progress fills grow only when the page arrives, not on a switch back to the Dòng thời gian tab (DESIGN §8.5)
+  const arrival = useArrivalMotion();
   const clippedLeft = p.start_date < range.start;
   // "kết thúc" = the final milestone's planned date, as on Danh mục (EndDates); the contract end date is secondary
   const plannedEnd = plannedEndDate(p);
@@ -225,7 +237,11 @@ function GanttRow({ project: p, labelW, chartW, x, range, dayW }: GanttRowProps)
           className={cn('absolute top-1/2 h-2 -translate-y-1/2 overflow-hidden bg-chart-4', clippedLeft ? 'rounded-r-full' : 'rounded-full')}
           style={{ left: startX, width: Math.max(dayW, endX - startX) }}
         >
-          <span className="block h-full rounded-r-full bg-chart-2" style={{ width: `${pct}%` }} />
+          {/* full-width fill moved by transform (DESIGN §8.5): it grows from empty when the page arrives */}
+          <span
+            className={cn('block h-full w-full rounded-r-full bg-chart-2 transition-transform duration-500 ease-out-quart', arrival && 'animate-progress-grow')}
+            style={{ transform: `translateX(-${100 - pct}%)` }}
+          />
         </span>
         {overrun ? (
           <span

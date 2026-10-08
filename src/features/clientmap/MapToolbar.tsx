@@ -5,6 +5,7 @@ import { useId, useState } from 'react';
 import { Loader2, Network, SlidersHorizontal, Table2 } from 'lucide-react';
 import type { UserRef } from '@/services/contract';
 import type { ClientMapMetric } from '@/services/crmContract';
+import { useDelayedFlag } from '@/hooks/useMotion';
 import { Button } from '@/components/ui/button';
 import { NativeSelect } from '@/components/ui/native-select';
 import { Sheet, SheetBody, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -121,8 +122,12 @@ export function ViewSwitch({ view, onView, full }: { view: MapView; onView(v: Ma
   );
 }
 
-/** fixed 16px slot so a background refresh never changes the toolbar's size (and so the map's) */
-function Refreshing({ show }: { show: boolean }) {
+/**
+ * fixed 16px slot so a background refresh never changes the toolbar's size (and so the map's); the spinner waits
+ * 150 ms (DESIGN §8.2), so a quick refetch (metric, AM, targets switch) never flashes it
+ */
+function Refreshing({ show: refreshing }: { show: boolean }) {
+  const show = useDelayedFlag(refreshing);
   return (
     <span role="status" className="inline-flex h-4 w-4 shrink-0 items-center justify-center text-caption" title={show ? t('clientmap.controls.refreshing') : undefined}>
       {show ? (

@@ -25,7 +25,13 @@ export function PortalPaymentRow({ payment }: { payment: PaymentView }) {
             {payment.status === 'paid' && payment.paid_at
               ? t('commercial.portal.paidOn', { date: formatDate(payment.paid_at) })
               : t('commercial.portal.dueOn', { date: formatDate(payment.due_date) })}
-            {rel ? ` · ${rel}` : ''}
+            {/* the relative part ("· còn 45 ngày") stays on one line */}
+            {rel ? (
+              <>
+                {' '}
+                <span className="whitespace-nowrap">{`· ${rel}`}</span>
+              </>
+            ) : null}
           </p>
           {payment.milestone ? (
             <p className="inline-flex items-center gap-1.5 text-caption">

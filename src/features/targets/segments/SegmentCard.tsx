@@ -3,6 +3,7 @@
 import type { MouseEvent } from 'react';
 import { Lock, MoreHorizontal, Pencil, Trash2, Users } from 'lucide-react';
 import type { SegmentView } from '@/services/crmContract';
+import type { RiseProps } from '@/hooks/useMotion';
 import { UserAvatar } from '@/components/common/user-avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -11,7 +12,7 @@ import { cn } from '@/components/ui/cn';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useViewer } from '@/hooks/useViewer';
 import { t } from '@/i18n';
-import { formatMoney, formatMoneyCompact, formatNumber, formatRelativeTime } from '@/lib/format';
+import { formatDate, formatDateShort, formatMoney, formatMoneyCompact, formatNumber, formatRelativeTime } from '@/lib/format';
 import { shortPersonName } from '../targetLabels';
 import { criteriaSummary } from './segmentModel';
 
@@ -21,6 +22,8 @@ export interface SegmentCardProps {
   onOpen: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  /** first-appearance stagger (SegmentsTab's useStagger) */
+  rise?: RiseProps;
 }
 
 function ignoreClick(e: MouseEvent<HTMLElement>): boolean {
@@ -39,7 +42,7 @@ function Stat({ label, value, title, align = 'left' }: { label: string; value: s
   );
 }
 
-export function SegmentCard({ segment: s, canEdit, onOpen, onEdit, onDelete }: SegmentCardProps) {
+export function SegmentCard({ segment: s, canEdit, onOpen, onEdit, onDelete, rise }: SegmentCardProps) {
   const summary = criteriaSummary(s.criteria);
   const viewer = useViewer();
   // "Chỉ mình tôi" only for my own private segment; the director also sees colleagues' private ones
@@ -49,14 +52,17 @@ export function SegmentCard({ segment: s, canEdit, onOpen, onEdit, onDelete }: S
     : mine
       ? t('targets.segments.private')
       : t('targets.segments.privateOf', { name: shortPersonName(s.owner.full_name) });
+  // the footer is one line: an older date drops the current year ("23/09"), the full date is in its tooltip
+  const relative = formatRelativeTime(s.updated_at);
+  const updated = relative === formatDate(s.updated_at) ? formatDateShort(s.updated_at) : relative;
   return (
-    <li className="min-w-0">
+    <li className={cn('min-w-0', rise?.className)} style={rise?.style}>
       <Card
         interactive
         onClick={(e) => {
           if (!ignoreClick(e)) onOpen();
         }}
-        className="relative flex h-full flex-col hover:border-primary-border"
+        className="relative flex h-full flex-col"
       >
         <div className="flex flex-1 flex-col gap-4 p-4 sm:p-5">
           <div className="flex items-start gap-2">
@@ -125,12 +131,15 @@ export function SegmentCard({ segment: s, canEdit, onOpen, onEdit, onDelete }: S
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-border/60 px-4 py-3 text-micro text-muted-foreground sm:px-5">
-          <span className="inline-flex min-w-0 items-center gap-1.5">
+        {/* one line on every card (the name gives way, the date never wraps), so the footers of a row line up */}
+        <div className="flex items-center justify-between gap-x-3 border-t border-border/60 px-4 py-3 text-micro text-muted-foreground sm:px-5">
+          <span className="inline-flex min-w-0 items-center gap-1.5" title={s.owner.full_name}>
             <UserAvatar user={s.owner} size="xs" />
             <span className="truncate">{t('targets.segments.ownerBy', { name: shortPersonName(s.owner.full_name) })}</span>
           </span>
-          <span className="whitespace-nowrap">{t('targets.segments.updated', { when: formatRelativeTime(s.updated_at) })}</span>
+          <span className="shrink-0 whitespace-nowrap tabular" title={formatDate(s.updated_at)}>
+            {t('targets.segments.updated', { when: updated })}
+          </span>
         </div>
       </Card>
     </li>

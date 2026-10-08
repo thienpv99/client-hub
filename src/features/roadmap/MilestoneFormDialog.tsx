@@ -33,7 +33,7 @@ function defaultPlanned(project: ProjectView): string {
 export function MilestoneFormDialog({ open, onOpenChange, project, milestone }: MilestoneFormDialogProps) {
   const ids = useId();
   const editing = milestone !== null;
-  const { run, pending } = useAction();
+  const { run, pending, pendingVisible } = useAction();
   const [name, setName] = useState('');
   const [planned, setPlanned] = useState('');
   const [description, setDescription] = useState('');
@@ -157,7 +157,7 @@ export function MilestoneFormDialog({ open, onOpenChange, project, milestone }: 
             </label>
           ) : null}
           <DialogFooter>
-            <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} disabled={pending}>
+            <Button type="button" variant="secondary" onClick={() => (pending ? undefined : onOpenChange(false))} disabled={pendingVisible}>
               {t('common.cancel')}
             </Button>
             <Button type="submit" loading={pending} disabled={touched && !valid}>

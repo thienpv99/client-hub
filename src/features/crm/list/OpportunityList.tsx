@@ -7,6 +7,8 @@ import { ArrowDown, ArrowUp, ArrowUpDown, CircleAlert, Handshake, Search } from 
 import type { OpportunityStage } from '@/domain/crmTypes';
 import type { OpportunityView } from '@/services/crmContract';
 import { useMediaQuery } from '@/hooks/useMedia';
+import { useStagger } from '@/hooks/useMotion';
+import type { RiseProps } from '@/hooks/useMotion';
 import { t } from '@/i18n';
 import { formatDate, formatMoneyCompact, formatPercent, formatRelativeDays } from '@/lib/format';
 import { cn } from '@/components/ui/cn';
@@ -87,7 +89,7 @@ function CloseCell({ o, today }: { o: OpportunityView; today: string }) {
     <div className="tabular">
       <p className="text-table text-foreground">{formatDate(o.expected_close_date)}</p>
       {o.close_overdue && days < 0 ? (
-        <p className="flex items-center gap-1 text-micro font-medium text-danger">
+        <p className="flex items-center gap-1 whitespace-nowrap text-micro font-medium text-danger">
           <CircleAlert className="h-3 w-3 shrink-0" aria-hidden="true" />
           {t('crm.list.closeOverdue', { days: -days })}
         </p>
@@ -98,11 +100,11 @@ function CloseCell({ o, today }: { o: OpportunityView; today: string }) {
   );
 }
 
-function OpportunityRowCard({ o, today }: { o: OpportunityView; today: string }) {
+function OpportunityRowCard({ o, today, rise }: { o: OpportunityView; today: string; rise: RiseProps }) {
   const open = isOpenStage(o.stage);
   return (
-    <li className="min-w-0">
-      <Card interactive className="relative h-full space-y-3 p-4 hover:border-primary-border focus-within:border-primary-border">
+    <li className={cn('min-w-0', rise.className)} style={rise.style}>
+      <Card interactive className="relative h-full space-y-3 p-4 focus-within:border-primary-border">
         <div className="flex items-start gap-3">
           <AccountLogo account={o.account} size="sm" />
           <div className="min-w-0 flex-1">
@@ -139,13 +141,28 @@ function OpportunityRowCard({ o, today }: { o: OpportunityView; today: string })
   );
 }
 
-export function OpportunityList({ items, today }: { items: OpportunityView[]; today: string }) {
+/** a longer list appears at once (DESIGN §8.4: no stagger on long tables) */
+const STAGGER_MAX_ROWS = 30;
+
+export interface OpportunityListProps {
+  items: OpportunityView[];
+  today: string;
+  stagger?: boolean;
+  /** controlled search (CrmPage keeps it, so a switch to another CRM tab and back keeps what was typed) */
+  query?: string;
+  onQueryChange?: (query: string) => void;
+}
+
+export function OpportunityList({ items, today, stagger = false, query: queryProp, onQueryChange }: OpportunityListProps) {
   const [params, setParams] = useSearchParams();
   const navigate = useNavigate();
   const stage = parseStage(params.get('stage'));
-  const [query, setQuery] = useState('');
+  const [ownQuery, setOwnQuery] = useState('');
+  const query = queryProp ?? ownQuery;
+  const setQuery = onQueryChange ?? setOwnQuery;
   const [sort, setSort] = useState<SortState>({ key: 'close', dir: 'asc' });
   const wide = useMediaQuery('(min-width: 1280px)');
+  const rise = useStagger(stagger && items.length <= STAGGER_MAX_ROWS);
 
   const setStage = (next: StageFilter) => {
     const p = new URLSearchParams(params);
@@ -264,65 +281,69 @@ export function OpportunityList({ items, today }: { items: OpportunityView[]; to
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map((o) => (
-                <TableRow
-                  key={o.id}
-                  className="cursor-pointer"
-                  onClick={(e) => {
-                    if (!ignoreRowClick(e)) navigate(crmPaths.opportunity(o.id));
-                  }}
-                >
-                  <TableCell className="max-w-[18rem]">
-                    <div className="flex items-center gap-3">
-                      <AccountLogo account={o.account} size="sm" />
-                      <div className="min-w-0">
-                        <Link
-                          to={crmPaths.opportunity(o.id)}
-                          className="line-clamp-1 font-semibold text-ink underline-offset-4 hover:underline"
-                          title={o.name}
-                        >
-                          {o.name}
-                        </Link>
-                        <p className="truncate text-caption">{o.account.name}</p>
+              {rows.map((o, i) => {
+                const r = rise(i);
+                return (
+                  <TableRow
+                    key={o.id}
+                    className={cn('cursor-pointer', r.className)}
+                    style={r.style}
+                    onClick={(e) => {
+                      if (!ignoreRowClick(e)) navigate(crmPaths.opportunity(o.id));
+                    }}
+                  >
+                    <TableCell className="max-w-[18rem]">
+                      <div className="flex items-center gap-3">
+                        <AccountLogo account={o.account} size="sm" />
+                        <div className="min-w-0">
+                          <Link
+                            to={crmPaths.opportunity(o.id)}
+                            className="line-clamp-1 font-semibold text-ink underline-offset-4 hover:underline"
+                            title={o.name}
+                          >
+                            {o.name}
+                          </Link>
+                          <p className="truncate text-caption">{o.account.name}</p>
+                        </div>
                       </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <OpportunityStageBadge stage={o.stage} />
-                  </TableCell>
-                  <TableCell className="whitespace-nowrap text-right font-semibold text-ink">{formatMoneyCompact(o.value)}</TableCell>
-                  <TableCell className="whitespace-nowrap text-right">
-                    {formatMoneyCompact(o.weighted_value)}
-                    <span className="block text-micro text-muted-foreground">{formatPercent(o.probability)}</span>
-                  </TableCell>
-                  <TableCell className="whitespace-nowrap">
-                    <CloseCell o={o} today={today} />
-                  </TableCell>
-                  <TableCell className="whitespace-nowrap">
-                    <span className="flex items-center gap-2" title={o.owner.full_name}>
-                      <UserAvatar user={o.owner} size="xs" />
-                      <span className="text-muted-foreground">{shortName(o.owner.full_name)}</span>
-                    </span>
-                  </TableCell>
-                  {/* 8rem keeps the 7 columns inside the card at 1280 (no inner scrollbar) */}
-                  <TableCell className="min-w-[8rem] max-w-[16rem]">
-                    {isOpenStage(o.stage) ? (
-                      <NextStepLine opp={o} today={today} />
-                    ) : o.lost_reason ? (
-                      <p className={cn('line-clamp-2 text-muted-foreground', SMALL)}>{t('crm.list.lostReason', { reason: o.lost_reason })}</p>
-                    ) : (
-                      <span className="text-caption">—</span>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
+                    </TableCell>
+                    <TableCell>
+                      <OpportunityStageBadge stage={o.stage} />
+                    </TableCell>
+                    <TableCell numeric className="font-semibold text-ink">{formatMoneyCompact(o.value)}</TableCell>
+                    <TableCell numeric>
+                      {formatMoneyCompact(o.weighted_value)}
+                      <span className="block text-micro text-muted-foreground">{formatPercent(o.probability)}</span>
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      <CloseCell o={o} today={today} />
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      <span className="flex items-center gap-2" title={o.owner.full_name}>
+                        <UserAvatar user={o.owner} size="xs" />
+                        <span className="text-muted-foreground">{shortName(o.owner.full_name)}</span>
+                      </span>
+                    </TableCell>
+                    {/* 8rem keeps the 7 columns inside the card at 1280 (no inner scrollbar) */}
+                    <TableCell className="min-w-[8rem] max-w-[16rem]">
+                      {isOpenStage(o.stage) ? (
+                        <NextStepLine opp={o} today={today} />
+                      ) : o.lost_reason ? (
+                        <p className={cn('line-clamp-2 text-muted-foreground', SMALL)}>{t('crm.list.lostReason', { reason: o.lost_reason })}</p>
+                      ) : (
+                        <span className="text-caption">—</span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </Card>
       ) : (
         <ul className="grid gap-3 md:grid-cols-2">
-          {rows.map((o) => (
-            <OpportunityRowCard key={o.id} o={o} today={today} />
+          {rows.map((o, i) => (
+            <OpportunityRowCard key={o.id} o={o} today={today} rise={rise(i)} />
           ))}
         </ul>
       )}

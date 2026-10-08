@@ -2,6 +2,8 @@ import * as React from 'react';
 
 /** Put on a horizontal scroller together with `useScrollFade(ref)` (the CSS lives in index.css). */
 export const SCROLL_FADE_CLASS = 'scroll-fade-x';
+/** Same, end edge only: scrollers whose first column is pinned (sticky) — the start edge never fades over it. */
+export const SCROLL_FADE_END_CLASS = 'scroll-fade-end';
 
 /**
  * Keeps `data-fade` = 'start' | 'end' | 'both' on a horizontal scroller while its content is cut off on that side, so

@@ -10,6 +10,7 @@ import { api } from '@/services/api';
 import { todayISO } from '@/domain/clock';
 import { addDays } from '@/domain/dates';
 import { useAction } from '@/hooks/useAction';
+import { useDelayedFlag } from '@/hooks/useMotion';
 import { useQuery } from '@/hooks/useQuery';
 import { useViewer } from '@/hooks/useViewer';
 import { t } from '@/i18n';
@@ -74,7 +75,7 @@ export function CreateOpportunityDialog({ open, onOpenChange, accountId, default
   const viewer = useViewer();
   const viewerId = viewer?.user.id ?? '';
   const isDirector = viewer?.role === 'director';
-  const { run, pending } = useAction();
+  const { run, pending, pendingVisible } = useAction();
   const [form, setForm] = useState<FormState>(() => initialState(accountId ?? '', defaults, viewerId));
   const [touched, setTouched] = useState(false);
 
@@ -88,6 +89,8 @@ export function CreateOpportunityDialog({ open, onOpenChange, accountId, default
   }, [open, accountId, defaultsKey, viewerId]);
 
   const accountsQ = useQuery(() => api.listAccounts(), [], { enabled: open });
+  // "Đang tải…" only when the accounts take a beat (DESIGN §8.2: no one-frame pending label); logic keeps `loading`
+  const accountsLoadingVisible = useDelayedFlag(accountsQ.loading);
   const { items: priceItems, loading: priceLoading } = useActivePriceItems(open);
   const { owners } = useDealOwners(open && isDirector);
   const accounts = useMemo(
@@ -170,7 +173,7 @@ export function CreateOpportunityDialog({ open, onOpenChange, accountId, default
               id={ids.account}
               value={form.accountId}
               disabled={Boolean(accountId)}
-              placeholder={accountsQ.loading ? t('common.loading') : t('crm.create.accountPlaceholder')}
+              placeholder={accountsLoadingVisible ? t('common.loading') : t('crm.create.accountPlaceholder')}
               onChange={(e) => pickAccount(e.target.value)}
             >
               {accounts.map((a) => (
@@ -264,10 +267,10 @@ export function CreateOpportunityDialog({ open, onOpenChange, accountId, default
           )}
 
           <DialogFooter>
-            <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} disabled={pending}>
+            <Button type="button" variant="secondary" onClick={() => !pending && onOpenChange(false)} disabled={pendingVisible}>
               {t('common.cancel')}
             </Button>
-            <Button type="submit" loading={pending}>
+            <Button type="submit" loading={pending} spinnerOverlay>
               {t('crm.create.submit')}
             </Button>
           </DialogFooter>

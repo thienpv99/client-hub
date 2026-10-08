@@ -27,7 +27,7 @@ function RowLine({ row }: { row: CheckRow }) {
         {row.suite ? <span className="text-muted-foreground">{row.suite} · </span> : null}
         <span className="text-foreground">{row.name}</span>
         {row.detail ? (
-          <span className="mt-0.5 block break-words font-mono text-caption text-muted-foreground">{row.detail}</span>
+          <span className="mt-0.5 block break-words font-mono text-[13px] leading-[18px] text-muted-foreground">{row.detail}</span>
         ) : null}
       </span>
     </li>
@@ -98,7 +98,7 @@ function SuiteCard({ id, state, onRun, disabled }: { id: SuiteId; state: SuiteSt
         <CardContent className="space-y-3">
           {failed.length > 0 ? (
             <div>
-              <h3 className="text-caption font-semibold text-danger">{t('dev.failures')}</h3>
+              <h3 className="text-[13px] font-semibold leading-[18px] text-danger">{t('dev.failures')}</h3>
               <ul className="mt-1 divide-y divide-border/60">
                 {failed.map((row, i) => (
                   <RowLine key={`f${i}`} row={row} />

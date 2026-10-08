@@ -3,6 +3,7 @@
 import type { LucideIcon } from 'lucide-react';
 import { Building2, Crown, Network, Wallet } from 'lucide-react';
 import type { ClientMapMetric } from '@/services/crmContract';
+import { CountUp } from '@/components/common/count-up';
 import { Skeleton } from '@/components/ui/skeleton';
 import { t } from '@/i18n';
 import { formatMoneyCompact, formatPercent } from '@/lib/format';
@@ -21,7 +22,7 @@ interface CellProps {
   i: number;
   icon: LucideIcon;
   label: string;
-  /** below sm, where a cell is ~170px wide */
+  /** below xl, where a cell is ~170–180px wide (2 × 2 on phones, 4-up beside the open sidebar at 1024) */
   shortLabel?: string;
   value: string;
   sub: string;
@@ -34,17 +35,20 @@ function Cell({ i, icon: Icon, label, shortLabel, value, sub }: CellProps) {
         <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
         {shortLabel ? (
           <>
-            <span className="truncate sm:hidden">{shortLabel}</span>
-            <span className="hidden truncate sm:inline">{label}</span>
+            <span className="truncate xl:hidden">{shortLabel}</span>
+            <span className="hidden truncate xl:inline">{label}</span>
           </>
         ) : (
           <span className="truncate">{label}</span>
         )}
       </p>
-      {/* the context line sits under the figure in the 2 × 2 grid (every cell the same rhythm) and beside it in the
-          single row from lg, where the strip stays one line tall above the map */}
-      <p className="mt-1 flex min-w-0 flex-col lg:flex-row lg:items-baseline lg:gap-x-2">
-        <span className="truncate whitespace-nowrap text-title font-semibold tracking-tightish tabular text-ink">{value}</span>
+      {/* the context line sits under the figure in the 2 × 2 grid and in the 4-up row at 1024 (cells ~180px: side by side
+          the figure itself was cut), beside it from xl, where the strip stays one line tall above the map */}
+      <p className="mt-1 flex min-w-0 flex-col xl:flex-row xl:items-baseline xl:gap-x-2">
+        {/* counts up once with the first map (DESIGN §8.5); a metric switch shows the new figure at once */}
+        <span className="shrink-0 whitespace-nowrap text-title font-semibold tracking-tightish tabular text-ink">
+          <CountUp value={value} />
+        </span>
         <span className="min-w-0 truncate text-caption">{sub || ' '}</span>
       </p>
     </div>
@@ -89,14 +93,14 @@ export function MapKpis({ kpis, metric, showLeads }: { kpis: MapKpiData; metric:
 
 export function MapKpisSkeleton() {
   return (
-    <div role="status" aria-busy="true" className="grid grid-cols-2 rounded-xl border border-border/70 bg-card shadow-card lg:grid-cols-4">
+    <div role="status" aria-busy="true" className="skeleton-reveal grid grid-cols-2 rounded-xl border border-border/70 bg-card shadow-card lg:grid-cols-4">
       <span className="sr-only">{t('components.loading')}</span>
       {CELL.map((c, i) => (
         <div key={i} className={cn('px-4 py-3 md:px-5', c)}>
-          {/* same height as a loaded cell (18 + 4 + 28 [+ 18 below lg]), so the map below does not move */}
+          {/* same height as a loaded cell (18 + 4 + 28 [+ 18 below xl]), so the map below does not move */}
           <Skeleton className="my-[3px] h-3 w-24" />
           <Skeleton className="mt-1 h-7 w-32 max-w-full" />
-          <Skeleton className="mt-1.5 h-3 w-20 lg:hidden" />
+          <Skeleton className="mt-1.5 h-3 w-20 xl:hidden" />
         </div>
       ))}
     </div>

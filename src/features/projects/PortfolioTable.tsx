@@ -7,6 +7,7 @@ import type { MouseEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ListChecks } from 'lucide-react';
 import type { ProjectPortfolioRow } from '@/services/crmContract';
+import type { RiseProps } from '@/hooks/useMotion';
 import { AccountLogo } from '@/components/common/account-logo';
 import { HealthBadge } from '@/components/common/health-badge';
 import { SMALL } from '@/components/common/cx';
@@ -30,7 +31,7 @@ export function shouldIgnoreRowClick(e: MouseEvent<HTMLElement>): boolean {
 export const ROW_ACTION_REVEAL =
   'md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 [@media(pointer:coarse)]:opacity-100';
 
-export function PortfolioTable({ rows }: { rows: ProjectPortfolioRow[] }) {
+export function PortfolioTable({ rows, rise }: { rows: ProjectPortfolioRow[]; rise?: (index: number) => RiseProps }) {
   const navigate = useNavigate();
 
   return (
@@ -44,17 +45,18 @@ export function PortfolioTable({ rows }: { rows: ProjectPortfolioRow[] }) {
             <TableHead>{t('projects.portfolio.columns.progress')}</TableHead>
             <TableHead>{t('projects.portfolio.columns.next')}</TableHead>
             <TableHead>{t('projects.portfolio.columns.waiting')}</TableHead>
-            <TableHead className="text-right">{t('projects.portfolio.columns.end')}</TableHead>
+            <TableHead numeric>{t('projects.portfolio.columns.end')}</TableHead>
             <TableHead className="w-12">
               <span className="sr-only">{t('projects.portfolio.columns.actions')}</span>
             </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {rows.map((p) => (
+          {rows.map((p, i) => (
             <TableRow
               key={p.id}
-              className="group cursor-pointer"
+              className={cn('group cursor-pointer', rise?.(i).className)}
+              style={rise?.(i).style}
               onClick={(e) => {
                 if (!shouldIgnoreRowClick(e)) navigate(roadmapHref(p));
               }}

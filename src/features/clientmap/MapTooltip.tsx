@@ -116,7 +116,8 @@ export function MapTooltip({ id, node, eco, anchor, canvas, docked, touch, onOpe
       role="tooltip"
       className={cn(
         'absolute z-20 overflow-hidden rounded-xl border border-border/70 bg-card shadow-pop',
-        docked ? 'inset-x-2 bottom-2 animate-pop-in' : 'pointer-events-none w-[296px]',
+        // fades in when it appears (moving between bubbles keeps the same card: no replay)
+        docked ? 'inset-x-2 bottom-2 animate-pop-in' : 'pointer-events-none w-[296px] animate-fade-in',
         !docked && !pos && 'invisible',
       )}
       style={docked ? undefined : { left: pos?.left ?? 0, top: pos?.top ?? 0 }}

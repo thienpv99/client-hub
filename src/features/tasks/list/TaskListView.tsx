@@ -173,7 +173,8 @@ export function TaskListView({ tasks, account }: TaskListViewProps) {
                           <div className="min-w-0">
                             <p className={cn('flex items-start gap-1.5 font-medium leading-5', done ? 'text-muted-foreground' : 'text-ink')}>
                               {task.blocked ? <Lock className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-label={t('tasks.row.blocked')} role="img" /> : null}
-                              <span className="line-clamp-1" title={task.title}>
+                              {/* the title is the row's content: two lines where the fixed columns leave it ~300px (1280) */}
+                              <span className="line-clamp-2 min-[1440px]:line-clamp-1" title={task.title}>
                                 {task.title}
                               </span>
                             </p>
@@ -201,8 +202,8 @@ export function TaskListView({ tasks, account }: TaskListViewProps) {
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className="w-[120px] text-muted-foreground">{sideLabel(task.side)}</TableCell>
-                      <TableCell className="w-52">
+                      <TableCell className="w-24 text-muted-foreground">{sideLabel(task.side)}</TableCell>
+                      <TableCell className="w-44">
                         <span className="flex min-w-0 items-center gap-2">
                           <AssigneeAvatar user={task.assignee} size="sm" />
                           <span className={cn('truncate', task.assignee ? 'text-foreground' : 'text-muted-foreground')}>
@@ -210,7 +211,7 @@ export function TaskListView({ tasks, account }: TaskListViewProps) {
                           </span>
                         </span>
                       </TableCell>
-                      <TableCell className="w-40">
+                      <TableCell className="w-36">
                         <StatusPill status={task.status} size="sm" />
                       </TableCell>
                       <TableCell className="w-[168px]">

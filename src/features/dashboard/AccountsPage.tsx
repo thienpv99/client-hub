@@ -91,6 +91,7 @@ export function AccountsPage() {
         title={t('dashboard.accounts.title')}
         description={data ? describe(data) : undefined}
         actions={createButton}
+        actionsInline
       >
         {data ? null : <Skeleton className="-mt-2 h-5 w-64 max-w-full" />}
       </PageHeader>
@@ -172,6 +173,7 @@ export function AccountsPage() {
             query={query}
             onClear={clearAll}
             emptyAction={createButton}
+            stagger
           />
         ) : loading ? (
           <PortfolioSkeleton rows={6} showMoney={showMoney} />

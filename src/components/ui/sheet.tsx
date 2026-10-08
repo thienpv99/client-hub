@@ -4,6 +4,7 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { X } from 'lucide-react';
 import { t } from '@/i18n';
 import { cn } from '@/components/ui/cn';
+import { CaptureOpener, useReturnFocus } from '@/components/ui/use-return-focus';
 
 // Drawer for details (task drawer = side "right"). SheetContent has no padding of its own:
 // compose SheetHeader (sticky top) + SheetBody (scrolls) + SheetFooter (sticky action bar).
@@ -22,7 +23,7 @@ const SheetOverlay = React.forwardRef<
   <SheetPrimitive.Overlay
     ref={ref}
     className={cn(
-      'fixed inset-0 z-50 bg-ink/30 data-[state=open]:animate-fade-in data-[state=closed]:animate-fade-out',
+      'fixed inset-0 z-50 bg-ink/30 backdrop-blur-[1px] data-[state=open]:animate-fade-in data-[state=closed]:animate-fade-out',
       className,
     )}
     {...props}
@@ -30,15 +31,17 @@ const SheetOverlay = React.forwardRef<
 ));
 SheetOverlay.displayName = 'SheetOverlay';
 
-const sheetVariants = cva('fixed z-50 flex flex-col overflow-y-auto bg-card text-foreground outline-none', {
+// Motion (DESIGN.md §8): every side slides in on the spring curve (280 ms) and back out (200 ms); the scrim fades.
+// overscroll-contain: scrolling a drawer to its end never scrolls the page behind it.
+const sheetVariants = cva('fixed z-50 flex flex-col overflow-y-auto overscroll-contain bg-card text-foreground outline-none', {
   variants: {
     side: {
       right:
         'inset-y-0 right-0 h-full w-full border-l border-border/70 shadow-drawer sm:max-w-xl sm:rounded-l-xl lg:max-w-2xl data-[state=open]:animate-slide-in-right data-[state=closed]:animate-slide-out-right',
-      left: 'inset-y-0 left-0 h-full w-[85%] max-w-sm rounded-r-xl border-r border-border/70 shadow-pop data-[state=open]:animate-slide-in-left data-[state=closed]:animate-fade-out',
+      left: 'inset-y-0 left-0 h-full w-[85%] max-w-sm rounded-r-xl border-r border-border/70 shadow-pop data-[state=open]:animate-slide-in-left data-[state=closed]:animate-slide-out-left',
       bottom:
         'inset-x-0 bottom-0 max-h-[90dvh] w-full rounded-t-2xl border-t border-border/70 shadow-pop data-[state=open]:animate-slide-in-bottom data-[state=closed]:animate-slide-out-bottom',
-      top: 'inset-x-0 top-0 max-h-[90dvh] w-full rounded-b-2xl border-b border-border/70 shadow-pop data-[state=open]:animate-pop-in data-[state=closed]:animate-fade-out',
+      top: 'inset-x-0 top-0 max-h-[90dvh] w-full rounded-b-2xl border-b border-border/70 shadow-pop data-[state=open]:animate-slide-in-top data-[state=closed]:animate-slide-out-top',
     },
     mobileFullScreen: { true: '', false: '' },
   },
@@ -142,10 +145,14 @@ const SheetContent = React.forwardRef<React.ElementRef<typeof SheetPrimitive.Con
       showCloseButton = true,
       overlayClassName,
       showHandle = true,
+      onOpenAutoFocus,
+      onCloseAutoFocus,
       ...props
     },
     ref,
   ) => {
+    // focus goes back to whatever opened the sheet (the task drawer opens from rows and cards, not a SheetTrigger)
+    const { opener, focusProps } = useReturnFocus(onOpenAutoFocus, onCloseAutoFocus);
     const closeRef = React.useRef<HTMLButtonElement>(null);
     const dragHandlers = useDragToClose(closeRef);
     const withHandle = side === 'bottom' && showHandle;
@@ -159,7 +166,9 @@ const SheetContent = React.forwardRef<React.ElementRef<typeof SheetPrimitive.Con
           data-sheet-panel=""
           className={cn(sheetVariants({ side, mobileFullScreen }), className)}
           {...props}
+          {...focusProps}
         >
+          <CaptureOpener into={opener} />
           {withHandle ? (
             <div
               aria-hidden="true"
@@ -219,7 +228,7 @@ const SheetBody = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivE
   ({ className, ...props }, ref) => (
     <div
       ref={ref}
-      className={cn('min-h-0 flex-1 content-start overflow-y-auto px-4 pb-4 md:px-6 md:pb-6', className)}
+      className={cn('min-h-0 flex-1 content-start overflow-y-auto overscroll-contain px-4 pb-4 md:px-6 md:pb-6', className)}
       {...props}
     />
   ),

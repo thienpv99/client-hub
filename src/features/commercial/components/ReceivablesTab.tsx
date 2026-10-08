@@ -12,6 +12,7 @@ import { Money } from '@/components/common/money';
 import { KpiSkeleton, TableSkeleton } from '@/components/common/skeletons';
 import { UserAvatar } from '@/components/common/user-avatar';
 import { Card } from '@/components/ui/card';
+import { cn } from '@/components/ui/cn';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { todayISO } from '@/domain/clock';
 import { diffDays } from '@/domain/dates';
@@ -29,13 +30,13 @@ function maxOverdueDays(row: Row): number {
   return row.payments.reduce((m, p) => Math.max(m, p.overdue_days), 0);
 }
 
-function OverdueValue({ row }: { row: Row }) {
+function OverdueValue({ row, align = 'start' }: { row: Row; align?: 'start' | 'end' }) {
   if (row.overdue <= 0) return <span className="text-caption">{t('commercial.receivables.noOverdue')}</span>;
   // the next-due pill already says "Quá hạn N ngày" when the next installment is the overdue one
   const days = maxOverdueDays(row);
   const repeat = row.next_due?.status === 'overdue' && row.next_due.overdue_days === days;
   return (
-    <span className="flex flex-col">
+    <span className={cn('flex flex-col', align === 'end' ? 'items-end' : 'items-start')}>
       <span className="inline-flex items-center gap-1.5 font-medium text-danger">
         <CircleAlert className="h-4 w-4 shrink-0" aria-hidden="true" />
         <Money value={row.overdue} />
@@ -72,8 +73,9 @@ function RowsTable({ rows }: { rows: Row[] }) {
         <TableHeader>
           <TableRow>
             <TableHead>{t('commercial.receivables.col.account')}</TableHead>
-            <TableHead className="text-right">{t('commercial.receivables.col.total')}</TableHead>
-            <TableHead>{t('commercial.receivables.col.overdue')}</TableHead>
+            {/* both money columns right-aligned, so the amounts line up digit under digit */}
+            <TableHead numeric>{t('commercial.receivables.col.total')}</TableHead>
+            <TableHead numeric>{t('commercial.receivables.col.overdue')}</TableHead>
             <TableHead>{t('commercial.receivables.col.nextDue')}</TableHead>
             <TableHead>{t('commercial.receivables.col.status')}</TableHead>
             <TableHead className="w-12">
@@ -106,8 +108,8 @@ function RowsTable({ rows }: { rows: Row[] }) {
               <TableCell className="text-right font-semibold text-ink">
                 <Money value={row.total} />
               </TableCell>
-              <TableCell>
-                <OverdueValue row={row} />
+              <TableCell className="text-right">
+                <OverdueValue row={row} align="end" />
               </TableCell>
               <TableCell className="max-w-[260px]">
                 <NextDue row={row} />

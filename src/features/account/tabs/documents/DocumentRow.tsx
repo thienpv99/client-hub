@@ -132,10 +132,14 @@ export function DocumentRow({ file, canManage, canUpload, onPreview, onNewVersio
           >
             <History className="h-3.5 w-3.5" aria-hidden="true" />
             {t('account.documents.history', { count: older.length })}
-            <ChevronDown className={cn('h-3.5 w-3.5 transition-transform duration-150', expanded && 'rotate-180')} aria-hidden="true" />
+            <ChevronDown
+              className={cn('h-3.5 w-3.5 transition-transform duration-150 ease-out-quart', expanded && 'rotate-180')}
+              aria-hidden="true"
+            />
           </button>
           {expanded ? (
-            <ol id={`${id}-history`} className="mt-1 border-l border-border-strong/70 pl-3 sm:pl-4">
+            // opened by the user: a 150 ms fade (opacity only) instead of a pop
+            <ol id={`${id}-history`} className="mt-1 animate-fade-in border-l border-border-strong/70 pl-3 sm:pl-4">
               {older.map((v) => (
                 <li key={v.id} className="flex flex-col gap-2 py-2 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
                   <div className="group relative flex min-h-tap min-w-0 flex-col justify-center md:min-h-0">

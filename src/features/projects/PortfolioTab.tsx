@@ -9,6 +9,7 @@ import { KpiSkeleton, TableSkeleton } from '@/components/common/skeletons';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useMediaQuery } from '@/hooks/useMedia';
+import { useStagger } from '@/hooks/useMotion';
 import { t } from '@/i18n';
 import { PortfolioToolbar, ResultLine } from './PortfolioFilters';
 import { PortfolioCards } from './PortfolioCards';
@@ -35,12 +36,14 @@ export interface PortfolioTabProps {
   error: unknown;
   onRetry(): void;
   params: ProjectParamsApi;
+  /** the list rises in on first appearance (the page's entry tab only) */
+  stagger?: boolean;
 }
 
 function PortfolioSkeleton() {
   return (
     <div className="space-y-6 md:space-y-8">
-      <KpiSkeleton count={4} className="grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4" />
+      <KpiSkeleton count={4} className="grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4" />
       <div className="space-y-4">
         <div className="flex flex-wrap items-center gap-2" aria-hidden="true">
           <Skeleton className="h-11 w-full rounded-lg sm:h-8 sm:w-[280px]" />
@@ -54,8 +57,10 @@ function PortfolioSkeleton() {
   );
 }
 
-export function PortfolioTab({ rows, loading, error, onRetry, params }: PortfolioTabProps) {
+export function PortfolioTab({ rows, loading, error, onRetry, params, stagger = false }: PortfolioTabProps) {
   const wide = useMediaQuery('(min-width: 1280px)');
+  // DESIGN §8.4: the project list (table rows or cards) rises in once; filters and refetches appear without motion
+  const rise = useStagger(stagger && rows !== undefined);
   const listRef = useRef<HTMLDivElement>(null);
 
   // the box filters instantly; the URL (?q=) follows after a short pause so typing never fights the router
@@ -143,9 +148,9 @@ export function PortfolioTab({ rows, loading, error, onRetry, params }: Portfoli
             <SearchEmptyState entity="project" query={q} icon={FolderKanban} onClear={clearAll} />
           </Card>
         ) : wide ? (
-          <PortfolioTable rows={shown} />
+          <PortfolioTable rows={shown} rise={rise} />
         ) : (
-          <PortfolioCards rows={shown} />
+          <PortfolioCards rows={shown} rise={rise} />
         )}
       </div>
     </div>

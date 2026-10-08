@@ -68,7 +68,7 @@ export function EditOpportunityDialog({ opportunity, open, onOpenChange, focusFi
   const uid = useId();
   const viewer = useViewer();
   const isDirector = viewer?.role === 'director';
-  const { run, pending } = useAction();
+  const { run, pending, pendingVisible } = useAction();
   const [form, setForm] = useState<FormState>(() => fromOpportunity(opportunity));
   const [touched, setTouched] = useState(false);
   const { items: priceItems, loading: priceLoading } = useActivePriceItems(open);
@@ -258,7 +258,7 @@ export function EditOpportunityDialog({ opportunity, open, onOpenChange, focusFi
             </FormField>
           ) : null}
           <DialogFooter>
-            <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} disabled={pending}>
+            <Button type="button" variant="secondary" onClick={() => !pending && onOpenChange(false)} disabled={pendingVisible}>
               {t('common.cancel')}
             </Button>
             <Button type="submit" loading={pending}>

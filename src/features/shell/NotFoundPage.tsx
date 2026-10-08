@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Compass } from 'lucide-react';
+import { EmptyIcon } from '@/components/common/empty-state';
 import { Button } from '@/components/ui/button';
 import { useViewer } from '@/hooks/useViewer';
 import { t } from '@/i18n';
@@ -16,12 +17,9 @@ export function NotFoundPage() {
   }, []);
   return (
     <div className="flex min-h-[60vh] items-center justify-center px-4 py-16">
+      {/* the empty-state illustration of the whole app (DESIGN §8.7), not a halo of its own */}
       <div className="flex max-w-md flex-col items-center text-center">
-        <span className="flex h-[72px] w-[72px] items-center justify-center rounded-full bg-primary-soft">
-          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-card text-primary shadow-xs">
-            <Compass className="h-6 w-6" strokeWidth={1.75} aria-hidden />
-          </span>
-        </span>
+        <EmptyIcon icon={Compass} />
         <p className="mt-6 text-micro font-medium tabular text-muted-foreground">{t('layout.notFound.code')}</p>
         <h1 className="mt-1 text-title font-semibold tracking-tightish text-ink md:text-display md:tracking-display">
           {t('layout.notFound.title')}

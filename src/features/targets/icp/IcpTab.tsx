@@ -102,7 +102,7 @@ function ScoringRules() {
 export function IcpTab({ isDirector }: { isDirector: boolean }) {
   const icpQ = useQuery(() => api.getIcp(), []);
   const optionsQ = useQuery(() => api.getTargetingOptions(), [], { enabled: isDirector });
-  const { run, pending } = useAction();
+  const { run, pending, pendingVisible } = useAction();
   const [draft, setDraft] = useState<Draft | null>(null);
 
   if (!icpQ.data) {
@@ -255,7 +255,7 @@ export function IcpTab({ isDirector }: { isDirector: boolean }) {
             {total > 0 ? t('targets.icp.dirty') : t('targets.icp.weightsZero')}
           </p>
           <div className="grid grid-cols-2 gap-2 sm:flex">
-            <Button type="button" variant="secondary" onClick={() => setDraft(null)} disabled={pending}>
+            <Button type="button" variant="secondary" onClick={() => !pending && setDraft(null)} disabled={pendingVisible}>
               {t('targets.icp.discard')}
             </Button>
             <Button type="button" onClick={() => void save()} loading={pending} disabled={total <= 0}>

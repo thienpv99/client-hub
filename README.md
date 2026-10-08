@@ -88,7 +88,7 @@ Sau đó mở http://localhost:8780. Muốn đổi cổng thì thêm `-Port 8790
 
 ### Deploy lên Cloudflare Pages (không cần Node)
 
-Bản online là file đóng gói tự chứa (`dist/ClientHub-demo.html`, khoảng 6,8 MB). File này đã nhúng sẵn mọi thư viện, Tailwind và font, nên không gọi ra CDN nào. Để deploy lại sau khi sửa code:
+Bản online là file đóng gói tự chứa (`dist/ClientHub-demo.html`, khoảng 6,7 MB). File này đã nhúng sẵn mọi thư viện, CSS Tailwind biên dịch sẵn và font, nên không gọi ra CDN nào. Để deploy lại sau khi sửa code:
 
 1. Chạy server không cần Node, rồi mở http://localhost:8780/tools/build-standalone.html?auto=1 để đóng gói.
 2. Mở http://localhost:8780/tools/pages-manifest.html để tính mã băm, kết quả ghi vào `dist/pages-manifest.json`.

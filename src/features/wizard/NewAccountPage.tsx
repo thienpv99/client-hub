@@ -10,6 +10,7 @@ import type { UserRef } from '@/services/contract';
 import { api } from '@/services/api';
 import { todayISO } from '@/domain/clock';
 import { useAction } from '@/hooks/useAction';
+import { jumpScrollTo } from '@/hooks/useMotion';
 import { useQuery } from '@/hooks/useQuery';
 import { useViewer } from '@/hooks/useViewer';
 import { PageHeader } from '@/components/common/page-header';
@@ -105,7 +106,7 @@ export function NewAccountPage() {
   const [attempted, setAttempted] = useState<boolean[]>(() => STEP_KEYS.map(() => false));
   // contact rows that existed when step 2 was last checked: a row added afterwards shows no errors until the next try
   const [checkedContacts, setCheckedContacts] = useState<ReadonlySet<string>>(() => new Set());
-  const { run, pending } = useAction();
+  const { run, pending, pendingVisible } = useAction();
   const headingRef = useRef<HTMLHeadingElement | null>(null);
   const mounted = useRef(false);
 
@@ -134,14 +135,15 @@ export function NewAccountPage() {
     setDraft((d) => (d.company.am_id === selfAmId ? d : { ...d, company: { ...d.company, am_id: selfAmId } }));
   }, [selfAmId]);
 
-  // new step: move focus to its heading (screen readers announce it) and back to the top
+  // new step: move focus to its heading (screen readers announce it) and back to the top — a jump, not a glide
+  // (DESIGN §8.6): the new step's body fades in where the reader starts
   useEffect(() => {
     if (!mounted.current) {
       mounted.current = true;
       return;
     }
     headingRef.current?.focus({ preventScroll: true });
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (window.scrollY > 0) jumpScrollTo(0);
   }, [step]);
 
   if (!viewer) return null;
@@ -245,7 +247,8 @@ export function NewAccountPage() {
             <p className="mt-1 text-table text-muted-foreground">{t(`wizard.stepDescriptions.${key}`)}</p>
           </div>
 
-          <div className="px-4 py-5 sm:px-6 sm:py-6">
+          {/* keyed by step: the step's fields fade in (150 ms, like tab content) */}
+          <div key={key} className="animate-fade-in px-4 py-5 sm:px-6 sm:py-6">
             {step === 0 ? (
               <CompanyStep
                 company={draft.company}
@@ -285,7 +288,14 @@ export function NewAccountPage() {
                 <Link to="/app/accounts">{t('common.cancel')}</Link>
               </Button>
             ) : (
-              <Button type="button" variant="secondary" disabled={pending} onClick={() => setStep(step - 1)}>
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={pendingVisible}
+                onClick={() => {
+                  if (!pending) setStep(step - 1);
+                }}
+              >
                 <ArrowLeft aria-hidden="true" />
                 {t('wizard.actions.back')}
               </Button>
@@ -301,7 +311,8 @@ export function NewAccountPage() {
                 </>
               ) : (
                 <>
-                  {!pending ? <Check aria-hidden="true" /> : null}
+                  {/* kept while busy: the Button swaps it for its spinner after 150 ms (DESIGN §8.2) */}
+                  <Check aria-hidden="true" />
                   {t('wizard.actions.create')}
                 </>
               )}

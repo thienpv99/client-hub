@@ -4,8 +4,9 @@
 // chỉnh" (reason required). Both decide through the quote's approval task when there is one, exactly as from the task
 // drawer: immediate, with the 5-second "Hoàn tác" (SPEC §7: confirm dialogs only for what cannot be undone). The
 // optional note for New Era is written inline in the status hero. "In / Xuất PDF" prints only the quote page.
-import { useId, useState } from 'react';
+import { useId, useLayoutEffect, useState } from 'react';
 import type { ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import type { LucideIcon } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowRight, CalendarX, Check, CircleCheck, Clock, History, MessageSquarePlus, MessageSquareWarning, Printer } from 'lucide-react';
@@ -27,6 +28,7 @@ import { diffDays } from '@/domain/dates';
 import { DUE_SOON_DAYS } from '@/domain/taskRules';
 import { useAction } from '@/hooks/useAction';
 import { useMediaQuery } from '@/hooks/useMedia';
+import { useDelayedFlag } from '@/hooks/useMotion';
 import { useQuery } from '@/hooks/useQuery';
 import { useViewer } from '@/hooks/useViewer';
 import { capitalize, t } from '@/i18n';
@@ -182,7 +184,7 @@ function AcceptNote({ value, onChange, salutation }: { value: string; onChange: 
   }
   return (
     <FormField
-      className="pt-2"
+      className="animate-fade-in pt-2"
       label={t('commercial.portalQuote.acceptNoteLabel')}
       htmlFor={id}
       hint={t('commercial.portalQuote.acceptNoteHint', { salutation })}
@@ -219,6 +221,15 @@ function DecisionBar({ quote, salutation, note }: { quote: QuoteDetail; salutati
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [changesOpen, setChangesOpen] = useState(false);
   const { run } = useAction();
+  // the busy look waits 150 ms (DESIGN §8.2): a fast decision never dims "Đề nghị điều chỉnh"; `busy` still guards
+  const busyVisible = useDelayedFlag(busy);
+  const mdUp = useMediaQuery('(min-width: 768px)');
+  // phones: the fixed bar is portalled into the <main> landmark (resolved once after mount, before paint, so the
+  // portal never switches container mid-interaction) — see the note at the return
+  const [barHost, setBarHost] = useState<HTMLElement | null>(null);
+  useLayoutEffect(() => {
+    setBarHost(document.getElementById('main-content') ?? document.body);
+  }, []);
   const text = note.trim() || undefined;
 
   async function accept() {
@@ -236,41 +247,51 @@ function DecisionBar({ quote, salutation, note }: { quote: QuoteDetail; salutati
     setBusy(false);
   }
 
-  return (
-    <>
-      {/* phones: fixed above the portal's bottom tab bar (58px + safe area); from md it floats at the window bottom */}
-      <div
-        role="region"
-        aria-label={t('commercial.portalQuote.actionsLabel')}
-        className={cn(
-          'fixed inset-x-0 bottom-[calc(58px+env(safe-area-inset-bottom))] z-20 border-t border-border/70 bg-card/95 px-4 pb-3 pt-2.5 backdrop-blur-md supports-[backdrop-filter]:bg-card/85',
-          'md:sticky md:bottom-6 md:rounded-xl md:border md:px-5 md:py-3 md:shadow-pop',
-          'print:hidden',
-        )}
-      >
-        <div className="mx-auto flex max-w-[1120px] flex-col gap-2.5 md:flex-row md:items-center md:justify-between md:gap-6">
-          <p className="flex items-baseline justify-between gap-3 md:block">
-            <span className="text-caption md:block">{t('commercial.portal.totalVat')}</span>
-            <span className="text-heading font-semibold tabular tracking-tightish text-ink md:text-title">{formatMoney(quote.grand_total)}</span>
-          </p>
-          <div className="grid grid-cols-2 gap-2 md:flex md:flex-row-reverse">
-            <Button size="touch" onClick={() => void accept()} loading={busy} className="w-full md:w-auto">
-              {busy ? null : <Check aria-hidden="true" />}
-              {t('commercial.portalQuote.accept')}
-            </Button>
-            <Button
-              size="touch"
-              variant="secondary"
-              onClick={() => setChangesOpen(true)}
-              disabled={busy}
-              className="w-full px-3 md:w-auto md:px-5"
-            >
-              <MessageSquareWarning aria-hidden="true" className="max-sm:hidden" />
-              {t('commercial.portalQuote.requestChanges')}
-            </Button>
-          </div>
+  const bar = (
+    <div
+      role="region"
+      aria-label={t('commercial.portalQuote.actionsLabel')}
+      className={cn(
+        'fixed inset-x-0 bottom-[calc(58px+env(safe-area-inset-bottom))] z-20 border-t border-border/70 bg-card/95 px-4 pb-3 pt-2.5 backdrop-blur-md supports-[backdrop-filter]:bg-card/85',
+        'md:sticky md:bottom-6 md:rounded-xl md:border md:px-5 md:py-3 md:shadow-pop',
+        'print:hidden',
+      )}
+    >
+      <div className="mx-auto flex max-w-[1120px] flex-col gap-2.5 md:flex-row md:items-center md:justify-between md:gap-6">
+        <p className="flex items-baseline justify-between gap-3 md:block">
+          <span className="text-caption md:block">{t('commercial.portal.totalVat')}</span>
+          <span className="text-heading font-semibold tabular tracking-tightish text-ink md:text-title">{formatMoney(quote.grand_total)}</span>
+        </p>
+        <div className="grid grid-cols-2 gap-2 md:flex md:flex-row-reverse">
+          <Button size="touch" onClick={() => void accept()} loading={busy} className="w-full md:w-auto">
+            <Check aria-hidden="true" />
+            {t('commercial.portalQuote.accept')}
+          </Button>
+          <Button
+            size="touch"
+            variant="secondary"
+            onClick={() => {
+              if (!busy) setChangesOpen(true);
+            }}
+            disabled={busyVisible}
+            className="w-full px-3 md:w-auto md:px-5"
+          >
+            <MessageSquareWarning aria-hidden="true" className="max-sm:hidden" />
+            {t('commercial.portalQuote.requestChanges')}
+          </Button>
         </div>
       </div>
+    </div>
+  );
+
+  return (
+    <>
+      {/* phones: fixed above the portal's bottom tab bar (58px + safe area), rendered at the end of <main> — inside the
+          page it would ride the page-enter transform (a transformed ancestor traps position: fixed) and pop in late;
+          <main> itself is never transformed, and there the decision stays in the main landmark and comes before the
+          bottom tab bar in reading order (not after it, as in <body>). From md it floats at the window bottom (sticky,
+          so it stays in the page's flow) */}
+      {mdUp ? bar : barHost ? createPortal(bar, barHost) : null}
       <ConfirmDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
@@ -306,7 +327,7 @@ function DecisionBar({ quote, salutation, note }: { quote: QuoteDetail; salutati
 
 function QuotePageSkeleton() {
   return (
-    <div className="mx-auto w-full max-w-reading space-y-6 md:space-y-8" role="status" aria-busy="true">
+    <div className="skeleton-reveal mx-auto w-full max-w-reading space-y-6 md:space-y-8" role="status" aria-busy="true">
       <span className="sr-only">{t('common.loading')}</span>
       <div className="space-y-2.5">
         <Skeleton className="h-4 w-24" />
@@ -373,7 +394,7 @@ export function PortalQuotePage() {
       >
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
           <QuoteStatusBadge status={quote.status} audience="client" />
-          <span className="text-caption font-medium tabular text-foreground">{quote.code}</span>
+          <span className="text-[13px] font-medium leading-[18px] tabular text-foreground">{quote.code}</span>
           {quote.versions.length > 1 ? (
             <VersionSwitcher
               currentId={quote.id}

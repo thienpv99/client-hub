@@ -9,6 +9,7 @@ import { DueLabel } from '@/components/common/due-label';
 import { NewEraLogo } from '@/components/common/new-era-logo';
 import { TaskTypeIcon } from '@/components/common/task-type-icon';
 import { buttonVariants } from '@/components/ui/button';
+import { riseProps } from '@/hooks/useMotion';
 import { t } from '@/i18n';
 import { cn } from '@/components/ui/cn';
 
@@ -69,8 +70,14 @@ function ProductPreview() {
   const due = dueInfo(addDays(today, -6), false, today);
   return (
     <div aria-hidden className="pointer-events-none relative select-none">
-      {/* back: project progress (tall windows only) */}
-      <div className="hidden w-[90%] rounded-xl border border-border/70 bg-card p-4 shadow-card [@media(min-height:860px)]:block">
+      {/* back: project progress (tall windows only). Both cards fade up once on arrival, back one first. */}
+      <div
+        className={cn(
+          'hidden w-[90%] rounded-xl border border-border/70 bg-card p-4 shadow-card [@media(min-height:860px)]:block',
+          riseProps(3).className,
+        )}
+        style={riseProps(3).style}
+      >
         <div className="flex items-center justify-between gap-3">
           <span className="truncate text-table font-semibold text-ink">{t('auth.preview.project')}</span>
           <span className="text-micro font-medium text-muted-foreground">{t('auth.preview.progress')}</span>
@@ -85,7 +92,13 @@ function ProductPreview() {
       </div>
 
       {/* front: the client task card */}
-      <div className="relative rounded-xl border border-border/70 bg-card p-4 shadow-pop [@media(min-height:860px)]:-mt-5 [@media(min-height:860px)]:ml-auto [@media(min-height:860px)]:w-[90%]">
+      <div
+        className={cn(
+          'relative rounded-xl border border-border/70 bg-card p-4 shadow-pop [@media(min-height:860px)]:-mt-5 [@media(min-height:860px)]:ml-auto [@media(min-height:860px)]:w-[90%]',
+          riseProps(5).className,
+        )}
+        style={riseProps(5).style}
+      >
         <p className="text-micro font-medium text-muted-foreground">{t('auth.preview.waiting')}</p>
         <div className="mt-2 flex items-start gap-3">
           <TaskTypeIcon type="approval" boxed />
@@ -100,7 +113,7 @@ function ProductPreview() {
         </div>
         <div className="mt-3 flex items-center gap-4">
           <span className={cn(buttonVariants({ size: 'sm' }), 'shadow-btn')}>{t('enums.taskAction.approve')}</span>
-          <span className="text-caption font-medium text-primary">{t('auth.preview.requestChanges')}</span>
+          <span className="text-[13px] font-medium leading-[18px] text-primary">{t('auth.preview.requestChanges')}</span>
         </div>
       </div>
     </div>
@@ -127,7 +140,7 @@ export function BrandPanel() {
                 <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-card text-primary shadow-xs ring-1 ring-primary-border/60">
                   <Icon className="h-4 w-4" strokeWidth={2} aria-hidden />
                 </span>
-                <span className="text-table text-foreground">{t(key)}</span>
+                <span className="text-pretty text-table text-foreground">{t(key)}</span>
               </li>
             ))}
           </ul>

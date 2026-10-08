@@ -194,7 +194,10 @@ export function useMapGestures(deps: GestureDeps) {
       const r = svg.getBoundingClientRect();
       const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1;
       const factor = Math.exp(-e.deltaY * unit * (e.ctrlKey ? 0.01 : 0.0018));
-      d.current.viewport.zoomAt(e.clientX - r.left, e.clientY - r.top, factor);
+      // a mouse wheel moves in notches (~100 px or whole lines): each notch glides (and chains with the next one);
+      // trackpad scrolls and pinches arrive as many small deltas and follow the fingers directly
+      const notch = !e.ctrlKey && (e.deltaMode !== 0 || Math.abs(e.deltaY) >= 50);
+      d.current.viewport.zoomAt(e.clientX - r.left, e.clientY - r.top, factor, notch);
     };
     svg.addEventListener('wheel', onWheel, { passive: false });
     return () => svg.removeEventListener('wheel', onWheel);

@@ -25,6 +25,8 @@ import { RemindClientButton, ZaloRemindButton } from '@/components/remind/Remind
 import { Button } from '@/components/ui/button';
 import { cn } from '@/components/ui/cn';
 import { useAction } from '@/hooks/useAction';
+import { useStagger } from '@/hooks/useMotion';
+import type { RiseProps } from '@/hooks/useMotion';
 import { useTaskDrawer } from '@/hooks/useTaskDrawer';
 import { t } from '@/i18n';
 import { attentionMeta, attentionParams, attentionSentenceParts } from '../attentionText';
@@ -108,14 +110,21 @@ function ActionButton({ item, action, primary, onApprove }: RowProps & { action:
   }
 }
 
-function AttentionRow({ item, onApprove }: RowProps) {
+function AttentionRow({ item, onApprove, rise }: RowProps & { rise: RiseProps }) {
   const Icon = KIND_ICON[item.kind] ?? Clock;
   const { parts } = attentionSentenceParts(item);
   const meta = attentionMeta(item);
   const actions = item.actions.slice(0, 2);
   return (
-    // side by side from lg only: on iPad portrait the text column would be ~250px and its meta line would clip
-    <li className="flex flex-col gap-3 px-4 py-4 sm:px-5 lg:flex-row lg:items-center lg:gap-6">
+    // side by side from lg only: on iPad portrait the text column would be ~250px and its meta line would clip.
+    // Rows rise one after another on the page's first paint only (DESIGN §8.4: the focal list).
+    <li
+      className={cn(
+        'flex flex-col gap-3 px-4 py-4 sm:px-5 lg:flex-row lg:items-center lg:gap-6',
+        rise.className,
+      )}
+      style={rise.style}
+    >
       <div className="flex min-w-0 flex-1 items-start gap-3.5">
         <span
           className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-full', SEVERITY_TONE[item.severity])}
@@ -166,6 +175,8 @@ function severitySummary(items: AttentionItem[]): string {
 
 export function AttentionPanel({ items, className }: { items: AttentionItem[]; className?: string }) {
   const { run } = useAction();
+  // the panel mounts with its data: only that first appearance staggers (an approval refetch does not)
+  const rise = useStagger(true);
   // the item stays set while the dialog animates out, so its sentence never shows raw placeholders
   const [approving, setApproving] = useState<AttentionItem | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -230,8 +241,8 @@ export function AttentionPanel({ items, className }: { items: AttentionItem[]; c
         />
       ) : (
         <ul className="mt-1 divide-y divide-border/60 border-t border-border/60" aria-label={t('dashboard.attention.listLabel')}>
-          {items.map((item) => (
-            <AttentionRow key={item.id} item={item} onApprove={askApproval} />
+          {items.map((item, i) => (
+            <AttentionRow key={item.id} item={item} onApprove={askApproval} rise={rise(i)} />
           ))}
         </ul>
       )}

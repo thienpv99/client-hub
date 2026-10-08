@@ -8,6 +8,7 @@ import { api } from '@/services/api';
 import { PAGE_TABS_BLEED, PageHeader } from '@/components/common/page-header';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useStagger } from '@/hooks/useMotion';
 import { useQuery } from '@/hooks/useQuery';
 import { useViewer } from '@/hooks/useViewer';
 import { t } from '@/i18n';
@@ -28,6 +29,8 @@ export function NotificationsPage() {
   const tab = parseTab(params.get(TAB_PARAM));
   const notifications = useQuery(() => api.listNotifications({ limit: 100 }), [viewer?.user.id], { enabled: !!viewer });
   const unread = (notifications.data ?? []).filter((n) => !n.read_at).length;
+  // held here (not in the tab): the inbox rows stagger on the page's first load only, never on a tab switch
+  const rise = useStagger(!!notifications.data);
 
   const setTab = useCallback(
     (value: string) => {
@@ -51,6 +54,7 @@ export function NotificationsPage() {
       <PageHeader
         title={t('notify.page.title')}
         description={<span className="hidden sm:inline">{t('notify.page.description')}</span>}
+        actionsInline
         actions={
           <Button asChild variant="secondary">
             <Link to="/app/digest">
@@ -78,7 +82,7 @@ export function NotificationsPage() {
         }
       />
       <TabsContent value="inbox" className="mt-0">
-        <InboxTab query={notifications} canMarkRead={!viewer.read_only} />
+        <InboxTab query={notifications} canMarkRead={!viewer.read_only} rise={rise} />
       </TabsContent>
       <TabsContent value="outbox" className="mt-0">
         <OutboxTab viewer={viewer} />

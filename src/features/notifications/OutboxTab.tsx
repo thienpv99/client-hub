@@ -144,7 +144,8 @@ export function OutboxTab({ viewer }: { viewer: Viewer }) {
 
   async function openLink(e: EmailView) {
     const link = e.link;
-    if (!link) return;
+    // one "Mở link" at a time (the buttons only look disabled once the switch takes 150 ms)
+    if (!link || viewAs.pending) return;
     if (!link.startsWith('/portal')) {
       navigate(link);
       return;
@@ -182,7 +183,8 @@ export function OutboxTab({ viewer }: { viewer: Viewer }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      {/* side by side from xl only: at 1024 the sidebar is open and the four chips would wrap beside the select */}
+      <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
         <ChipFilter
           options={options}
           value={status}
@@ -251,7 +253,7 @@ export function OutboxTab({ viewer }: { viewer: Viewer }) {
           }
         >
           {shown.map((e) => (
-            <EmailRow key={e.id} mail={e} org={orgName(e, directory.data)} opening={viewAs.pending} onOpenLink={() => void openLink(e)} />
+            <EmailRow key={e.id} mail={e} org={orgName(e, directory.data)} opening={viewAs.pendingVisible} onOpenLink={() => void openLink(e)} />
           ))}
         </SectionCard>
       )}
@@ -292,7 +294,7 @@ function EmailRow({ mail, org, opening, onOpenLink }: { mail: EmailView; org: st
         </h3>
 
         {expanded ? (
-          <div id={bodyId} className="mt-2 space-y-3 rounded-lg bg-subtle p-3 ring-1 ring-inset ring-border/60 sm:p-4">
+          <div id={bodyId} className="mt-2 animate-fade-in space-y-3 rounded-lg bg-subtle p-3 ring-1 ring-inset ring-border/60 sm:p-4">
             <p className="break-all text-micro text-muted-foreground">
               {t('notify.outbox.to')}: {mail.to_email}
             </p>
@@ -330,7 +332,7 @@ function EmailRow({ mail, org, opening, onOpenLink }: { mail: EmailView; org: st
               aria-controls={bodyId}
               onClick={() => setExpanded((v) => !v)}
             >
-              <ChevronDown className={cn('transition-transform duration-150', expanded && 'rotate-180')} aria-hidden="true" />
+              <ChevronDown className={cn('transition-transform duration-200 ease-out-quart', expanded && 'rotate-180')} aria-hidden="true" />
               {expanded ? t('notify.outbox.hideBody') : t('notify.outbox.showBody')}
             </Button>
             {mail.link ? (

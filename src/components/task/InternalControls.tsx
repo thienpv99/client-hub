@@ -1,12 +1,13 @@
 // Internal (New Era) controls of the task drawer: status, "Khách thấy được", reminders, manual unblock, review of
 // client submissions, edit / delete. Every control follows TaskView.can — the service layer enforces the same rules.
-import { Suspense, lazy, useId, useState } from 'react';
+import { Suspense, lazy, useEffect, useId, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Check, CircleCheck, ExternalLink, Lock, MoreHorizontal, Pencil, Play, Send, Trash2, Unlock } from 'lucide-react';
 import type { TaskDetail, TaskStatus } from '@/services/contract';
 import { api } from '@/services/api';
 import { useAction } from '@/hooks/useAction';
+import { useDelayedFlag } from '@/hooks/useMotion';
 import { t } from '@/i18n';
 import { formatRelativeTime } from '@/lib/format';
 import { Button } from '@/components/ui/button';
@@ -35,13 +36,16 @@ type Busy = 'status' | 'accept' | 'visible' | null;
 
 export interface InternalTaskActions {
   busy: Busy;
+  /** `busy` held for 150 ms (DESIGN §8.2): the busy look of the controls that are not running */
+  busyVisible: boolean;
   setStatus(status: TaskStatus): Promise<void>;
   accept(): void;
   openReturn(): void;
   openUnblock(): void;
   openEdit(): void;
   openDelete(): void;
-  setVisible(visible: boolean): void;
+  /** resolves true when the service took the change */
+  setVisible(visible: boolean): Promise<boolean>;
   /** dialogs to render once */
   dialogs: ReactNode;
 }
@@ -49,6 +53,7 @@ export interface InternalTaskActions {
 export function useInternalTaskActions(task: TaskDetail, onDeleted: () => void): InternalTaskActions {
   const { run } = useAction();
   const [busy, setBusy] = useState<Busy>(null);
+  const busyVisible = useDelayedFlag(busy !== null);
   const [unblockOpen, setUnblockOpen] = useState(false);
   const [returnOpen, setReturnOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -56,7 +61,7 @@ export function useInternalTaskActions(task: TaskDetail, onDeleted: () => void):
   const [editMounted, setEditMounted] = useState(false);
 
   async function setStatus(status: TaskStatus): Promise<void> {
-    if (status === task.status) return;
+    if (status === task.status || busy !== null) return;
     setBusy('status');
     await run(() => api.setTaskStatus(task.id, status), {
       success: 'task.toast.status_changed',
@@ -68,17 +73,21 @@ export function useInternalTaskActions(task: TaskDetail, onDeleted: () => void):
   const mode = reviewMode(task);
 
   function accept() {
+    if (busy !== null) return;
     setBusy('accept');
     void run(() => api.acceptSubmission(task.id), {
       success: mode === 'payment' ? 'task.toast.payment_confirmed' : 'task.toast.accepted',
     }).finally(() => setBusy(null));
   }
 
-  function setVisible(visible: boolean) {
+  async function setVisible(visible: boolean): Promise<boolean> {
+    if (busy !== null) return false;
     setBusy('visible');
-    void run(() => api.setTaskClientVisible(task.id, visible), {
+    const r = await run(() => api.setTaskClientVisible(task.id, visible), {
       success: visible ? 'task.toast.visible_on' : 'task.toast.visible_off',
-    }).finally(() => setBusy(null));
+    });
+    setBusy(null);
+    return r !== undefined;
   }
 
   const dialogs = (
@@ -133,6 +142,7 @@ export function useInternalTaskActions(task: TaskDetail, onDeleted: () => void):
 
   return {
     busy,
+    busyVisible,
     setStatus,
     accept,
     openReturn: () => setReturnOpen(true),
@@ -238,6 +248,11 @@ function PropRow({
 export function InternalManagePanel({ task, actions }: { task: TaskDetail; actions: InternalTaskActions }) {
   const id = useId();
   const [pendingStatus, setPendingStatus] = useState<TaskStatus | null>(null);
+  // optimistic "Khách thấy được": the thumb travels at once; the refetched task takes over, a refusal snaps back
+  const [pendingVisible, setPendingVisible] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (pendingVisible !== null && task.client_visible === pendingVisible) setPendingVisible(null);
+  }, [task.client_visible, pendingVisible]);
   const reminded =
     task.reminder_count > 0
       ? task.last_reminded_at
@@ -254,9 +269,15 @@ export function InternalManagePanel({ task, actions }: { task: TaskDetail; actio
       ? t(task.can.unblock ? 'task.manage.statusBlockedUnblock' : 'task.manage.statusBlockedWait')
       : null;
 
+  async function onVisible(next: boolean) {
+    if (actions.busy !== null) return;
+    setPendingVisible(next);
+    if (!(await actions.setVisible(next))) setPendingVisible(null);
+  }
+
   async function onStatus(value: string) {
     const next = options.find((o) => o.status === value && !o.locked)?.status;
-    if (!next) return;
+    if (!next || actions.busy !== null) return;
     setPendingStatus(next);
     await actions.setStatus(next);
     setPendingStatus(null);
@@ -281,7 +302,8 @@ export function InternalManagePanel({ task, actions }: { task: TaskDetail; actio
           wrapperClassName="w-44"
           value={pendingStatus ?? task.status}
           onChange={(e) => void onStatus(e.target.value)}
-          disabled={!task.can.change_status || actions.busy === 'status'}
+          // shows the new status at once (pendingStatus); dims only once the change takes 150 ms
+          disabled={!task.can.change_status || (actions.busy === 'status' && actions.busyVisible)}
           aria-describedby={statusHint ? `${id}-status-hint` : undefined}
         >
           {options.map((o) => (
@@ -309,9 +331,10 @@ export function InternalManagePanel({ task, actions }: { task: TaskDetail; actio
         >
           <Switch
             id={`${id}-visible`}
-            checked={task.client_visible}
-            onCheckedChange={(v) => actions.setVisible(v)}
-            disabled={!task.can.edit || actions.busy === 'visible'}
+            checked={pendingVisible ?? task.client_visible}
+            onCheckedChange={(v) => void onVisible(v)}
+            disabled={!task.can.edit || (actions.busy === 'visible' && actions.busyVisible)}
+            aria-busy={actions.busy === 'visible' || undefined}
             aria-describedby={`${id}-visible-hint`}
           />
         </PropRow>
@@ -352,7 +375,12 @@ export function InternalFooterActions({ task, actions }: { task: TaskDetail; act
     if (mode === 'newVersion') {
       return (
         <div className="flex w-full items-center sm:justify-end">
-          <Button type="button" onClick={actions.openReturn} disabled={actions.busy !== null} className="flex-1 sm:flex-none">
+          <Button
+            type="button"
+            onClick={() => (actions.busy !== null ? undefined : actions.openReturn())}
+            disabled={actions.busyVisible}
+            className="flex-1 sm:flex-none"
+          >
             <Send aria-hidden="true" />
             {t('task.action.sendNewVersion')}
           </Button>
@@ -361,12 +389,25 @@ export function InternalFooterActions({ task, actions }: { task: TaskDetail; act
     }
     return (
       <div className="flex w-full items-center gap-2 sm:justify-end">
-        <Button type="button" variant="secondary" onClick={actions.openReturn} disabled={actions.busy !== null} className="flex-1 sm:flex-none">
+        {/* the running button shows its own busy look; the other one dims only after 150 ms (DESIGN §8.2) */}
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={() => (actions.busy !== null ? undefined : actions.openReturn())}
+          disabled={actions.busyVisible}
+          className="flex-1 sm:flex-none"
+        >
           <Send aria-hidden="true" />
           {t('task.action.returnToClient')}
         </Button>
-        <Button type="button" onClick={actions.accept} loading={actions.busy === 'accept'} disabled={actions.busy !== null} className="flex-1 sm:flex-none">
-          {actions.busy !== 'accept' && <Check aria-hidden="true" />}
+        <Button
+          type="button"
+          onClick={actions.accept}
+          loading={actions.busy === 'accept'}
+          disabled={actions.busy !== 'accept' && actions.busyVisible}
+          className="flex-1 sm:flex-none"
+        >
+          <Check aria-hidden="true" />
           {mode === 'payment' ? t('task.action.confirmPayment') : t('task.action.accept')}
         </Button>
       </div>
@@ -381,10 +422,10 @@ export function InternalFooterActions({ task, actions }: { task: TaskDetail; act
           type="button"
           onClick={() => void actions.setStatus(next)}
           loading={actions.busy === 'status'}
-          disabled={actions.busy !== null}
+          disabled={actions.busy !== 'status' && actions.busyVisible}
           className="flex-1 sm:flex-none"
         >
-          {actions.busy !== 'status' && <Icon aria-hidden="true" />}
+          <Icon aria-hidden="true" />
           {t(`enums.taskAction.${primary}`)}
         </Button>
       </div>

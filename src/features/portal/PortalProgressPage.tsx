@@ -9,6 +9,7 @@ import { CardSkeleton } from '@/components/common/skeletons';
 import { EmptyState } from '@/components/common/empty-state';
 import { ErrorState } from '@/components/common/error-state';
 import { PageHeader } from '@/components/common/page-header';
+import { useStagger } from '@/hooks/useMotion';
 import { usePortalProject, usePortalShell } from '@/hooks/usePortalProject';
 import { useQuery } from '@/hooks/useQuery';
 import { useViewer } from '@/hooks/useViewer';
@@ -30,6 +31,8 @@ export function PortalProgressPage() {
   });
 
   const shownProjects = (projects.data ?? []).filter((p) => !projectId || p.id === projectId);
+  // the milestone timelines unfold on the page's first load only (not when the project selector changes)
+  const rise = useStagger(!!projects.data);
 
   return (
     <div className="space-y-6 md:space-y-8">
@@ -38,7 +41,7 @@ export function PortalProgressPage() {
         <div className="min-w-0 space-y-5 md:space-y-6 lg:col-span-2">
           {projects.data ? (
             shownProjects.length > 0 ? (
-              shownProjects.map((p) => <ProjectTimelineCard key={p.id} project={p} />)
+              shownProjects.map((p) => <ProjectTimelineCard key={p.id} project={p} rise={rise} />)
             ) : (
               <Card>
                 <EmptyState icon={Flag} title={t('portal.progress.noProjects')} description={t('portal.progress.noProjectsHint')} />

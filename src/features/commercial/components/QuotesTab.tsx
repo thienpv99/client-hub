@@ -53,14 +53,25 @@ function QuoteKpis({
   onPick: (s: QuoteStatus | null) => void;
 }) {
   return (
-    <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
       {KPI_STATUSES.map(({ status: s, icon, tone }) => {
         const list = quotes.filter((q) => q.status === s);
         const value = list.reduce((sum, q) => sum + q.grand_total, 0);
         return (
           <KpiCard
             key={s}
-            label={t(`commercial.quotes.kpi.${s}`)}
+            label={
+              s === 'pending_approval' ? (
+                // a tile too narrow for "Chờ Giám đốc duyệt" on one line (2-up phones, 4-up iPad: < 168px inside) says
+                // "Chờ GĐ duyệt" instead of leaving "duyệt" alone on line 2 (container query on the card)
+                <>
+                  <span className="[@container_(max-width:167px)]:hidden">{t('commercial.quotes.kpi.pending_approval')}</span>
+                  <span className="hidden [@container_(max-width:167px)]:inline">{t('commercial.quotes.kpi.pending_approvalShort')}</span>
+                </>
+              ) : (
+                t(`commercial.quotes.kpi.${s}`)
+              )
+            }
             value={list.length}
             icon={icon}
             tone={list.length > 0 ? tone : 'neutral'}
@@ -130,7 +141,7 @@ export function QuotesTab() {
   if (query.loading) {
     return (
       <div className="space-y-6 md:space-y-8">
-        <KpiSkeleton count={4} className="grid-cols-2 gap-3 sm:gap-4" />
+        <KpiSkeleton count={4} className="grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4" />
         <TableSkeleton rows={6} cols={5} />
       </div>
     );

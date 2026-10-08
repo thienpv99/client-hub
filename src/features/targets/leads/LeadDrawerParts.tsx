@@ -67,7 +67,7 @@ export function FitExplanation({ lead }: { lead: LeadView }) {
 /** "Liên hệ tiếp theo": the date with urgency, "Đổi ngày" → inline date input (Lưu / Bỏ hẹn / Hủy) */
 export function FollowUpEditor({ lead, today }: { lead: LeadView; today: ISODate }) {
   const id = useId();
-  const { run, pending } = useAction();
+  const { run, pending, pendingVisible } = useAction();
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(lead.next_follow_up_date ?? '');
   useEffect(() => {
@@ -76,6 +76,7 @@ export function FollowUpEditor({ lead, today }: { lead: LeadView; today: ISODate
   }, [lead.id, lead.next_follow_up_date]);
 
   async function save(date: ISODate | null) {
+    if (pending) return;
     const company = lead.company_name;
     const r = await run(() => api.upsertLead(toLeadInput(lead, { next_follow_up_date: date })), {
       success: date ? t('targets.drawer.followUpSaved', { company, date: formatDate(date) }) : t('targets.drawer.followUpCleared', { company }),
@@ -121,11 +122,11 @@ export function FollowUpEditor({ lead, today }: { lead: LeadView; today: ISODate
         {t('common.save')}
       </Button>
       {lead.next_follow_up_date ? (
-        <Button type="button" variant="ghost" size="sm" disabled={pending} onClick={() => void save(null)}>
+        <Button type="button" variant="ghost" size="sm" disabled={pendingVisible} onClick={() => void save(null)}>
           {t('targets.drawer.followUpClear')}
         </Button>
       ) : null}
-      <Button type="button" variant="ghost" size="sm" disabled={pending} onClick={() => setEditing(false)}>
+      <Button type="button" variant="ghost" size="sm" disabled={pendingVisible} onClick={() => !pending && setEditing(false)}>
         {t('common.cancel')}
       </Button>
     </form>
@@ -145,10 +146,11 @@ export function OwnerControl({
   meId: string;
 }) {
   const id = useId();
-  const { run, pending } = useAction();
+  const { run, pending, pendingVisible } = useAction();
   const company = lead.company_name;
 
   async function assign(ownerId: string | null) {
+    if (pending) return;
     const person = people.find((p) => p.id === ownerId);
     await run(() => api.assignLeads([lead.id], ownerId), {
       success:
@@ -166,7 +168,7 @@ export function OwnerControl({
         <label htmlFor={id} className="sr-only">
           {t('targets.drawer.owner')}
         </label>
-        <NativeSelect id={id} size="sm" value={lead.owner?.id ?? ''} disabled={pending} onChange={(e) => void assign(e.target.value || null)}>
+        <NativeSelect id={id} size="sm" value={lead.owner?.id ?? ''} disabled={pendingVisible} onChange={(e) => void assign(e.target.value || null)}>
           <option value="">{t('targets.drawer.ownerNone')}</option>
           {people.map((p) => (
             <option key={p.id} value={p.id}>

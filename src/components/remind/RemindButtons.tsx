@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAction } from '@/hooks/useAction';
+import { useDelayedFlag } from '@/hooks/useMotion';
 import { useQuery } from '@/hooks/useQuery';
 import { useViewer } from '@/hooks/useViewer';
 import { t } from '@/i18n';
@@ -99,7 +100,8 @@ export function RemindClientButton({
       title={iconOnly ? text : undefined}
       onClick={() => void remind()}
     >
-      {pending ? null : <BellRing aria-hidden="true" />}
+      {/* kept while busy: the Button swaps it for its spinner after 150 ms (DESIGN §8.2) */}
+      <BellRing aria-hidden="true" />
       {iconOnly ? null : text}
     </Button>
   );
@@ -114,6 +116,8 @@ export function ZaloRemindButton({ taskId, size = 'sm', variant = 'secondary', c
   const allowed = canRemindClients(viewer);
   const [open, setOpen] = useState(false);
   const [copying, setCopying] = useState(false);
+  // the sibling's disabled look waits 150 ms (a fast copy never flashes it); copying still guards the click
+  const copyingVisible = useDelayedFlag(copying);
   const contentRef = useRef<HTMLDivElement>(null);
   const messageRef = useRef<HTMLParagraphElement>(null);
   const messageId = useId();
@@ -186,7 +190,7 @@ export function ZaloRemindButton({ taskId, size = 'sm', variant = 'secondary', c
 
         <div className="space-y-2.5 px-4 pb-4 pt-2">
           {query.loading || (!reminder && !query.error) ? (
-            <div role="status" aria-busy="true" className="space-y-2 rounded-lg bg-subtle p-3 ring-1 ring-inset ring-border/60">
+            <div role="status" aria-busy="true" className="skeleton-reveal space-y-2 rounded-lg bg-subtle p-3 ring-1 ring-inset ring-border/60">
               <span className="sr-only">{t('notify.zalo.loading')}</span>
               <Skeleton className="h-4 w-11/12" />
               <Skeleton className="h-4 w-4/5" />
@@ -215,7 +219,7 @@ export function ZaloRemindButton({ taskId, size = 'sm', variant = 'secondary', c
 
         <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border/60 bg-subtle/60 px-4 py-3">
           {reminder?.url ? (
-            <Button type="button" variant="ghost" size="sm" disabled={copying} onClick={() => void send(false)}>
+            <Button type="button" variant="ghost" size="sm" disabled={copyingVisible} onClick={() => { if (!copying) void send(false); }}>
               {t('notify.zalo.copyOnly')}
             </Button>
           ) : null}
@@ -227,7 +231,7 @@ export function ZaloRemindButton({ taskId, size = 'sm', variant = 'secondary', c
             className={cn(!reminder?.url && 'min-w-[9rem]')}
             onClick={() => void send(true)}
           >
-            {copying ? null : <Copy aria-hidden="true" />}
+            <Copy aria-hidden="true" />
             {reminder?.url ? t('notify.zalo.copyAndOpen') : t('notify.zalo.copy')}
           </Button>
         </div>

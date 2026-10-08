@@ -179,7 +179,7 @@ function ViewSkeleton({ view }: { view: TaskViewMode }) {
   if (view === 'timeline') return <CardSkeleton lines={7} />;
   // same frame as the board: bg-subtle columns, header row, white cards
   return (
-    <div role="status" aria-busy="true" className="flex gap-3 overflow-hidden xl:grid xl:grid-cols-4 xl:gap-4">
+    <div role="status" aria-busy="true" className="skeleton-reveal flex gap-3 overflow-hidden xl:grid xl:grid-cols-4 xl:gap-4">
       <span className="sr-only">{t('common.loading')}</span>
       {[3, 2, 2, 3].map((n, i) => (
         <div

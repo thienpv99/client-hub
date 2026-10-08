@@ -241,7 +241,7 @@ export function EcosystemDialog({ open, onOpenChange, eco, ecosystems, onSaved }
                             const checked = selected.has(o.key);
                             return (
                               <li key={o.key}>
-                                <label htmlFor={id} className="flex min-h-tap cursor-pointer items-center gap-3 px-3 py-2 hover:bg-subtle">
+                                <label htmlFor={id} className="flex min-h-tap cursor-pointer items-center gap-3 px-3 py-2 transition-colors duration-150 hover:bg-subtle">
                                   <Checkbox id={id} checked={checked} onCheckedChange={(v) => toggle(o.key, v === true)} />
                                   <AccountLogo account={o.logo} size="xs" />
                                   <span className="min-w-0 flex-1">

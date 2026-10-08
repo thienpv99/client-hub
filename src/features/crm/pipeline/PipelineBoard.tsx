@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import type { DragEvent } from 'react';
 import type { OpportunityView } from '@/services/crmContract';
 import { useMediaQuery } from '@/hooks/useMedia';
+import { useStagger } from '@/hooks/useMotion';
 import { t } from '@/i18n';
 import { formatMoneyCompact } from '@/lib/format';
 import { cn } from '@/components/ui/cn';
@@ -24,6 +25,8 @@ export interface PipelineBoardProps {
   close: CloseFlow;
   /** list tab filtered on a closed stage ("Xem thêm") */
   listHref?: (stage: 'won' | 'lost') => string;
+  /** the cards rise in column by column on first appearance (the page's entry tab only) */
+  stagger?: boolean;
 }
 
 type DropTarget = OpenStage | 'won' | 'lost';
@@ -50,9 +53,11 @@ function ColumnHeader({ stage, items, headingId }: { stage: OpenStage; items: Op
 
 const COLUMN = 'flex min-w-0 flex-col rounded-xl bg-subtle p-2 ring-1 ring-inset ring-border/60 transition-[background-color,box-shadow] duration-150';
 
-export function PipelineBoard({ items, today, close, listHref }: PipelineBoardProps) {
+export function PipelineBoard({ items, today, close, listHref, stagger = false }: PipelineBoardProps) {
   const moves = useStageMoves(items);
   const wide = useMediaQuery('(min-width: 768px)');
+  // DESIGN §8.4: the columns fill top-down together on first appearance; moves and refetches appear without motion
+  const rise = useStagger(stagger);
   const [dragging, setDragging] = useState<OpportunityView | null>(null);
   const [over, setOver] = useState<DropTarget | null>(null);
   const [focusId, setFocusId] = useState<string | null>(null);
@@ -101,8 +106,8 @@ export function PipelineBoard({ items, today, close, listHref }: PipelineBoardPr
     });
   };
 
-  const card = (o: OpportunityView) => (
-    <li key={o.id}>
+  const card = (o: OpportunityView, i: number) => (
+    <li key={o.id} {...rise(i)}>
       <OpportunityCard
         opp={o}
         stage={moves.stageOf(o)}

@@ -4,6 +4,7 @@
 import type { MouseEvent } from 'react';
 import type { ISODate } from '@/domain/types';
 import type { LeadView } from '@/services/crmContract';
+import type { RiseProps } from '@/hooks/useMotion';
 import { FitScoreBadge } from '@/components/crm/FitScoreBadge';
 import { DateText } from '@/components/common/date-text';
 import { Card } from '@/components/ui/card';
@@ -22,6 +23,8 @@ export interface LeadListProps {
   onToggle: (id: string, checked: boolean) => void;
   onToggleAll: (checked: boolean) => void;
   onOpen: (id: string) => void;
+  /** first-appearance stagger (LeadsTab's useStagger) */
+  rise?: (index: number) => RiseProps;
 }
 
 /** clicks on links/buttons/checkboxes inside a row, or a text selection, do not open the drawer */
@@ -60,7 +63,7 @@ function CompanyButton({ lead, onOpen, className }: { lead: LeadView; onOpen: (i
   );
 }
 
-export function LeadTable({ leads, today, selected, onToggle, onToggleAll, onOpen }: LeadListProps) {
+export function LeadTable({ leads, today, selected, onToggle, onToggleAll, onOpen, rise }: LeadListProps) {
   const all = selectionState(leads, selected);
   return (
     <Card className="overflow-hidden">
@@ -86,13 +89,15 @@ export function LeadTable({ leads, today, selected, onToggle, onToggleAll, onOpe
           </TableRow>
         </TableHeader>
         <TableBody>
-          {leads.map((l) => {
+          {leads.map((l, i) => {
             const checked = selected.has(l.id);
+            const r = rise?.(i);
             return (
               <TableRow
                 key={l.id}
                 data-state={checked ? 'selected' : undefined}
-                className="cursor-pointer"
+                className={cn('cursor-pointer', r?.className)}
+                style={r?.style}
                 onClick={(e) => {
                   if (!ignoreClick(e)) onOpen(l.id);
                 }}
@@ -148,7 +153,7 @@ export function LeadTable({ leads, today, selected, onToggle, onToggleAll, onOpe
   );
 }
 
-export function LeadCards({ leads, today, selected, onToggle, onToggleAll, onOpen }: LeadListProps) {
+export function LeadCards({ leads, today, selected, onToggle, onToggleAll, onOpen, rise }: LeadListProps) {
   const all = selectionState(leads, selected);
   const anySelectable = leads.some((l) => isSelectable(l.status));
   return (
@@ -164,11 +169,12 @@ export function LeadCards({ leads, today, selected, onToggle, onToggleAll, onOpe
         </label>
       ) : null}
       <ul className="grid gap-3 md:grid-cols-2">
-        {leads.map((l) => {
+        {leads.map((l, i) => {
           const checked = selected.has(l.id);
           const open = isOpenLead(l.status);
+          const r = rise?.(i);
           return (
-            <li key={l.id} className="min-w-0">
+            <li key={l.id} className={cn('min-w-0', r?.className)} style={r?.style}>
               <Card
                 interactive
                 onClick={(e) => {

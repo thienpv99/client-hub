@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import type { DirectorDashboard } from '@/services/contract';
+import { CountUp } from '@/components/common/count-up';
 import { SectionCard } from '@/components/common/section-card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -146,7 +147,10 @@ export function CashflowCard({
         <figure className="flex flex-1 flex-col">
           {/* the one-line summary that the chart illustrates */}
           <figcaption className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-            <span className="text-title font-semibold tracking-tightish tabular text-ink">{formatMoneyCompact(actualToDate)}</span>
+            <span className="text-title font-semibold tracking-tightish tabular text-ink" title={formatMoney(actualToDate)}>
+              {/* the hero number counts up on first paint (DESIGN §8.5), like the KPI tiles above */}
+              <CountUp value={formatMoneyCompact(actualToDate)} />
+            </span>
             <span className="text-caption tabular">
               {t('dashboard.cashflow.ofPlan', { planned: formatMoneyCompact(plannedToDate) })}
             </span>

@@ -38,7 +38,7 @@ function nextMonday(today: string): string {
 
 export function WinDialog({ opportunity, open, onOpenChange, onWon }: WinDialogProps) {
   const uid = useId();
-  const { run, pending } = useAction();
+  const { run, pending, pendingVisible } = useAction();
   const [createProject, setCreateProject] = useState(true);
   const [templateId, setTemplateId] = useState('');
   const [projectName, setProjectName] = useState('');
@@ -183,7 +183,7 @@ export function WinDialog({ opportunity, open, onOpenChange, onWon }: WinDialogP
               </FormField>
 
               <DialogFooter>
-                <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} disabled={pending}>
+                <Button type="button" variant="secondary" onClick={() => !pending && onOpenChange(false)} disabled={pendingVisible}>
                   {t('common.cancel')}
                 </Button>
                 <Button type="submit" loading={pending}>

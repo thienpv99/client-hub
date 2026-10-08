@@ -1,13 +1,14 @@
 // Dự báo: weighted value by expected close month (next 6 months) next to the value already won in those months —
 // one plain sentence on top (also the accessible summary) and a hidden data table — then the pipeline by stage as a
 // quiet funnel, and the deals that weigh most. DESIGN §4 charts: dashed horizontal grid, chart-1 actual, chart-3 planned.
+import { useMemo } from 'react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Link } from 'react-router-dom';
 import type { CrmDashboard } from '@/services/crmContract';
+import { useArrivalMotion } from '@/hooks/useMotion';
 import { t } from '@/i18n';
 import { formatMoney, formatMoneyCompact, formatPercent } from '@/lib/format';
 import { cn } from '@/components/ui/cn';
-import { SMALL } from '@/components/common/cx';
 import { AccountLogo } from '@/components/common/account-logo';
 import { SectionCard } from '@/components/common/section-card';
 import { crmPaths, stageLabel } from '@/components/crm/crmLabels';
@@ -28,6 +29,9 @@ const COLOR = {
   axis: 'rgb(var(--caption))',
   cursor: 'rgb(var(--muted))',
 };
+
+/** the bars' first-draw rise (same length as the KPI count-up) */
+const BAR_MS = 700;
 
 function Swatch({ kind }: { kind: 'planned' | 'actual' | 'total' }) {
   return (
@@ -74,10 +78,18 @@ function ForecastTooltip({ active, payload }: { active?: boolean; payload?: { pa
 }
 
 function ForecastChart({ forecast }: { forecast: CrmDashboard['forecast'] }) {
-  const rows: Row[] = forecast.map((f) => {
-    const n = Number(f.month.slice(5, 7));
-    return { month: f.month, n, year: f.month.slice(0, 4), label: t('common.monthShort', { n }), weighted: f.weighted, won: f.won };
-  });
+  // the bars rise once when the PAGE arrives (Recharts' own JS animation; off under reduced motion) — never again when a
+  // tab switch back to Dự báo remounts the chart (DESIGN.md §8.3)
+  const animate = useArrivalMotion();
+  // one array per data set: Recharts replays its animation whenever the data array changes identity
+  const rows: Row[] = useMemo(
+    () =>
+      forecast.map((f) => {
+        const n = Number(f.month.slice(5, 7));
+        return { month: f.month, n, year: f.month.slice(0, 4), label: t('common.monthShort', { n }), weighted: f.weighted, won: f.won };
+      }),
+    [forecast],
+  );
   const totalWeighted = rows.reduce((s, r) => s + r.weighted, 0);
   const totalWon = rows.reduce((s, r) => s + r.won, 0);
   const peak = rows.reduce<Row | null>((best, r) => (r.weighted > (best?.weighted ?? 0) ? r : best), null);
@@ -125,8 +137,8 @@ function ForecastChart({ forecast }: { forecast: CrmDashboard['forecast'] }) {
                     tick={{ fill: COLOR.axis, fontSize: 12 }}
                   />
                   <Tooltip cursor={{ fill: COLOR.cursor }} content={<ForecastTooltip />} isAnimationActive={false} wrapperStyle={{ outline: 'none' }} />
-                  <Bar dataKey="weighted" name={t('crm.forecast.weighted')} fill={COLOR.planned} radius={[6, 6, 0, 0]} maxBarSize={28} isAnimationActive={false} />
-                  <Bar dataKey="won" name={t('crm.forecast.won')} fill={COLOR.actual} radius={[6, 6, 0, 0]} maxBarSize={28} isAnimationActive={false} />
+                  <Bar dataKey="weighted" name={t('crm.forecast.weighted')} fill={COLOR.planned} radius={[6, 6, 0, 0]} maxBarSize={28} isAnimationActive={animate} animationDuration={BAR_MS} animationEasing="ease-out" />
+                  <Bar dataKey="won" name={t('crm.forecast.won')} fill={COLOR.actual} radius={[6, 6, 0, 0]} maxBarSize={28} isAnimationActive={animate} animationDuration={BAR_MS} animationEasing="ease-out" />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -161,12 +173,13 @@ function ForecastChart({ forecast }: { forecast: CrmDashboard['forecast'] }) {
 
 /** pipeline by stage: weighted value (darker) inside the total value (light) of each stage, on one scale */
 function StageFunnel({ pipeline }: { pipeline: CrmDashboard['pipeline'] }) {
+  const arrival = useArrivalMotion();
   const total = pipeline.reduce(
     (s, r) => ({ count: s.count + r.count, value: s.value + r.value, weighted: s.weighted + r.weighted }),
     { count: 0, value: 0, weighted: 0 },
   );
   const max = Math.max(1, ...pipeline.map((r) => r.value));
-  const pct = (v: number) => `${Math.max(0, Math.min(100, (v / max) * 100))}%`;
+  const pct = (v: number) => Math.max(0, Math.min(100, (v / max) * 100));
   return (
     <SectionCard
       title={t('crm.forecast.byStage')}
@@ -203,9 +216,16 @@ function StageFunnel({ pipeline }: { pipeline: CrmDashboard['pipeline'] }) {
               <span className="text-muted-foreground">{t('crm.forecast.ofValue', { value: formatMoneyCompact(r.value) })}</span>
             </p>
           </div>
+          {/* full-width fills moved by transform (DESIGN §8.5): they grow from empty on page arrival, ease to new values */}
           <div className="relative h-2 overflow-hidden rounded-full bg-muted" aria-hidden="true">
-            <span className="absolute inset-y-0 left-0 rounded-full bg-chart-4" style={{ width: pct(r.value) }} />
-            <span className="absolute inset-y-0 left-0 rounded-full bg-chart-3" style={{ width: pct(r.weighted) }} />
+            <span
+              className={cn('absolute inset-0 rounded-full bg-chart-4 transition-transform duration-500 ease-out-quart', arrival && 'animate-progress-grow')}
+              style={{ transform: `translateX(-${100 - pct(r.value)}%)` }}
+            />
+            <span
+              className={cn('absolute inset-0 rounded-full bg-chart-3 transition-transform duration-500 ease-out-quart', arrival && 'animate-progress-grow')}
+              style={{ transform: `translateX(-${100 - pct(r.weighted)}%)` }}
+            />
           </div>
         </div>
       ))}
@@ -229,15 +249,18 @@ function TopDeals({ items }: { items: CrmDashboard['top_opportunities'] }) {
             >
               {o.name}
             </Link>
-            <p className="truncate text-caption">
-              {t('crm.forecast.topLine', { account: o.account.short_name || o.account.name, stage: stageLabel(o.stage) })}
+            {/* "giá trị × %" lives in the caption, so the name keeps the row's width in the 1/3 side column */}
+            <p className="line-clamp-2 text-caption">
+              {t('crm.forecast.topMeta', {
+                account: o.account.short_name || o.account.name,
+                stage: stageLabel(o.stage),
+                value: formatMoneyCompact(o.value),
+                pct: formatPercent(o.probability),
+              })}
             </p>
           </div>
-          <span className="shrink-0 text-right tabular">
-            <span className="block text-table font-semibold text-ink">{formatMoneyCompact(o.weighted_value)}</span>
-            <span className={cn('block text-muted-foreground', SMALL)}>
-              {t('crm.forecast.topValue', { value: formatMoneyCompact(o.value), pct: formatPercent(o.probability) })}
-            </span>
+          <span className="shrink-0 whitespace-nowrap text-right text-table font-semibold tabular text-ink">
+            {formatMoneyCompact(o.weighted_value)}
           </span>
         </div>
       ))}

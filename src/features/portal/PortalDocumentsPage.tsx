@@ -20,6 +20,7 @@ import { enumLabel } from '@/components/common/labels';
 import { PageHeader } from '@/components/common/page-header';
 import { SectionCard } from '@/components/common/section-card';
 import { ListSkeleton } from '@/components/common/skeletons';
+import { useStagger } from '@/hooks/useMotion';
 import { usePortalProject, usePortalShell } from '@/hooks/usePortalProject';
 import { useQuery } from '@/hooks/useQuery';
 import { useViewer } from '@/hooks/useViewer';
@@ -76,6 +77,8 @@ export function PortalDocumentsPage() {
   const [preview, setPreview] = useState<FileView | null>(null);
 
   const query = useQuery<FileView[]>(() => api.listFiles({ accountId: accountId ?? undefined }), [accountId], { enabled: !!accountId });
+  // the project cards fade up one after the other on first load only (not while searching / filtering)
+  const rise = useStagger(!!query.data);
 
   const scoped = useMemo(
     () => (query.data ?? []).filter((f) => !projectId || f.project_id === projectId || f.project_id === null),
@@ -116,8 +119,8 @@ export function PortalDocumentsPage() {
         ) : (
           <div className="space-y-4">
             {/* toolbar placeholder (search + chips), then the rows card */}
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-4" aria-hidden="true">
-              <Skeleton className="h-11 w-full rounded-lg md:h-8 md:w-[280px]" />
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-4" aria-hidden="true">
+              <Skeleton className="h-11 w-full rounded-lg md:h-8 md:max-w-[420px] lg:w-[280px]" />
               <div className="flex gap-2">
                 <Skeleton className="h-11 w-20 rounded-full sm:h-8" />
                 <Skeleton className="h-11 w-24 rounded-full sm:h-8" />
@@ -137,7 +140,8 @@ export function PortalDocumentsPage() {
         </Card>
       ) : (
         <div className="space-y-4">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-4">
+          {/* side by side from lg: on iPad portrait the chips would wrap into two rows beside a one-line search */}
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-4">
             <Input
               type="search"
               icon={<Search />}
@@ -146,7 +150,7 @@ export function PortalDocumentsPage() {
               onChange={(e) => setSearch(e.target.value)}
               placeholder={t('portal.documents.searchPlaceholder')}
               aria-label={t('portal.documents.searchLabel')}
-              wrapperClassName="w-full md:w-[280px] md:shrink-0"
+              wrapperClassName="w-full md:max-w-[420px] lg:w-[280px] lg:shrink-0"
             />
             {kindOptions.length > 2 ? (
               <ChipFilter<KindFilter>
@@ -155,7 +159,7 @@ export function PortalDocumentsPage() {
                 onChange={(v) => setKind(v ?? 'all')}
                 allowDeselect={false}
                 ariaLabel={t('portal.documents.filterLabel')}
-                className="min-w-0 md:flex-1"
+                className="min-w-0 lg:flex-1"
               />
             ) : null}
           </div>
@@ -169,21 +173,25 @@ export function PortalDocumentsPage() {
               <SearchEmptyState entity="document" query={search} icon={FolderOpen} onClear={clearFilters} />
             </Card>
           ) : (
-            groups.map((g) => (
-              <SectionCard
-                key={g.key}
-                title={g.name}
-                description={t('portal.documents.fileCount', { count: g.files.length })}
-                flush
-                className="overflow-hidden"
-              >
-                <ul className="divide-y divide-border/60 border-t border-border/60">
-                  {g.files.map((f) => (
-                    <DocumentRow key={f.id} file={f} onPreview={setPreview} />
-                  ))}
-                </ul>
-              </SectionCard>
-            ))
+            groups.map((g, i) => {
+              const motion = rise(i);
+              return (
+                <div key={g.key} className={motion.className} style={motion.style}>
+                  <SectionCard
+                    title={g.name}
+                    description={t('portal.documents.fileCount', { count: g.files.length })}
+                    flush
+                    className="overflow-hidden"
+                  >
+                    <ul className="divide-y divide-border/60 border-t border-border/60">
+                      {g.files.map((f) => (
+                        <DocumentRow key={f.id} file={f} onPreview={setPreview} />
+                      ))}
+                    </ul>
+                  </SectionCard>
+                </div>
+              );
+            })
           )}
         </div>
       )}

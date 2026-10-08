@@ -1,13 +1,14 @@
 // Client portal frame (mobile-first, DESIGN §3). Tablet / desktop: 64px blurred header — client logo + "cùng New Era",
 // centred nav pills, compact project selector, bell, avatar. Phone (<768): compact header + bottom tab bar.
 // Portal canvas: max-w-[1120px].
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { AccountLogo } from '@/components/common/account-logo';
 import { NewEraMark } from '@/components/common/new-era-logo';
 import { TaskDrawerHost } from '@/components/task/TaskDrawerHost';
 import { NativeSelect } from '@/components/ui/native-select';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useSlidingIndicator } from '@/components/ui/use-sliding-indicator';
 import { OnboardingIntro } from '@/features/portal/OnboardingIntro';
 import { NotificationBell } from '@/features/shell/NotificationBell';
 import { UserMenu } from '@/features/shell/UserMenu';
@@ -18,7 +19,9 @@ import { t } from '@/i18n';
 import { toastError } from '@/lib/toast';
 import { cn } from '@/components/ui/cn';
 import { CLIENT_NAV, navFor, navItemForPath, type NavItem } from './navItems';
+import { PageTransition } from './PageTransition';
 import { SkipLink } from './SkipLink';
+import { TopProgressBar } from './TopProgressBar';
 import { ViewAsClientBanner } from './ViewAsClientBanner';
 
 const CANVAS = 'mx-auto w-full max-w-[1120px]';
@@ -70,8 +73,11 @@ function TopNavLink({ item, search, badge }: { item: NavItem; search: string; ba
       className={({ isActive }) =>
         cn(
           // touch-tap: 44px on a touch screen (iPad shows this top menu), index.css
-          'touch-tap inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-lg px-3 text-table font-medium transition-colors duration-150 ease-out-quart',
-          isActive ? 'bg-primary-soft text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+          'touch-tap relative inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-lg px-3 text-table font-medium transition-colors duration-150 ease-out-quart',
+          // the menu's sliding pill draws the active fill once placed (TopNav); until then the link draws it
+          isActive
+            ? 'bg-primary-soft text-primary group-data-[indicator=ready]/topnav:bg-transparent'
+            : 'text-muted-foreground hover:bg-muted/70 hover:text-foreground',
         )
       }
     >
@@ -95,7 +101,7 @@ function BottomTab({ item, search, badge }: { item: NavItem; search: string; bad
       end={item.end}
       className={({ isActive }) =>
         cn(
-          'relative flex min-h-[58px] flex-col items-center justify-center gap-1 px-0.5 pt-1 text-[11px] font-medium leading-[14px] transition-colors duration-150 active:scale-[0.97]',
+          'group/navtab relative flex min-h-[58px] flex-col items-center justify-center gap-1 px-0.5 pt-1 text-[11px] font-medium leading-[14px] transition-colors duration-150',
           // not `text-caption`: that class also sets a 13px font size (tailwind.config fontSize.caption)
           isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
         )
@@ -103,22 +109,75 @@ function BottomTab({ item, search, badge }: { item: NavItem; search: string; bad
     >
       {({ isActive }) => (
         <>
+          {/* 2px bar over the active tab: the tab bar's sliding indicator once placed (BottomNav), this mark until then
+              (margin, not a translate, so the indicator can measure where it sits) */}
           <span
             aria-hidden
+            data-tab-mark=""
             className={cn(
-              'absolute left-1/2 top-0 h-0.5 w-8 -translate-x-1/2 rounded-full bg-primary transition-opacity duration-200',
-              isActive ? 'opacity-100' : 'opacity-0',
+              'absolute left-1/2 top-0 -ml-4 h-0.5 w-8 rounded-full bg-primary',
+              isActive ? 'opacity-100 group-data-[indicator=ready]/tabbar:opacity-0' : 'opacity-0',
             )}
           />
-          <span className="relative">
+          {/* the press eases like the kit buttons (150 ms out, 100 ms in); only icon + label scale, never the 2px mark the
+              tab bar's indicator measures */}
+          <span className="relative transition-transform duration-150 ease-out-quart group-active/navtab:scale-[0.97] group-active/navtab:duration-100">
             <Icon className="h-[22px] w-[22px]" strokeWidth={isActive ? 2 : 1.75} aria-hidden />
             <CountBadge count={badge} className="absolute -right-2.5 -top-1.5 ring-2 ring-card" />
           </span>
-          <span className="max-w-full truncate whitespace-nowrap">{label}</span>
+          <span className="max-w-full truncate whitespace-nowrap transition-transform duration-150 ease-out-quart group-active/navtab:scale-[0.97] group-active/navtab:duration-100">
+            {label}
+          </span>
           {badge > 0 ? <span className="sr-only">{t('layout.nav.tasksBadge', { count: badge })}</span> : null}
         </>
       )}
     </NavLink>
+  );
+}
+
+const SLIDING_PILL =
+  'pointer-events-none absolute left-0 top-0 rounded-lg bg-primary-soft opacity-0 transition-[transform,width,height] duration-250 ease-out-quart';
+
+/** Desktop / iPad top menu: centred pills, one soft pill glides to the current section (DESIGN.md §8.3). */
+function TopNav({ items, search, badgeFor }: { items: NavItem[]; search: string; badgeFor(item: NavItem): number }) {
+  const navRef = useRef<HTMLElement | null>(null);
+  const pillRef = useRef<HTMLSpanElement | null>(null);
+  useSlidingIndicator(navRef, pillRef, { activeSelector: 'a[aria-current="page"]', itemSelector: 'a' });
+  return (
+    <nav ref={navRef} aria-label={t('layout.nav.main')} className="group/topnav relative hidden items-center gap-1 md:flex">
+      <span ref={pillRef} aria-hidden="true" className={SLIDING_PILL} />
+      {items.map((item) => (
+        <TopNavLink key={item.id} item={item} search={search} badge={badgeFor(item)} />
+      ))}
+    </nav>
+  );
+}
+
+/** Phone bottom tab bar: the 2px bar above the active tab glides between tabs. */
+function BottomNav({ items, search, badgeFor }: { items: NavItem[]; search: string; badgeFor(item: NavItem): number }) {
+  const navRef = useRef<HTMLElement | null>(null);
+  const barRef = useRef<HTMLSpanElement | null>(null);
+  useSlidingIndicator(navRef, barRef, { activeSelector: 'a[aria-current="page"] [data-tab-mark]', itemSelector: 'a' });
+  return (
+    <nav
+      ref={navRef}
+      aria-label={t('layout.nav.bottom')}
+      className="group/tabbar pb-safe fixed inset-x-0 bottom-0 z-30 border-t border-border/70 bg-card/95 backdrop-blur-md supports-[backdrop-filter]:bg-card/85 md:hidden"
+    >
+      {/* fixed = positioned: the nav is the indicator's containing block */}
+      <span
+        ref={barRef}
+        aria-hidden="true"
+        className="pointer-events-none absolute left-0 top-0 h-0.5 rounded-full bg-primary opacity-0 transition-[transform,width] duration-250 ease-out-quart"
+      />
+      <ul className="mx-auto flex max-w-lg items-stretch px-1">
+        {items.map((item) => (
+          <li key={item.id} className="min-w-0 flex-1">
+            <BottomTab item={item} search={search} badge={badgeFor(item)} />
+          </li>
+        ))}
+      </ul>
+    </nav>
   );
 }
 
@@ -213,11 +272,7 @@ export function ClientLayout() {
           <div className={cn(CANVAS, 'flex h-14 items-center gap-3 px-4 md:grid md:h-16 md:grid-cols-[1fr_auto_1fr] md:gap-4 md:px-6')}>
             <BrandLockup search={search} nameOnPhone={!showProjects} />
 
-            <nav aria-label={t('layout.nav.main')} className="hidden items-center gap-1 md:flex">
-              {items.map((item) => (
-                <TopNavLink key={item.id} item={item} search={search} badge={badgeFor(item)} />
-              ))}
-            </nav>
+            <TopNav items={items} search={search} badgeFor={badgeFor} />
 
             <div className="ml-auto flex min-w-0 items-center gap-1 justify-self-end md:gap-1.5">
               {showProjects ? (
@@ -243,24 +298,17 @@ export function ClientLayout() {
         tabIndex={-1}
         className={cn(CANVAS, 'px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-6 focus:outline-none md:px-6 md:pb-12 md:pt-8')}
       >
-        <Outlet />
+        {/* a new page fades up; the task drawer route (/portal/tasks/:taskId) and ?project= do not replay it */}
+        <PageTransition>
+          <Outlet />
+        </PageTransition>
       </main>
 
-      <nav
-        aria-label={t('layout.nav.bottom')}
-        className="pb-safe fixed inset-x-0 bottom-0 z-30 border-t border-border/70 bg-card/95 backdrop-blur-md supports-[backdrop-filter]:bg-card/85 md:hidden"
-      >
-        <ul className="mx-auto flex max-w-lg items-stretch px-1">
-          {items.map((item) => (
-            <li key={item.id} className="min-w-0 flex-1">
-              <BottomTab item={item} search={search} badge={badgeFor(item)} />
-            </li>
-          ))}
-        </ul>
-      </nav>
+      <BottomNav items={items} search={search} badgeFor={badgeFor} />
 
       <TaskDrawerHost />
       {showOnboarding ? <OnboardingIntro onDone={finishOnboarding} /> : null}
+      <TopProgressBar />
     </div>
   );
 }

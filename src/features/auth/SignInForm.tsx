@@ -11,6 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { errorMessage } from '@/hooks/useAction';
+import { useDelayedFlag } from '@/hooks/useMotion';
 import { t } from '@/i18n';
 import { toastInfo } from '@/lib/toast';
 import { cleanOtp, isStaffEmail, isValidEmail } from './authUtils';
@@ -53,6 +54,9 @@ export function SignInForm({ className }: { className?: string }) {
   const [announcement, setAnnouncement] = useState('');
   const [resendReadyAt, setResendReadyAt] = useState(0);
   const [now, setNow] = useState(() => Date.now());
+  // pending visuals ("Đang …" labels, dimmed controls) wait 150 ms; `pending` / `inFlight` keep guarding at once
+  const pendingVisible = useDelayedFlag(pending);
+  const resendingVisible = useDelayedFlag(resending);
 
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
@@ -251,7 +255,7 @@ export function SignInForm({ className }: { className?: string }) {
       {/* the whole text block is the label: a ≥44px tap target on phones (SPEC §7), not only the 20px title line */}
       <Label htmlFor={`${ids}-remember`} className="grid min-h-tap flex-1 cursor-pointer content-start gap-0.5 md:min-h-0">
         <span>{t('auth.remember')}</span>
-        <span className="text-caption font-normal">{t('auth.rememberHint')}</span>
+        <span className="text-pretty text-caption font-normal">{t('auth.rememberHint')}</span>
       </Label>
     </div>
   );
@@ -264,125 +268,130 @@ export function SignInForm({ className }: { className?: string }) {
       </div>
 
       <form onSubmit={onSubmit} onKeyDown={onKeyDown} noValidate className="space-y-5">
-        {step === 'email' ? (
-          <div className="grid gap-2">
-            <Label htmlFor={`${ids}-email`}>{t('auth.email')}</Label>
-            <Input
-              ref={emailRef}
-              id={`${ids}-email`}
-              name="username"
-              type="email"
-              inputMode="email"
-              autoComplete="username"
-              autoCapitalize="none"
-              spellCheck={false}
-              placeholder={t('auth.emailPlaceholder')}
-              value={email}
-              onChange={(e) => {
-                setEmail(e.target.value);
-                if (error) setError(null);
-              }}
-              {...fieldError}
-            />
-            <FormError id={errorId} message={error} />
-          </div>
-        ) : (
-          <EmailChip email={address} disabled={pending || resending} onChange={backToEmail} />
-        )}
-
-        {step === 'password' ? (
-          <div className="grid gap-2">
-            {/* for password managers: the account this password belongs to (the visible field left with step 1) */}
-            <input type="email" name="username" autoComplete="username" value={address} readOnly hidden tabIndex={-1} aria-hidden />
-            <Label htmlFor={`${ids}-password`}>{t('auth.password')}</Label>
-            <div className="relative">
+        {/* keyed by step: the step's own fields fade in (150 ms, like tab content) while the rest stays put */}
+        <div key={step} className="animate-fade-in space-y-5">
+          {step === 'email' ? (
+            <div className="grid gap-2">
+              <Label htmlFor={`${ids}-email`}>{t('auth.email')}</Label>
               <Input
-                ref={passwordRef}
-                id={`${ids}-password`}
-                name="password"
-                type={showPassword ? 'text' : 'password'}
-                autoComplete="current-password"
+                ref={emailRef}
+                id={`${ids}-email`}
+                name="username"
+                type="email"
+                inputMode="email"
+                autoComplete="username"
                 autoCapitalize="none"
                 spellCheck={false}
-                placeholder={t('auth.passwordPlaceholder')}
-                value={password}
+                placeholder={t('auth.emailPlaceholder')}
+                value={email}
                 onChange={(e) => {
-                  setPassword(e.target.value);
+                  setEmail(e.target.value);
                   if (error) setError(null);
                 }}
-                className="pr-12 md:pr-11"
                 {...fieldError}
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                className="absolute right-0 top-1/2 -translate-y-1/2 md:right-1"
-                aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
-                aria-controls={`${ids}-password`}
-                onClick={() => setShowPassword((v) => !v)}
-              >
-                {showPassword ? <EyeOff aria-hidden /> : <Eye aria-hidden />}
-              </Button>
-            </div>
-            <FormError id={errorId} message={error} />
-          </div>
-        ) : null}
-
-        {step === 'code' ? (
-          <>
-            {demoCode ? (
-              <div className="flex items-center gap-3 rounded-lg border border-primary-border/70 bg-primary-soft py-1 pl-3 pr-2 text-table text-primary">
-                <KeyRound className="h-4 w-4 shrink-0" aria-hidden />
-                <span className="flex-1 py-1.5 tabular">{t('auth.otp.demoHint', { code: demoCode })}</span>
-                <Button type="button" variant="link" size="sm" className="shrink-0 px-1" onClick={() => onCodeChange(demoCode)}>
-                  {t('auth.otp.fillCode')}
-                </Button>
-              </div>
-            ) : null}
-            <div className="grid gap-2">
-              <Label htmlFor={`${ids}-code`}>{t('auth.otp.code')}</Label>
-              <p id={`${ids}-code-hint`} className="-mt-1 text-caption">
-                {t('auth.otp.sentTo')}
-              </p>
-              {/* no maxLength: a pasted "246 810" or "Mã: 246810" is cleaned to its 6 digits. The indent balances the
-                  letter-spacing after the last digit, so the code sits centred. */}
-              <Input
-                ref={codeRef}
-                id={`${ids}-code`}
-                name="otp"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                pattern="[0-9]*"
-                placeholder={t('auth.otp.codePlaceholder')}
-                value={code}
-                onChange={(e) => onCodeChange(e.target.value)}
-                className="h-14 text-center indent-[0.5em] text-display font-semibold tracking-[0.5em] tabular md:h-14 md:text-display"
-                aria-invalid={error ? true : undefined}
-                aria-describedby={error ? `${ids}-code-hint ${errorId}` : `${ids}-code-hint`}
               />
               <FormError id={errorId} message={error} />
             </div>
-          </>
-        ) : null}
+          ) : (
+            // the click is guarded (backToEmail ignores it while a request runs); only the dimmed look waits
+            <EmailChip email={address} disabled={pendingVisible || resendingVisible} onChange={backToEmail} />
+          )}
+
+          {step === 'password' ? (
+            <div className="grid gap-2">
+              {/* for password managers: the account this password belongs to (the visible field left with step 1) */}
+              <input type="email" name="username" autoComplete="username" value={address} readOnly hidden tabIndex={-1} aria-hidden />
+              <Label htmlFor={`${ids}-password`}>{t('auth.password')}</Label>
+              <div className="relative">
+                <Input
+                  ref={passwordRef}
+                  id={`${ids}-password`}
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="current-password"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  placeholder={t('auth.passwordPlaceholder')}
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    if (error) setError(null);
+                  }}
+                  className="pr-12 md:pr-11"
+                  {...fieldError}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  className="absolute right-0 top-1/2 -translate-y-1/2 md:right-1"
+                  aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
+                  aria-controls={`${ids}-password`}
+                  onClick={() => setShowPassword((v) => !v)}
+                >
+                  {showPassword ? <EyeOff aria-hidden /> : <Eye aria-hidden />}
+                </Button>
+              </div>
+              <FormError id={errorId} message={error} />
+            </div>
+          ) : null}
+
+          {step === 'code' ? (
+            <>
+              {demoCode ? (
+                <div className="flex items-center gap-3 rounded-lg border border-primary-border/70 bg-primary-soft py-1 pl-3 pr-2 text-table text-primary">
+                  <KeyRound className="h-4 w-4 shrink-0" aria-hidden />
+                  <span className="flex-1 py-1.5 tabular">{t('auth.otp.demoHint', { code: demoCode })}</span>
+                  <Button type="button" variant="link" size="sm" className="shrink-0 px-1" onClick={() => onCodeChange(demoCode)}>
+                    {t('auth.otp.fillCode')}
+                  </Button>
+                </div>
+              ) : null}
+              <div className="grid gap-2">
+                <Label htmlFor={`${ids}-code`}>{t('auth.otp.code')}</Label>
+                <p id={`${ids}-code-hint`} className="-mt-1 text-caption">
+                  {t('auth.otp.sentTo')}
+                </p>
+                {/* no maxLength: a pasted "246 810" or "Mã: 246810" is cleaned to its 6 digits. The indent balances the
+                    letter-spacing after the last digit, so the code sits centred. */}
+                <Input
+                  ref={codeRef}
+                  id={`${ids}-code`}
+                  name="otp"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  pattern="[0-9]*"
+                  placeholder={t('auth.otp.codePlaceholder')}
+                  value={code}
+                  onChange={(e) => onCodeChange(e.target.value)}
+                  className="h-14 text-center indent-[0.5em] text-display font-semibold tracking-[0.5em] tabular md:h-14 md:text-display"
+                  aria-invalid={error ? true : undefined}
+                  aria-describedby={error ? `${ids}-code-hint ${errorId}` : `${ids}-code-hint`}
+                />
+                <FormError id={errorId} message={error} />
+              </div>
+            </>
+          ) : null}
+        </div>
 
         {rememberRow}
 
+        {/* "Đang …" only once the work has taken 150 ms (DESIGN §8.2): a quick sign-in never flashes it */}
         <Button type="submit" className="w-full" loading={pending}>
           {step === 'email'
-            ? pending
+            ? pendingVisible
               ? t('auth.otp.requesting')
               : t('auth.continue')
             : step === 'password'
-              ? pending
+              ? pendingVisible
                 ? t('auth.submitting')
                 : t('auth.submit')
-              : pending
+              : pendingVisible
                 ? t('auth.otp.verifying')
                 : t('auth.otp.verify')}
         </Button>
 
-        {step === 'password' ? <p className="text-center text-caption">{t('auth.internalHint')}</p> : null}
+        {step === 'password' ? <p className="text-balance text-center text-caption">{t('auth.internalHint')}</p> : null}
 
         {step === 'code' ? (
           <div className="text-center">
@@ -391,7 +400,7 @@ export function SignInForm({ className }: { className?: string }) {
               variant="link"
               size="sm"
               className="tabular"
-              disabled={pending || resending || resendIn > 0}
+              disabled={pendingVisible || resending || resendIn > 0}
               loading={resending}
               onClick={() => void resend()}
             >

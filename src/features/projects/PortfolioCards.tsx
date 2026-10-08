@@ -4,6 +4,7 @@
 import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import type { ProjectPortfolioRow } from '@/services/crmContract';
+import type { RiseProps } from '@/hooks/useMotion';
 import { AccountLogo } from '@/components/common/account-logo';
 import { HealthBadge } from '@/components/common/health-badge';
 import { MICRO_MUTED, SMALL } from '@/components/common/cx';
@@ -14,17 +15,16 @@ import { t } from '@/i18n';
 import { AmName, EndDates, NextMilestone, ProgressInfo, SlipLabel, TeamStack } from './ProjectBits';
 import { accountTasksHref, roadmapHref } from './projectsModel';
 
-/** DESIGN §7.5 clickable card (custom element): hover lift + border, focus ring on the stretched link */
-export const CARD_INTERACTIVE =
-  'relative rounded-xl border border-border/70 bg-card shadow-card transition-[transform,box-shadow,border-color] duration-200 ease-out-quart hover:-translate-y-px hover:border-border hover:shadow-card-hover';
+/** DESIGN §8.3 clickable card (custom element): the shared hover lift (= Card interactive) + border, focus ring on the stretched link */
+export const CARD_INTERACTIVE = 'hover-lift relative rounded-xl border border-border/70 bg-card shadow-card hover:border-border';
 
 /** stretched link: the whole card is the target, the focus ring follows the card's corners */
 export const STRETCHED_LINK =
   "after:absolute after:inset-0 after:rounded-xl after:content-[''] focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-primary focus-visible:after:ring-offset-2";
 
-function PortfolioCard({ project: p }: { project: ProjectPortfolioRow }) {
+function PortfolioCard({ project: p, rise }: { project: ProjectPortfolioRow; rise?: RiseProps }) {
   return (
-    <li className={cn(CARD_INTERACTIVE, 'flex min-w-0 flex-col text-table')}>
+    <li className={cn(CARD_INTERACTIVE, 'flex min-w-0 flex-col text-table', rise?.className)} style={rise?.style}>
       <div className="flex flex-1 flex-col gap-4 p-4 sm:p-5">
         {/* entity line on top (the name gets the whole width), then the status row: health · slip */}
         <div className="flex items-start gap-3">
@@ -82,11 +82,11 @@ function PortfolioCard({ project: p }: { project: ProjectPortfolioRow }) {
   );
 }
 
-export function PortfolioCards({ rows }: { rows: ProjectPortfolioRow[] }) {
+export function PortfolioCards({ rows, rise }: { rows: ProjectPortfolioRow[]; rise?: (index: number) => RiseProps }) {
   return (
     <ul className="grid gap-3 sm:gap-4 md:grid-cols-2">
-      {rows.map((p) => (
-        <PortfolioCard key={p.id} project={p} />
+      {rows.map((p, i) => (
+        <PortfolioCard key={p.id} project={p} rise={rise?.(i)} />
       ))}
     </ul>
   );

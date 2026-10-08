@@ -145,8 +145,9 @@ export function OpportunityCard({
       aria-busy={moving || undefined}
       className={cn(
         'group relative space-y-2 rounded-lg border border-border/70 bg-card p-3 shadow-xs',
-        'transition-[transform,box-shadow,border-color,opacity] duration-150 ease-out-quart',
-        'hover:-translate-y-px hover:border-primary-border hover:shadow-card-hover focus-within:border-primary-border',
+        // the hover lift of every clickable card (Card interactive, DESIGN §8.3); keyboard focus keeps the blue edge
+        'transition-[transform,box-shadow,border-color,opacity] duration-200 ease-out-quart',
+        'hover:-translate-y-px hover:border-border hover:shadow-card-hover active:translate-y-0 focus-within:border-primary-border',
         'data-[ghost]:rotate-1 data-[ghost]:shadow-pop data-[ghost]:transition-none',
         draggable && 'cursor-grab active:cursor-grabbing',
         dragging && 'opacity-40',

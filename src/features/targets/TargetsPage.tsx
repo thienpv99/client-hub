@@ -8,6 +8,7 @@ import { api } from '@/services/api';
 import { useQuery } from '@/hooks/useQuery';
 import { useViewer } from '@/hooks/useViewer';
 import { PAGE_TABS_BLEED, PageHeader } from '@/components/common/page-header';
+import { useEntryView } from '@/components/crm/useEntryView';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { t } from '@/i18n';
@@ -42,6 +43,8 @@ export function TargetsPage() {
   // the browser tab title (page, or the open lead's company) comes from InternalLayout's breadcrumbs
 
   const current: TargetsTab = leadId ? 'leads' : isTab(tab) ? tab : 'leads';
+  // the focal list staggers in on the tab the page was opened on only (a tab switch just fades, DESIGN §8.3)
+  const stagger = useEntryView(current);
   if (!leadId && tab !== undefined && !isTab(tab)) return <Navigate to="/app/targets/leads" replace />;
 
   function openLead(id: string) {
@@ -71,6 +74,7 @@ export function TargetsPage() {
         title={t('targets.title')}
         description={t('targets.intro')}
         actions={action}
+        actionsInline
         tabs={
           <TabsList variant="underline" aria-label={t('targets.tabsLabel')} className={PAGE_TABS_BLEED}>
             {TABS.map((key) => (
@@ -83,13 +87,13 @@ export function TargetsPage() {
       />
 
       <TabsContent value="leads" className="mt-0">
-        <LeadsTab people={people} isDirector={isDirector} meId={meId} onOpenLead={openLead} onAddLead={() => setLeadFormOpen(true)} />
+        <LeadsTab people={people} isDirector={isDirector} meId={meId} onOpenLead={openLead} onAddLead={() => setLeadFormOpen(true)} stagger={stagger} />
       </TabsContent>
       <TabsContent value="segments" className="mt-0">
-        <SegmentsTab isDirector={isDirector} meId={meId} onOpenLead={openLead} createRequest={segmentRequest} />
+        <SegmentsTab isDirector={isDirector} meId={meId} onOpenLead={openLead} createRequest={segmentRequest} stagger={stagger} />
       </TabsContent>
       <TabsContent value="accounts" className="mt-0">
-        <TargetAccountsTab />
+        <TargetAccountsTab stagger={stagger} />
       </TabsContent>
       <TabsContent value="icp" className="mt-0">
         <IcpTab isDirector={isDirector} />

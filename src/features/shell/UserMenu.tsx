@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useExitViewAs } from '@/layouts/ViewAsClientBanner';
 import { toastApiError } from '@/hooks/useAction';
+import { useDelayedFlag } from '@/hooks/useMotion';
 import { useViewer } from '@/hooks/useViewer';
 import { t } from '@/i18n';
 import { toastSuccess } from '@/lib/toast';
@@ -49,6 +50,8 @@ export function UserMenu({ side, accountName, className, variant = 'avatar' }: U
   const { exit: exitViewAs } = useExitViewAs();
   const [resetOpen, setResetOpen] = useState(false);
   const [resetting, setResetting] = useState(false);
+  // "Hủy" dims only once the reset has taken 150 ms (DESIGN §8.2); onOpenChange keeps blocking a close at once
+  const resettingVisible = useDelayedFlag(resetting);
 
   if (!viewer) return null;
   const user = viewer.user;
@@ -69,6 +72,7 @@ export function UserMenu({ side, accountName, className, variant = 'avatar' }: U
   }
 
   async function resetDemo() {
+    if (resetting) return;
     setResetting(true);
     try {
       await api.resetDemoData();
@@ -182,7 +186,7 @@ export function UserMenu({ side, accountName, className, variant = 'avatar' }: U
             <AlertDialogDescription>{t('layout.userMenu.resetDescription')}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={resetting}>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogCancel disabled={resettingVisible}>{t('common.cancel')}</AlertDialogCancel>
             <Button type="button" variant="destructive" loading={resetting} onClick={() => void resetDemo()}>
               {t('layout.userMenu.resetConfirm')}
             </Button>

@@ -12,6 +12,7 @@ import { Eye, Pencil } from 'lucide-react';
 import type { AccountDetail } from '@/services/contract';
 import { api } from '@/services/api';
 import { useAction } from '@/hooks/useAction';
+import { jumpScrollTo } from '@/hooks/useMotion';
 import { t } from '@/i18n';
 import { formatMoney, formatMoneyCompact } from '@/lib/format';
 import { cn } from '@/components/ui/cn';
@@ -45,7 +46,8 @@ export function keepTabsInView(): void {
   const anchor = document.getElementById(ANCHOR_ID);
   if (!anchor) return;
   const top = anchor.getBoundingClientRect().top;
-  if (top < STICK_TOP) window.scrollTo({ top: window.scrollY + top - STICK_TOP + 1 });
+  // a jump, not a glide (html has smooth anchor scrolling): the tab bar must not drift while the new tab fades in
+  if (top < STICK_TOP) jumpScrollTo(window.scrollY + top - STICK_TOP + 1);
 }
 
 /** true once the element has scrolled up under the sticky rows (its bottom above `offset` px from the viewport top) */
@@ -76,7 +78,8 @@ function PinnedFacts({ account, access, className }: { account: AccountDetail; a
   const tier = enumLabel('tier', account.tier);
   const stage = enumLabel('stage', account.stage);
   return (
-    <div aria-hidden="true" className={cn('min-w-0 items-center gap-x-3', className)}>
+    // fades in as it takes over from the scrolled-away facts (opacity only: the sticky row never changes height)
+    <div aria-hidden="true" className={cn('min-w-0 animate-fade-in items-center gap-x-3', className)}>
       <HealthBadge health={account.health.value} size="sm" />
       {/* iPad: the stage alone; from xl: tier · stage */}
       <span
@@ -87,7 +90,7 @@ function PinnedFacts({ account, access, className }: { account: AccountDetail; a
         {stage}
       </span>
       <span className="inline-flex shrink-0 items-center gap-1.5" title={`${t('account.header.am')}: ${account.am.full_name}`}>
-        <UserAvatar user={account.am} size="xs" />
+        <UserAvatar user={account.am} size="xs" className="bg-card" />
         <span className="hidden whitespace-nowrap text-table text-foreground xl:inline">{shortPersonName(account.am.full_name)}</span>
       </span>
       {value !== null ? (
@@ -185,7 +188,8 @@ function ViewAsButton({ accountId, pinned }: { accountId: string; pinned: boolea
         title={t('account.header.viewAsTitle')}
         className={pinned ? 'hidden xl:inline-flex' : 'hidden sm:inline-flex'}
       >
-        {pending ? null : <Eye aria-hidden="true" />}
+        {/* the Button swaps the icon for its spinner itself (after 150 ms) */}
+        <Eye aria-hidden="true" />
         {t('account.header.viewAs')}
       </Button>
     </>

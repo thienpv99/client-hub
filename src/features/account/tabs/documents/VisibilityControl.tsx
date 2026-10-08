@@ -1,4 +1,5 @@
 // "Nội bộ" / "Chia sẻ với khách" for one file version. Managers switch it (5-second undo); others see a badge.
+import { useEffect, useState } from 'react';
 import { Lock, Users } from 'lucide-react';
 import type { FileView, Visibility } from '@/services/contract';
 import { api } from '@/services/api';
@@ -22,14 +23,25 @@ export interface VisibilityControlProps {
 }
 
 export function VisibilityControl({ file, canEdit, versionLabel }: VisibilityControlProps) {
-  const { run, pending } = useAction();
+  const { run, pending, pendingVisible } = useAction();
+  // optimistic: the segment indicator glides to the new side at once; the refetched file then takes over
+  // (a refused change snaps back — useAction toasts why)
+  const [optimistic, setOptimistic] = useState<Visibility | null>(null);
+  useEffect(() => {
+    if (optimistic !== null && file.visibility === optimistic) setOptimistic(null);
+  }, [file.visibility, optimistic]);
   if (!canEdit) return file.visibility === 'internal' ? <InternalOnlyBadge /> : <SharedBadge />;
+  const shown = optimistic ?? file.visibility;
 
   async function change(next: Visibility) {
-    if (next === file.visibility) return;
+    if (pending || next === shown) return;
     const previous = file.visibility;
+    setOptimistic(next);
     const result = await run(() => api.setFileVisibility(file.id, next));
-    if (!result) return;
+    if (!result) {
+      setOptimistic(null);
+      return;
+    }
     toastSuccess(t(next === 'shared' ? 'account.documents.sharedToast' : 'account.documents.internalToast', { name: file.name }), {
       onUndo: async () => {
         try {
@@ -48,11 +60,12 @@ export function VisibilityControl({ file, canEdit, versionLabel }: VisibilityCon
       type="single"
       variant="segmented"
       size="sm"
-      value={file.visibility}
+      value={shown}
       onValueChange={(v) => {
         if (isVisibility(v)) void change(v);
       }}
-      disabled={pending}
+      disabled={pendingVisible}
+      aria-busy={pending || undefined}
       aria-label={t('account.documents.visibilityLabel', { name })}
       className="shrink-0"
     >

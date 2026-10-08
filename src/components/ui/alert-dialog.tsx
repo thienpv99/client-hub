@@ -4,6 +4,7 @@ import type { VariantProps } from 'class-variance-authority';
 import { cn } from '@/components/ui/cn';
 import { buttonVariants } from '@/components/ui/button';
 import { dialogPanelClassName } from '@/components/ui/dialog';
+import { CaptureOpener, useReturnFocus } from '@/components/ui/use-return-focus';
 
 // Confirm dialog for destructive / irreversible actions (DESIGN.md §6). Same panel as Dialog; no close (X) —
 // the user answers with Cancel or the action.
@@ -19,7 +20,8 @@ const AlertDialogOverlay = React.forwardRef<
   <AlertDialogPrimitive.Overlay
     ref={ref}
     className={cn(
-      'fixed inset-0 z-50 bg-ink/40 data-[state=open]:animate-fade-in data-[state=closed]:animate-fade-out',
+      // same scrim as Dialog (DESIGN.md §8): fade + light blur
+      'fixed inset-0 z-50 bg-ink/35 backdrop-blur-[2px] data-[state=open]:animate-fade-in data-[state=closed]:animate-fade-out',
       className,
     )}
     {...props}
@@ -30,12 +32,19 @@ AlertDialogOverlay.displayName = 'AlertDialogOverlay';
 const AlertDialogContent = React.forwardRef<
   React.ElementRef<typeof AlertDialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Content>
->(({ className, ...props }, ref) => (
-  <AlertDialogPortal>
-    <AlertDialogOverlay />
-    <AlertDialogPrimitive.Content ref={ref} className={cn(dialogPanelClassName, className)} {...props} />
-  </AlertDialogPortal>
-));
+>(({ className, children, onOpenAutoFocus, onCloseAutoFocus, ...props }, ref) => {
+  // focus goes back to whatever opened the dialog (most confirm dialogs have no AlertDialogTrigger)
+  const { opener, focusProps } = useReturnFocus(onOpenAutoFocus, onCloseAutoFocus);
+  return (
+    <AlertDialogPortal>
+      <AlertDialogOverlay />
+      <AlertDialogPrimitive.Content ref={ref} className={cn(dialogPanelClassName, className)} {...props} {...focusProps}>
+        <CaptureOpener into={opener} />
+        {children}
+      </AlertDialogPrimitive.Content>
+    </AlertDialogPortal>
+  );
+});
 AlertDialogContent.displayName = 'AlertDialogContent';
 
 function AlertDialogHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {

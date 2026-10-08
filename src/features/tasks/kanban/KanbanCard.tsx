@@ -1,12 +1,13 @@
 // One Kanban card (DESIGN §5): white `rounded-lg border shadow-xs p-3 space-y-2`, hover lift; drag ghost lifted
 // (`shadow-pop rotate-1`). Type + side, title (2 lines), blocker, due chip, reminders, assignee.
 // Click anywhere opens the task drawer; HTML5 drag (mouse) or the "Chuyển sang…" menu (keyboard, touch) moves it.
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { DragEvent } from 'react';
 import { BellRing, EyeOff, Lock } from 'lucide-react';
 import type { TaskStatus, TaskView } from '@/services/contract';
 import { t } from '@/i18n';
 import { cn } from '@/components/ui/cn';
+import { useDelayedFlag } from '@/hooks/useMotion';
 import { useTaskDrawer } from '@/hooks/useTaskDrawer';
 import { blockerText } from '@/components/common/blocked-note';
 import { SMALL } from '@/components/common/cx';
@@ -29,8 +30,6 @@ export interface KanbanCardProps {
 
 export const DRAG_MIME = 'application/x-clienthub-task';
 
-/** classes the browser's drag image is captured with (applied for one frame at dragstart) */
-const GHOST = ['shadow-pop', 'rotate-1', 'border-primary-border'];
 
 export function KanbanCard({ task, status, moving, dragging, focusRequest = false, onMove, onDragStart, onDragEnd }: KanbanCardProps) {
   const { open } = useTaskDrawer();
@@ -40,6 +39,9 @@ export function KanbanCard({ task, status, moving, dragging, focusRequest = fals
   const canMove = task.can.change_status;
   const hiddenFromClient = task.side === 'internal' && !task.client_visible;
   const firstBlocker = task.blocked ? task.blocked_by[0] : undefined;
+  const movingVisible = useDelayedFlag(moving);
+  // mounted while its move is in flight = it just landed in this column: a 150 ms fade shows where it went
+  const [landed] = useState(moving);
 
   useEffect(() => {
     if (!focusRequest) return;
@@ -52,10 +54,14 @@ export function KanbanCard({ task, status, moving, dragging, focusRequest = fals
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData(DRAG_MIME, task.id);
     e.dataTransfer.setData('text/plain', task.title);
-    // the drag image is a snapshot taken right after this handler: lift the card for that snapshot only
+    // the drag image is a snapshot taken right after this handler: lift the card for that snapshot only — data-ghost
+    // switches the look on WITHOUT the 200 ms transition (else the snapshot catches the flat start values), as the
+    // pipeline's OpportunityCard does
     const el = e.currentTarget;
-    el.classList.add(...GHOST);
-    window.requestAnimationFrame(() => el.classList.remove(...GHOST));
+    el.dataset.ghost = '';
+    window.requestAnimationFrame(() => {
+      delete el.dataset.ghost;
+    });
     onDragStart(task);
   };
 
@@ -67,11 +73,16 @@ export function KanbanCard({ task, status, moving, dragging, focusRequest = fals
       aria-busy={moving || undefined}
       className={cn(
         'group relative space-y-2 rounded-lg border border-border/70 bg-card p-3 shadow-xs',
-        'transition-[transform,border-color,opacity,box-shadow] duration-150 ease-out-quart',
-        'hover:-translate-y-px hover:border-primary-border hover:shadow-card-hover focus-within:border-primary-border',
+        // the clickable-card lift of DESIGN §8.3 (200 ms, −1px, soft shadow, neutral hairline); blue stays for focus
+        'transition-[transform,border-color,opacity,box-shadow] duration-200 ease-out-quart',
+        'hover:-translate-y-px hover:border-border hover:shadow-card-hover active:translate-y-0 focus-within:border-primary-border',
+        // the drag image (one frame at dragstart): lifted, tilted, no transition
+        'data-[ghost]:rotate-1 data-[ghost]:border-primary-border data-[ghost]:shadow-pop data-[ghost]:transition-none',
         canMove && 'cursor-grab active:cursor-grabbing',
+        landed && 'animate-fade-in',
         dragging && 'opacity-40',
-        moving && 'opacity-70',
+        // a move that waits on the service dims the card only after 150 ms (a fast move never flickers)
+        movingVisible && 'opacity-70',
       )}
     >
       <div className="flex min-h-6 items-center gap-1.5 text-micro font-medium text-muted-foreground">

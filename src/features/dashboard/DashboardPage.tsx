@@ -61,7 +61,7 @@ const WIDE = 'xl:col-span-3';
 function DashboardSkeleton() {
   return (
     <div className="flex flex-col gap-6 md:gap-8">
-      <KpiSkeleton count={4} className="grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4" />
+      <KpiSkeleton count={4} className="grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4" />
       <div className={GRID}>
         <div className={LEFT}>
           <ListSkeleton rows={5} />

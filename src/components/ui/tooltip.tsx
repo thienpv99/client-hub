@@ -38,8 +38,10 @@ const TooltipContent = React.forwardRef<
       sideOffset={sideOffset}
       collisionPadding={collisionPadding}
       className={cn(
-        'z-50 max-w-xs rounded-lg bg-ink px-2.5 py-1.5 text-micro font-medium text-primary-foreground shadow-pop',
-        'data-[state=delayed-open]:animate-fade-in data-[state=instant-open]:animate-fade-in data-[state=closed]:animate-fade-out',
+        'z-50 max-w-xs origin-[var(--radix-tooltip-content-transform-origin)] rounded-lg bg-ink px-2.5 py-1.5 text-micro font-medium text-primary-foreground shadow-pop',
+        // scale + fade from the trigger side (DESIGN.md §8), 2px nudge
+        'data-[state=delayed-open]:animate-pop-in data-[state=instant-open]:animate-fade-in data-[state=closed]:animate-fade-out',
+        'data-[side=bottom]:[--pop-y:-2px] data-[side=top]:[--pop-y:2px] data-[side=left]:[--pop-x:2px] data-[side=left]:[--pop-y:0px] data-[side=right]:[--pop-x:-2px] data-[side=right]:[--pop-y:0px]',
         className,
       )}
       {...props}

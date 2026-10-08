@@ -11,6 +11,7 @@ import { api } from '@/services/api';
 import { cn } from '@/components/ui/cn';
 import { Skeleton } from '@/components/ui/skeleton';
 import { errorMessage } from '@/hooks/useAction';
+import { useDelayedFlag } from '@/hooks/useMotion';
 import { t } from '@/i18n';
 import { FormError } from './FormError';
 import { GIS_SCRIPT_SRC, gisTestHook, gisUnavailableReason, initGis, loadGis, type GisIdApi } from './googleIdentity';
@@ -60,6 +61,8 @@ export function GoogleSignIn({
   const [state, setState] = useState<LoadState>('loading');
   const [gis, setGis] = useState<GisIdApi | null>(null);
   const [pending, setPending] = useState(false);
+  // the dimmed button and "Đang đăng nhập…" wait 150 ms (DESIGN §8.2); pendingRef guards a second credential at once
+  const pendingVisible = useDelayedFlag(pending);
   const [error, setError] = useState<string | null>(null);
   const boxRef = useRef<HTMLDivElement>(null);
   const slotRef = useRef<HTMLDivElement>(null);
@@ -176,11 +179,12 @@ export function GoogleSignIn({
             className={cn(
               'flex min-h-tap w-full items-center justify-center transition-opacity duration-150',
               state !== 'ready' && 'hidden',
-              pending && 'pointer-events-none opacity-60',
+              pending && 'pointer-events-none',
+              pendingVisible && 'opacity-60',
             )}
           />
         </div>
-        {pending ? (
+        {pendingVisible ? (
           <p role="status" className="flex items-center justify-center gap-2 text-caption">
             <LoaderCircle className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
             {t('auth.google.signingIn')}

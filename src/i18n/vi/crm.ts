@@ -105,8 +105,9 @@ const crm = {
       subNone: 'Chưa có cơ hội đang mở',
       progress: 'Theo xác suất thắng',
     },
-    winRate: { label: 'Tỷ lệ thắng 180 ngày', sub: 'Chu kỳ bán {days} ngày', subNone: 'Chưa đủ dữ liệu' },
-    won: { label: 'Đã thắng năm {year}', sub: '{count} cơ hội', subNone: 'Chưa chốt thắng cơ hội nào' },
+    winRate: { label: 'Tỷ lệ thắng 180 ngày', sub: 'Chu kỳ bán {days} ngày', subNone: 'Chưa đủ dữ liệu' },
+    // "năm 2026" kept together (non-breaking space): a narrow tile reads "Đã thắng / năm 2026", no lone year
+    won: { label: 'Đã thắng năm {year}', sub: '{count} cơ hội', subNone: 'Chưa chốt thắng cơ hội nào' },
   },
 
   pipeline: {
@@ -228,6 +229,7 @@ const crm = {
     topHint: 'Xếp theo giá trị dự kiến = giá trị × xác suất.',
     topLine: '{account} · {stage}',
     topValue: '{value} × {pct}',
+    topMeta: '{account} · {stage} · {value} × {pct}',
   },
 
   followups: {

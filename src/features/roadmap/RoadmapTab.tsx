@@ -123,7 +123,7 @@ function headline(milestones: MilestoneView[], today: string): Headline | null {
 
 function RoadmapSkeleton() {
   return (
-    <div className="space-y-6" role="status" aria-busy="true">
+    <div className="skeleton-reveal space-y-6" role="status" aria-busy="true">
       <span className="sr-only">{t('common.loading')}</span>
       <div className="flex items-center justify-between gap-4">
         <Skeleton className="h-10 w-72 max-w-full rounded-lg" />

@@ -88,7 +88,7 @@ export function PortfolioToolbar({
           type="search"
           inputSize="sm"
           icon={<Search />}
-          wrapperClassName="min-w-0 flex-1 sm:w-[280px] sm:flex-none"
+          wrapperClassName="min-w-0 flex-1 sm:w-[280px] sm:flex-none xl:w-[240px]"
           value={query}
           onChange={(e) => onQueryChange(e.target.value)}
           onKeyDown={(e) => {
@@ -110,7 +110,7 @@ export function PortfolioToolbar({
             const v = e.target.value;
             onStatusChange(isProjectStatus(v) ? v : null);
           }}
-          wrapperClassName="ml-auto w-[10.75rem] shrink-0 sm:w-44 xl:order-last"
+          wrapperClassName="ml-auto w-[10.75rem] shrink-0 sm:w-44 xl:order-last xl:w-40"
         >
           <option value={ALL}>{t('projects.filters.statusAll')}</option>
           {PROJECT_STATUSES.map((s) => (

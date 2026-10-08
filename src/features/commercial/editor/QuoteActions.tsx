@@ -13,6 +13,7 @@ import { ReasonDialog } from '@/components/common/reason-dialog';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/components/ui/cn';
 import { useAction } from '@/hooks/useAction';
+import { useDelayedFlag } from '@/hooks/useMotion';
 import { t } from '@/i18n';
 import { formatDateTime, formatMoney } from '@/lib/format';
 import { toastInfo, toastSuccess } from '@/lib/toast';
@@ -82,6 +83,8 @@ export function QuoteActions({ quote, dirty, invalid, saving, live, save }: Quot
   const [sendOpen, setSendOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
   const busy = pending || saving;
+  // the busy look of the buttons that are not running waits 150 ms too (DESIGN §8.2); their clicks check `busy`
+  const busyVisible = useDelayedFlag(busy);
   const can = quote.can;
   const isDraft = quote.status === 'draft';
   const pendingApproval = quote.status === 'pending_approval';
@@ -163,10 +166,10 @@ export function QuoteActions({ quote, dirty, invalid, saving, live, save }: Quot
                 onClick={() => void run(() => api.approveQuote(quote.id), { success: 'commercial.actions.toast.approved' })}
                 loading={pending}
               >
-                {pending ? null : <ShieldCheck aria-hidden="true" />}
+                <ShieldCheck aria-hidden="true" />
                 {t('commercial.actions.approve')}
               </Button>
-              <Button className="w-full" variant="secondary" onClick={() => setRejectOpen(true)} disabled={busy}>
+              <Button className="w-full" variant="secondary" onClick={() => (busy ? undefined : setRejectOpen(true))} disabled={busyVisible}>
                 <ShieldX aria-hidden="true" />
                 {t('commercial.actions.reject')}
               </Button>
@@ -174,7 +177,7 @@ export function QuoteActions({ quote, dirty, invalid, saving, live, save }: Quot
           ) : null}
           {showRequest ? (
             <Button className="w-full" onClick={() => void requestApproval()} loading={busy} disabled={invalid}>
-              {busy ? null : <ShieldCheck aria-hidden="true" />}
+              <ShieldCheck aria-hidden="true" />
               {t('commercial.actions.requestApproval')}
             </Button>
           ) : null}
@@ -182,8 +185,8 @@ export function QuoteActions({ quote, dirty, invalid, saving, live, save }: Quot
             <Button
               className="w-full"
               variant={showRequest || can.approve ? 'secondary' : 'default'}
-              onClick={() => setSendOpen(true)}
-              disabled={sendLocked || busy || invalid || noLines}
+              onClick={() => (busy ? undefined : setSendOpen(true))}
+              disabled={sendLocked || busyVisible || invalid || noLines}
               aria-describedby={explanation ? 'quote-send-lock' : undefined}
             >
               {sendLocked ? <Lock aria-hidden="true" /> : <Send aria-hidden="true" />}
@@ -192,7 +195,7 @@ export function QuoteActions({ quote, dirty, invalid, saving, live, save }: Quot
           ) : null}
           {can.new_version ? (
             <Button className="w-full" variant={quote.status === 'changes_requested' ? 'default' : 'secondary'} onClick={() => void newVersion()} loading={pending}>
-              {pending ? null : <CopyPlus aria-hidden="true" />}
+              <CopyPlus aria-hidden="true" />
               {t('commercial.actions.newVersion', { version: quote.version + 1 })}
             </Button>
           ) : null}

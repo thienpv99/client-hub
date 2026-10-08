@@ -20,7 +20,9 @@ import { t } from '@/i18n';
 import { Breadcrumbs, MobilePageTitle, useBreadcrumbs } from './Breadcrumbs';
 import { GroupedNav, Rail, SearchField, Sidebar, WorkspaceBlock } from './InternalNav';
 import { INTERNAL_NAV, navFor } from './navItems';
+import { PageTransition } from './PageTransition';
 import { SkipLink } from './SkipLink';
+import { TopProgressBar } from './TopProgressBar';
 import { useNavCounts } from './useNavCounts';
 import { useTopBarState } from './useTopBarState';
 
@@ -137,13 +139,17 @@ export function InternalLayout() {
         <main id="main-content" tabIndex={-1} className="mx-auto w-full max-w-page px-4 py-6 focus:outline-none md:px-6 md:py-8 xl:px-8">
           {/* the top bar carries the way back, so PageHeader drops its own back link here */}
           <PageHeaderBackContext.Provider value={false}>
-            <Outlet />
+            {/* a new page fades up; tab / query / drawer changes do not replay it (DESIGN.md §8.2) */}
+            <PageTransition>
+              <Outlet />
+            </PageTransition>
           </PageHeaderBackContext.Provider>
         </main>
       </div>
 
       <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
       <TaskDrawerHost />
+      <TopProgressBar />
     </div>
   );
 }

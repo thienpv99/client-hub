@@ -98,27 +98,32 @@ export function FileList({ files, onPreview, showVisibility = true, showUploader
                   type="button"
                   onClick={() => onPreview(f)}
                   aria-label={t('components.files.preview', { name: f.name })}
-                  className="block max-w-full truncate rounded text-left text-table font-medium text-foreground after:absolute after:inset-0 after:rounded-lg after:content-[''] hover:text-primary"
+                  className="line-clamp-2 max-w-full break-words rounded text-left text-table font-medium text-foreground after:absolute after:inset-0 after:rounded-lg after:content-[''] hover:text-primary"
                 >
                   {f.name}
                 </button>
               ) : (
-                <span className="block truncate text-table font-medium text-foreground">{f.name}</span>
+                <span className="line-clamp-2 break-words text-table font-medium text-foreground">{f.name}</span>
               )}
               <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-micro text-muted-foreground">
                 <span className="inline-flex h-[18px] items-center rounded bg-muted px-1.5 font-semibold tabular text-muted-foreground">
                   {t('components.files.version', { version: f.version })}
                 </span>
+                {/* each separator travels with the item after it: a wrapped line never ends on a lone "·" */}
                 {ext ? <span className="font-medium">{ext}</span> : null}
-                {ext ? <span aria-hidden="true">·</span> : null}
-                <span className="tabular">{formatFileSize(f.size)}</span>
-                <span aria-hidden="true">·</span>
-                <DateText value={f.uploaded_at} />
+                <span className="whitespace-nowrap tabular">
+                  {ext ? <span aria-hidden="true" className="mr-1.5">·</span> : null}
+                  {formatFileSize(f.size)}
+                </span>
+                <span className="whitespace-nowrap">
+                  <span aria-hidden="true" className="mr-1.5">·</span>
+                  <DateText value={f.uploaded_at} />
+                </span>
                 {showUploader ? (
-                  <>
-                    <span aria-hidden="true">·</span>
-                    <span className="truncate">{f.uploaded_by.full_name}</span>
-                  </>
+                  <span className="min-w-0 truncate">
+                    <span aria-hidden="true" className="mr-1.5">·</span>
+                    {f.uploaded_by.full_name}
+                  </span>
                 ) : null}
               </p>
               {showVisibility && f.visibility === 'internal' ? <InternalOnlyBadge className="mt-1.5 sm:hidden" /> : null}

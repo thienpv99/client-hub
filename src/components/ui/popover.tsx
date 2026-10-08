@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { Popover as PopoverPrimitive } from 'radix-ui';
 import { cn } from '@/components/ui/cn';
+import { popMotion } from '@/components/ui/menu-styles';
 
 const Popover = PopoverPrimitive.Root;
 const PopoverTrigger = PopoverPrimitive.Trigger;
@@ -20,7 +21,8 @@ const PopoverContent = React.forwardRef<
       collisionPadding={collisionPadding}
       className={cn(
         'z-50 w-72 max-w-[calc(100vw-2rem)] rounded-xl border border-border/70 bg-popover p-4 text-table text-popover-foreground shadow-pop outline-none',
-        'data-[state=open]:animate-pop-in data-[state=closed]:animate-fade-out',
+        'origin-[var(--radix-popover-content-transform-origin)]',
+        popMotion,
         className,
       )}
       {...props}

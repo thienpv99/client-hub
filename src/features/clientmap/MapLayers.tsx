@@ -1,7 +1,10 @@
 // SVG layers under the bubbles: the ground of each ecosystem (selected one outlined) and the links hub ↔ member.
+// Both follow the bubbles' entrance (mapModel.introScale): the ground grows and fades with its bubble, the links
+// fade in as the bubbles land.
 import type { ClientMapLink } from '@/services/crmContract';
 import { cn } from '@/components/ui/cn';
 import type { ForceSim } from './forceSim';
+import { introScale } from './mapModel';
 
 export interface MapLinksProps {
   sim: ForceSim;
@@ -16,9 +19,19 @@ export interface MapLinksProps {
   s: number;
 }
 
+/** links fade in with the entrance: the mean entrance progress of the bubbles (1 once they have all landed) */
+function linksFade(sim: ForceSim): number {
+  if (sim.nodes.length === 0) return 1;
+  let sum = 0;
+  for (const n of sim.nodes) sum += Math.max(0, Math.min(1, n.grow));
+  return sum / sim.nodes.length;
+}
+
 export function MapLinks({ sim, links, focusId, emphasis, matches, s }: MapLinksProps) {
+  const fade = linksFade(sim);
   return (
-    <g aria-hidden="true">
+    // the fade sits on the group (the lines transition their own opacity on hover / search)
+    <g aria-hidden="true" opacity={fade < 1 ? fade * fade : undefined}>
       {links.map((l) => {
         const a = sim.byId.get(l.source);
         const b = sim.byId.get(l.target);
@@ -72,12 +85,22 @@ export function Territories({ sim, hubOf, selectedHubId, emphasis, s }: Territor
     list.push(member);
     groups.set(hub, list);
   }
-  const discs = (ids: string[], grow: number, cls: string, strokeWidth?: number) =>
+  const discs = (ids: string[], pad: number, cls: string, strokeWidth?: number) =>
     ids.map((id) => {
       const n = sim.byId.get(id);
-      return n ? (
-        <circle key={id} cx={n.x} cy={n.y} r={n.r * Math.max(0, n.grow) + grow} className={cls} strokeWidth={strokeWidth} />
-      ) : null;
+      if (!n) return null;
+      const entering = n.grow < 1;
+      return (
+        <circle
+          key={id}
+          cx={n.x}
+          cy={n.y}
+          r={(n.r + pad) * (entering ? introScale(n.grow) : 1)}
+          opacity={entering ? Math.max(0, n.grow) : undefined}
+          className={cls}
+          strokeWidth={strokeWidth}
+        />
+      );
     });
   return (
     <g aria-hidden="true">

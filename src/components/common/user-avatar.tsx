@@ -32,7 +32,7 @@ export function UserAvatar({ user, size = 'md', ring = false, className }: UserA
         className={cx(
           box,
           'inline-flex items-center justify-center bg-muted text-muted-foreground',
-          !ring && 'shadow-[inset_0_0_0_1px_rgb(var(--border))]',
+          !ring && 'shadow-[inset_0_0_0_1px_rgb(var(--border-strong))]',
           className,
         )}
       >
@@ -48,7 +48,8 @@ export function UserAvatar({ user, size = 'md', ring = false, className }: UserA
         alt={user.full_name}
         referrerPolicy="no-referrer"
         onError={() => setBroken(true)}
-        className={cx(box, 'bg-muted object-cover')}
+        // a faint outer hairline keeps a light photo from melting into a white card (the stack ring replaces it)
+        className={cx(box, 'bg-muted object-cover', !ring && 'ring-1 ring-ink/10')}
       />
     );
   }
@@ -62,8 +63,9 @@ export function UserAvatar({ user, size = 'md', ring = false, className }: UserA
       className={cx(
         box,
         'inline-flex select-none items-center justify-center bg-muted font-semibold leading-none text-muted-foreground',
-        // a hairline only when no ring is asked for (the stack ring replaces it)
-        !ring && 'shadow-[inset_0_0_0_1px_rgb(var(--border))]',
+        // a hairline only when no ring is asked for (the stack ring replaces it); border-strong: the muted disc stays
+      // visible on the page background too, not only on white cards
+        !ring && 'shadow-[inset_0_0_0_1px_rgb(var(--border-strong))]',
         className,
       )}
     >

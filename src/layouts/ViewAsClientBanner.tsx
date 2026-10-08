@@ -70,7 +70,8 @@ export function ViewAsClientBanner({ accountName }: { accountName?: string | nul
           loading={pending}
           aria-label={t('layout.viewAs.exitLabel')}
         >
-          {!pending && <LogOut aria-hidden />}
+          {/* kept while busy: the Button swaps it for its spinner after 150 ms (DESIGN §8.2) */}
+          <LogOut aria-hidden />
           {t('layout.viewAs.exit')}
         </Button>
       </div>

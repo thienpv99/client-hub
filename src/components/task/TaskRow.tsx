@@ -91,7 +91,7 @@ export function TaskRow({
   return (
     <div
       className={cn(
-        'group relative flex items-start gap-3 px-4 py-3 transition-colors duration-150 hover:bg-subtle focus-within:bg-subtle sm:items-center sm:px-5',
+        'group relative flex items-start gap-3 px-4 py-3 transition-colors duration-150 ease-out-quart hover:bg-subtle focus-within:bg-subtle sm:items-center sm:px-5',
         selected && 'bg-primary-soft/60 hover:bg-primary-soft/70 focus-within:bg-primary-soft/70',
         className,
       )}

@@ -131,7 +131,7 @@ export function ProductPicker({
     <div
       role="group"
       aria-labelledby={labelledBy}
-      className="scrollbar-thin max-h-52 overflow-y-auto rounded-lg bg-card ring-1 ring-inset ring-border-strong/80"
+      className="scrollbar-thin relative max-h-52 overflow-y-auto rounded-lg bg-card ring-1 ring-inset ring-border-strong/80"
     >
       <ul className="divide-y divide-border/60">
         {items.map((item) => {

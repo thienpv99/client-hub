@@ -60,7 +60,7 @@ function MapSkeleton() {
     'left-[26%] top-[66%] h-12 w-12',
   ];
   return (
-    <div role="status" aria-busy="true" className="flex h-full w-full flex-col">
+    <div role="status" aria-busy="true" className="skeleton-reveal flex h-full w-full flex-col">
       <span className="sr-only">{t('components.loading')}</span>
       <div className="flex items-center justify-between gap-3 border-b border-border/60 px-3 py-2 md:px-4">
         <Skeleton className="h-11 w-full max-w-[280px] md:h-8" />

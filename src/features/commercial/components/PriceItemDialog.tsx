@@ -57,7 +57,7 @@ export function PriceItemDialog({ open, onOpenChange, item, items, costVisible }
   const uid = useId();
   const [form, setForm] = useState<Form>(() => initial(item));
   const [submitted, setSubmitted] = useState(false);
-  const { run, pending } = useAction();
+  const { run, pending, pendingVisible } = useAction();
 
   useEffect(() => {
     if (open) {
@@ -81,7 +81,7 @@ export function PriceItemDialog({ open, onOpenChange, item, items, costVisible }
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setSubmitted(true);
-    if (!valid) return;
+    if (!valid || pending) return;
     const r = await run(
       () =>
         api.upsertPriceItem({
@@ -163,7 +163,7 @@ export function PriceItemDialog({ open, onOpenChange, item, items, costVisible }
             <span className="text-table font-medium text-foreground">{t('commercial.prices.form.active')}</span>
           </label>
           <DialogFooter className="sm:col-span-2">
-            <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} disabled={pending}>
+            <Button type="button" variant="secondary" onClick={() => (pending ? undefined : onOpenChange(false))} disabled={pendingVisible}>
               {t('common.cancel')}
             </Button>
             <Button type="submit" loading={pending}>

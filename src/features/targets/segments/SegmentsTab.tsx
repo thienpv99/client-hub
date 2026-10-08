@@ -6,6 +6,7 @@ import type { SegmentView } from '@/services/crmContract';
 import { api } from '@/services/api';
 import { useAction } from '@/hooks/useAction';
 import { useQuery } from '@/hooks/useQuery';
+import { useStagger } from '@/hooks/useMotion';
 import { ConfirmDialog } from '@/components/common/confirm-dialog';
 import { EmptyState } from '@/components/common/empty-state';
 import { ErrorState } from '@/components/common/error-state';
@@ -23,10 +24,13 @@ export interface SegmentsTabProps {
   onOpenLead: (id: string) => void;
   /** bumped by the page header's "Tạo phân khúc" (0 = never asked) */
   createRequest?: number;
+  /** the cards rise in on first appearance (the page's entry tab only) */
+  stagger?: boolean;
 }
 
-export function SegmentsTab({ isDirector, meId, onOpenLead, createRequest = 0 }: SegmentsTabProps) {
+export function SegmentsTab({ isDirector, meId, onOpenLead, createRequest = 0, stagger = false }: SegmentsTabProps) {
   const query = useQuery(() => api.listSegments(), [meId]);
+  const rise = useStagger(stagger && query.data !== undefined);
   const { run } = useAction();
   const [membersId, setMembersId] = useState<string | null>(null);
   const [builder, setBuilder] = useState<{ open: boolean; segment: SegmentView | null }>({ open: false, segment: null });
@@ -59,9 +63,10 @@ export function SegmentsTab({ isDirector, meId, onOpenLead, createRequest = 0 }:
           <>
             <p className="text-caption">{t('targets.segments.count', { count: segments.length })}</p>
             <ul className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {segments.map((s) => (
+              {segments.map((s, i) => (
                 <SegmentCard
                   key={s.id}
+                  rise={rise(i)}
                   segment={s}
                   canEdit={canEdit(s)}
                   onOpen={() => setMembersId(s.id)}

@@ -31,8 +31,9 @@ const projects = {
       subNone: 'Không có dự án nào cần chú ý',
     },
     slip: {
-      label: 'Đang trễ kế hoạch',
-      sub: 'Trễ nhất +{days} ngày · {account}',
+      /** "kế hoạch" is one word (non-breaking space): narrow tiles read "Đang trễ / kế hoạch" */
+      label: 'Đang trễ kế hoạch',
+      sub: 'Trễ nhất +{days} ngày · {account}',
       subNone: 'Mọi dự án đúng kế hoạch',
     },
     overdue: {

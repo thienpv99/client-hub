@@ -47,7 +47,7 @@ export function HealthOverrideDialog({ account, open, onOpenChange }: HealthOver
   const currentReason = account.health.override_reason ?? '';
   const [choice, setChoice] = useState<Choice>(current);
   const [reason, setReason] = useState(currentReason);
-  const { run, pending } = useAction();
+  const { run, pending, pendingVisible } = useAction();
 
   useEffect(() => {
     if (open) {
@@ -61,7 +61,9 @@ export function HealthOverrideDialog({ account, open, onOpenChange }: HealthOver
   const overriding = choice !== 'auto';
   const trimmed = reason.trim();
   const changed = choice !== current || (overriding && trimmed !== currentReason.trim());
-  const canSave = changed && (!overriding || trimmed.length > 0) && !pending;
+  // `ready` draws the save button (it shows its own busy look after 150 ms); `canSave` also guards a double submit
+  const ready = changed && (!overriding || trimmed.length > 0);
+  const canSave = ready && !pending;
 
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -157,10 +159,10 @@ export function HealthOverrideDialog({ account, open, onOpenChange }: HealthOver
           ) : null}
 
           <DialogFooter>
-            <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} disabled={pending}>
+            <Button type="button" variant="secondary" onClick={() => (pending ? undefined : onOpenChange(false))} disabled={pendingVisible}>
               {t('common.cancel')}
             </Button>
-            <Button type="submit" disabled={!canSave} loading={pending}>
+            <Button type="submit" disabled={!ready} loading={pending}>
               {t('account.health.save')}
             </Button>
           </DialogFooter>

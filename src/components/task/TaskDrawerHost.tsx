@@ -16,18 +16,19 @@ import { TaskDrawer } from './TaskDrawer';
 
 function DrawerSkeleton() {
   return (
-    <div role="status" aria-busy="true" className="flex min-h-0 flex-1 flex-col">
+    <div role="status" aria-busy="true" className="skeleton-reveal flex min-h-0 flex-1 flex-col">
       <span className="sr-only">{t('task.drawer.loading')}</span>
-      {/* same frame as the loaded header: eyebrow, title, badges row */}
-      <div className="flex items-start gap-3 border-b border-border/70 p-4 pr-14 md:p-6 md:pb-5 md:pr-16">
-        <Skeleton className="mt-0.5 hidden h-9 w-9 shrink-0 rounded-lg sm:block" />
-        <div className="min-w-0 flex-1">
+      {/* same frame and metrics as the loaded header (TaskDrawer): the context row level with the close button
+          (logo 20 + crumbs), the title, the badges row — so nothing shifts when the task arrives */}
+      <div className="border-b border-border/70 px-4 pb-4 pt-2 md:px-6 md:pb-5 md:pt-4">
+        <div className="flex min-h-11 items-center gap-2 pr-11 md:min-h-9 md:pr-10">
+          <Skeleton className="h-5 w-5 shrink-0 rounded-md" />
           <Skeleton className="h-3 w-48 max-w-full" />
-          <Skeleton className="mt-3 h-6 w-4/5" />
-          <div className="mt-3 flex gap-2">
-            <Skeleton className="h-6 w-32 rounded-full" />
-            <Skeleton className="h-6 w-24 rounded-md" />
-          </div>
+        </div>
+        <Skeleton className="mt-1.5 h-6 w-4/5 sm:h-7" />
+        <div className="mt-2.5 flex gap-2">
+          <Skeleton className="h-6 w-32 rounded-full" />
+          <Skeleton className="h-6 w-24 rounded-md" />
         </div>
       </div>
       <div className="space-y-7 px-4 pt-5 md:space-y-8 md:px-6 md:pt-6">

@@ -17,16 +17,30 @@
     <pre id="log"></pre>
     <script type="module">
       import { transform } from '/vendor/sucrase.mjs';
+      import {
+        compileTailwind, configScriptFrom, escapeScript, escapeStyle, extractCandidates, inputsFileName, stripTailwindDirectives,
+      } from '/tools/tailwind-precompile.js';
 
       // Modes:
       //  - standalone (default): everything inlined — app modules, every import-map package (vendored from esm.sh with
-      //    ?bundle&target=es2022, the whole module graph crawled), Tailwind Play CDN and the Be Vietnam Pro woff2 files.
-      //    The output makes no network request, so it works offline, in sandboxed file previewers and on any static host.
+      //    ?bundle&target=es2022, the whole module graph crawled), the app's Tailwind CSS and the Be Vietnam Pro woff2
+      //    files. The output makes no network request, so it works offline, in sandboxed file previewers and on any
+      //    static host. Tailwind is PRECOMPILED here (tools/tailwind-precompile.js: the Play engine runs once in a hidden
+      //    iframe over every class candidate of src/**/*.ts(x)) and shipped as a plain <style>: the page is styled from
+      //    its first paint and carries no 450 KB CSS compiler. Coverage proof: tools/css-audit.html?auto=1.
+      //    Escape hatch ?css=runtime: the previous output (Tailwind Play runtime inlined, CSS generated in the page).
       //  - cdn (?mode=cdn): the old output — app modules inlined, libraries from esm.sh via an import map, Tailwind and
       //    fonts from their CDNs (needs network). Written to a separate file so it never overwrites the standalone one.
+      //  - ?out=<name>.html writes dist/<name>.html instead (side-by-side comparisons; the deploy reads ClientHub-demo.html).
+      //  - ?twin=1 (precompiled only) also writes dist/<name>-runtime.html, the ?css=runtime output of the SAME sources —
+      //    what tools/css-audit.html?compare=<name>-runtime.html compares against (src/ may change between two builds).
       const params = new URLSearchParams(location.search);
       const MODE = params.get('mode') === 'cdn' ? 'cdn' : 'standalone';
-      const OUT_NAME = MODE === 'cdn' ? 'ClientHub-demo-cdn.html' : 'ClientHub-demo.html';
+      const CSS_MODE = MODE === 'cdn' || params.get('css') === 'runtime' ? 'runtime' : 'precompiled';
+      const OUT_PARAM = params.get('out');
+      const OUT_INVALID = OUT_PARAM !== null && !/^[A-Za-z0-9._-]+\.html$/.test(OUT_PARAM);
+      const OUT_NAME = (!OUT_INVALID && OUT_PARAM) || (MODE === 'cdn' ? 'ClientHub-demo-cdn.html' : 'ClientHub-demo.html');
+      const TWIN_NAME = MODE === 'standalone' && CSS_MODE === 'precompiled' && params.has('twin') ? OUT_NAME.replace(/\.html$/, '-runtime.html') : null;
 
       const TAILWIND_CDN = 'https://cdn.tailwindcss.com/3.4.16';
       // cdn.tailwindcss.com sends no CORS headers, so the browser cannot fetch it: the builder reads this byte-for-byte
@@ -47,10 +61,18 @@
 
       document.getElementById('desc').textContent = MODE === 'cdn'
         ? 'Chế độ CDN: gom src/ vào một file HTML; thư viện, Tailwind và phông vẫn tải từ CDN (cần mạng). Kết quả: dist/' + OUT_NAME + '.'
-        : 'Chế độ độc lập: gom src/, thư viện (React, Radix, Recharts…), Tailwind và phông Be Vietnam Pro vào một file HTML — không cần mạng, mở được trong trình xem file. Kết quả: dist/' + OUT_NAME + '.';
+        : CSS_MODE === 'runtime'
+          ? 'Chế độ độc lập, Tailwind chạy trong trang (?css=runtime, bản cũ): gom src/, thư viện, Tailwind Play và phông Be Vietnam Pro vào một file HTML. Kết quả: dist/' + OUT_NAME + '.'
+          : 'Chế độ độc lập: gom src/, thư viện (React, Radix, Recharts…), CSS Tailwind biên dịch sẵn và phông Be Vietnam Pro vào một file HTML — không cần mạng, mở được trong trình xem file. Kết quả: dist/' + OUT_NAME + '.';
       const sw = document.getElementById('switch');
       sw.textContent = MODE === 'cdn' ? '→ chế độ độc lập (mặc định)' : '→ chế độ CDN (?mode=cdn)';
       sw.href = MODE === 'cdn' ? location.pathname : location.pathname + '?mode=cdn';
+      if (MODE === 'standalone') {
+        const cssSwitch = document.createElement('a');
+        cssSwitch.textContent = CSS_MODE === 'runtime' ? '→ CSS biên dịch sẵn (mặc định)' : '→ Tailwind chạy trong trang (?css=runtime)';
+        cssSwitch.href = CSS_MODE === 'runtime' ? location.pathname : location.pathname + '?css=runtime';
+        sw.after(cssSwitch);
+      }
 
       // URL resolution shared by the builder (crawl) and the generated runtime, so both agree on every module id.
       const RESOLVE_URL_SRC = String.raw`
@@ -163,14 +185,21 @@ function load(id) {
 }
 `;
 
-      // NB: never write the HTML comment opener literally in this inline script — it switches the HTML parser
-      // into "escaped script" mode and the element would never close.
-      const COMMENT_OPEN = new RegExp('<' + '!' + '--', 'g');
-      function escapeScript(s) {
-        return s.replace(/<\/script/gi, '<\\/script').replace(COMMENT_OPEN, '<\\u0021--');
-      }
-      function escapeStyle(s) {
-        return s.replace(/<\/style/gi, '<\\/style');
+      // escapeScript / escapeStyle come from tools/tailwind-precompile.js. NB: never write the HTML comment opener
+      // literally in this inline script — it switches the HTML parser into "escaped script" mode and the element
+      // would never close (escapeScript rewrites it in everything that gets inlined).
+      const utf8Bytes = (s) => new TextEncoder().encode(s).length;
+
+      // The precompiled output must not carry the Tailwind runtime, nor anything it would compile, nor a CSS request.
+      function assertPrecompiled(html, css) {
+        if (/<style[^>]*\btype\s*=\s*["']?text\/tailwindcss/i.test(html)) throw new Error('File còn <style type="text/tailwindcss"> dù CSS đã biên dịch sẵn.');
+        if (html.includes('cdn.tailwindcss.com should not be used in production')) throw new Error('File còn mã Tailwind Play runtime dù CSS đã biên dịch sẵn.');
+        if (/window\.tailwind\.config\s*=/.test(html)) throw new Error('File còn cấu hình Tailwind Play (window.tailwind.config) dù CSS đã biên dịch sẵn.');
+        const bare = css.replace(/\/\*[\s\S]*?\*\//g, ''); // comments may mention anything
+        if (/@import\b/i.test(bare)) throw new Error('CSS biên dịch sẵn có @import (sẽ gọi mạng).');
+        if (/url\(\s*['"]?(?:https?:)?\/\//i.test(bare)) throw new Error('CSS biên dịch sẵn có url() trỏ ra ngoài (sẽ gọi mạng).');
+        if (/@tailwind\b|@apply\b/.test(bare)) throw new Error('CSS biên dịch sẵn còn @tailwind / @apply chưa xử lý.');
+        if (!/(^|[}\s])\.flex\s*\{/.test(bare)) throw new Error('CSS biên dịch sẵn thiếu cả lớp .flex — danh sách lớp ứng viên có vấn đề.');
       }
 
       async function text(url) {
@@ -216,12 +245,15 @@ function load(id) {
       async function collectApp() {
         const files = await (await fetch('/__ls', { cache: 'no-store' })).json();
         const mods = [];
+        // class candidates of every source (precompiled Tailwind) — raw text, before sucrase touches it
+        const candidates = new Set();
         let css = '';
         let count = 0;
         let bytes = 0;
         for (const f of files) {
           if (/\.(tsx?)$/.test(f)) {
             const src = await text(f + '?raw');
+            extractCandidates(src, candidates);
             let code;
             try {
               code = transform(src, { transforms: ['typescript', 'jsx', 'imports'], jsxRuntime: 'automatic', production: true, filePath: f }).code;
@@ -233,11 +265,14 @@ function load(id) {
             count += 1;
             bytes += code.length;
           } else if (f.endsWith('.css')) {
-            css += (await text(f + '?raw')).replace(/^\s*@tailwind\s+[a-z]+;\s*$/gim, '') + '\n';
+            css += stripTailwindDirectives(await text(f + '?raw')) + '\n';
             mods.push(JSON.stringify(f) + ': function () {}');
+          } else if (/\.(m?jsx?|html)$/.test(f)) {
+            // not a module the app imports today, but a class written there would still reach the DOM
+            extractCandidates(await text(f + '?raw'), candidates);
           }
         }
-        return { mods, css, count, bytes };
+        return { mods, css, count, bytes, candidates };
       }
 
       async function loadCommon() {
@@ -245,9 +280,7 @@ function load(id) {
         const importMap = JSON.parse(nobuild.match(/<script type="importmap">([\s\S]*?)<\/script>/)[1]);
         delete importMap.imports['@/'];
         const head = nobuild.match(/<head>([\s\S]*?)<\/head>/)[1];
-        const twConfig = (await text('/tailwind.config.js'))
-          .replace(/export\s+default/, 'window.tailwind.config =')
-          .replace(/^const c =/m, 'var c =');
+        const twConfig = configScriptFrom(await text('/tailwind.config.js'));
         let favicon = '';
         try { favicon = 'data:image/svg+xml,' + encodeURIComponent(await text('/favicon.svg')); } catch { /* optional */ }
         return { importMap, head, twConfig, favicon };
@@ -411,7 +444,10 @@ function load(id) {
       // ---------- HTML ----------
 
       const BOOT_STYLE = `
-      #boot { position: fixed; inset: 0; display: grid; place-items: center; font: 15px system-ui; color: #475569; }
+      #boot { position: fixed; inset: 0; z-index: 9999; display: grid; place-items: center; pointer-events: none; background: #F6F8FC;
+        font: 500 14px/20px 'Be Vietnam Pro', system-ui, sans-serif; color: #5E6E84; opacity: 0; animation: boot-in 200ms ease-out 400ms forwards; }
+      @keyframes boot-in { to { opacity: 1; } }
+      @media (prefers-reduced-motion: reduce) { #boot { animation-duration: 1ms; } }
       #boot-error { display: none; position: fixed; inset: 12px; z-index: 99999; overflow: auto; padding: 16px; border-radius: 12px;
         background: #FEF2F2; color: #7F1D1D; font: 13px/1.5 ui-monospace, Consolas, monospace; border: 1px solid #FECACA; white-space: pre-wrap; }`;
 
@@ -451,7 +487,27 @@ ${escapeScript(app.mods.join(',\n'))}
         };
 ${escapeScript(RUNTIME_CDN)}
         load('/src/main.tsx');
-        document.getElementById('boot').remove();
+        // the boot caption only appears when loading takes > 400 ms (BOOT_STYLE); it leaves once React has drawn
+        // something — never before (that left 2–3 blank frames) — fading out over the first frame when it was visible
+        const hideBoot = () => {
+          const boot = document.getElementById('boot');
+          if (!boot) return;
+          const shown = parseFloat(getComputedStyle(boot).opacity) || 0;
+          if (shown < 0.01 || matchMedia('(prefers-reduced-motion: reduce)').matches) { boot.remove(); return; }
+          boot.style.animation = 'none';
+          boot.style.opacity = String(shown);
+          void boot.offsetWidth;
+          boot.style.transition = 'opacity 150ms ease-in';
+          boot.style.opacity = '0';
+          setTimeout(() => boot.remove(), 170);
+        };
+        const rootEl = document.getElementById('root');
+        if (rootEl.childElementCount > 0) hideBoot();
+        else new MutationObserver((records, observer) => {
+          if (rootEl.childElementCount === 0) return;
+          observer.disconnect();
+          hideBoot();
+        }).observe(rootEl, { childList: true });
       } catch (err) {
         document.getElementById('boot')?.remove();
         showError('Không khởi động được: ' + (err && err.stack ? err.stack : err) + '\\nCần kết nối mạng để tải thư viện (esm.sh, Tailwind CDN, Google Fonts).');
@@ -462,7 +518,22 @@ ${escapeScript(RUNTIME_CDN)}
 `;
       }
 
-      function htmlStandalone({ twConfig, favicon, app, vendor, tailwind, fonts }) {
+      // Tailwind in the head: the precompiled stylesheet (default), or — ?css=runtime — the Play runtime + config + the
+      // app CSS it compiles in the page.
+      function tailwindHead({ twConfig, app, tailwind, precompiledCss }) {
+        if (precompiledCss != null) {
+          return `<style id="ch-tailwind">/* Tailwind CSS 3.4.16, precompiled by tools/build-standalone.html */
+${escapeStyle(precompiledCss)}
+    </style>`;
+        }
+        return `<script>/* Tailwind Play CDN 3.4.16 (${TAILWIND_CDN}) */
+${escapeScript(tailwind.js)}
+<\/script>
+    <script>${escapeScript(twConfig)}<\/script>
+    <style type="text/tailwindcss">${escapeStyle(app.css)}</style>`;
+      }
+
+      function htmlStandalone({ twConfig, favicon, app, vendor, tailwind, precompiledCss, fonts }) {
         return `<!doctype html>
 <html lang="vi">
   <head>
@@ -474,11 +545,7 @@ ${escapeScript(RUNTIME_CDN)}
     <style>
 ${escapeStyle(fonts.css)}
     </style>
-    <script>/* Tailwind Play CDN 3.4.16 (${TAILWIND_CDN}) */
-${escapeScript(tailwind.js)}
-<\/script>
-    <script>${escapeScript(twConfig)}<\/script>
-    <style type="text/tailwindcss">${escapeStyle(app.css)}</style>
+    ${tailwindHead({ twConfig, app, tailwind, precompiledCss })}
     <style>${BOOT_STYLE}
     </style>
   </head>
@@ -497,7 +564,27 @@ ${escapeScript(app.mods.concat(vendor.entries).join(',\n'))}
         const ALIAS = ${escapeScript(JSON.stringify(vendor.ALIAS))};
 ${escapeScript(RUNTIME_STANDALONE)}
         load('/src/main.tsx');
-        document.getElementById('boot').remove();
+        // the boot caption only appears when loading takes > 400 ms (BOOT_STYLE); it leaves once React has drawn
+        // something — never before (that left 2–3 blank frames) — fading out over the first frame when it was visible
+        const hideBoot = () => {
+          const boot = document.getElementById('boot');
+          if (!boot) return;
+          const shown = parseFloat(getComputedStyle(boot).opacity) || 0;
+          if (shown < 0.01 || matchMedia('(prefers-reduced-motion: reduce)').matches) { boot.remove(); return; }
+          boot.style.animation = 'none';
+          boot.style.opacity = String(shown);
+          void boot.offsetWidth;
+          boot.style.transition = 'opacity 150ms ease-in';
+          boot.style.opacity = '0';
+          setTimeout(() => boot.remove(), 170);
+        };
+        const rootEl = document.getElementById('root');
+        if (rootEl.childElementCount > 0) hideBoot();
+        else new MutationObserver((records, observer) => {
+          if (rootEl.childElementCount === 0) return;
+          observer.disconnect();
+          hideBoot();
+        }).observe(rootEl, { childList: true });
       } catch (err) {
         document.getElementById('boot')?.remove();
         showError('Không khởi động được: ' + (err && err.stack ? err.stack : err));
@@ -514,15 +601,18 @@ ${escapeScript(RUNTIME_STANDALONE)}
         logEl.textContent = '';
         window.__BUILD_RESULT__ = undefined;
         const t0 = performance.now();
-        log('Chế độ: ' + MODE + ' → dist/' + OUT_NAME);
+        if (OUT_INVALID) throw new Error('?out= phải là tên file .html (chữ, số, dấu . _ -), nhận được: ' + OUT_PARAM);
+        log('Chế độ: ' + MODE + (MODE === 'standalone' ? ' (CSS: ' + (CSS_MODE === 'runtime' ? 'Tailwind chạy trong trang' : 'biên dịch sẵn') + ')' : '') + ' → dist/' + OUT_NAME);
         const common = await loadCommon();
         const app = await collectApp();
         log('Đã dịch ' + app.count + ' module ứng dụng (' + kb(app.bytes) + ').');
 
         let html;
-        const result = { ok: true, mode: MODE, modules: app.count, vendorModules: 0 };
+        let cssInputs = null; // what the precompiled CSS was made from — saved next to the output for tools/css-audit.html
+        const result = { ok: true, mode: MODE, css: CSS_MODE, modules: app.count, vendorModules: 0, candidateCount: 0, cssBytes: 0 };
         if (MODE === 'cdn') {
           html = htmlCdn({ ...common, app });
+          result.cssBytes = utf8Bytes(app.css);
         } else {
           log('Tải thư viện từ esm.sh (bundle, es2022)…');
           const vendor = await vendorize(common.importMap);
@@ -530,34 +620,67 @@ ${escapeScript(RUNTIME_STANDALONE)}
           if (Object.keys(vendor.ALIAS).length) log('  chuyển hướng: ' + JSON.stringify(vendor.ALIAS));
           log('Thư viện: ' + vendor.count + ' module (' + kb(vendor.bytes) + ').');
           const tailwind = await loadTailwind();
-          log('Tailwind: ' + kb(tailwind.js.length) + ' (từ ' + tailwind.src + ').');
+          let precompiledCss = null;
+          if (CSS_MODE === 'runtime') {
+            log('Tailwind: ' + kb(tailwind.js.length) + ' (từ ' + tailwind.src + ').');
+            result.cssBytes = utf8Bytes(app.css);
+          } else {
+            log('Tailwind: biên dịch sẵn bằng ' + tailwind.src + ' (' + kb(tailwind.js.length) + ', không nhúng vào file) trên '
+              + app.candidates.size + ' lớp ứng viên từ mã nguồn…');
+            const tw = await compileTailwind({ runtimeJs: tailwind.js, configJs: common.twConfig, css: app.css, candidates: app.candidates });
+            precompiledCss = tw.css;
+            cssInputs = { configJs: common.twConfig, css: app.css, candidates: Array.from(app.candidates).sort(), runtime: tailwind.src };
+            result.candidateCount = tw.candidateCount;
+            result.cssBytes = utf8Bytes(precompiledCss);
+            result.cssMs = tw.ms;
+            result.runtimeRemovedBytes = tailwind.js.length;
+            log('  → CSS ' + kb(result.cssBytes) + ' trong ' + tw.ms + ' ms (bỏ runtime ' + kb(tailwind.js.length) + ' khỏi file).');
+          }
           const fonts = await inlineFonts();
           log('Phông Be Vietnam Pro: ' + fonts.faces + ' @font-face, ' + fonts.files + ' tệp woff2 (' + kb(fonts.bytes) + ', nhúng base64 ' + kb(fonts.css.length) + ').');
-          html = htmlStandalone({ ...common, app, vendor, tailwind, fonts });
+          html = htmlStandalone({ ...common, app, vendor, tailwind, precompiledCss, fonts });
+          if (precompiledCss != null) assertPrecompiled(html, precompiledCss);
+          if (TWIN_NAME) {
+            const twin = htmlStandalone({ ...common, app, vendor, tailwind, precompiledCss: null, fonts });
+            const saved = await fetch('/__save?name=' + TWIN_NAME, { method: 'POST', body: twin });
+            if (!saved.ok) throw new Error('Lưu ' + TWIN_NAME + ' thất bại: HTTP ' + saved.status);
+            result.twin = { file: TWIN_NAME, bytes: (await saved.json()).bytes };
+            log('Bản đối chứng cùng mã nguồn, Tailwind chạy trong trang: dist/' + TWIN_NAME + ' (' + kb(result.twin.bytes) + ').');
+          }
           for (const host of ['esm.sh', 'cdn.tailwindcss.com', 'fonts.googleapis.com', 'fonts.gstatic.com']) {
             const refs = html.split('https://' + host).length - 1;
             if (refs) log('  (ghi chú) chuỗi https://' + host + ' xuất hiện ' + refs + ' lần trong file — chỉ là id/chú thích, không phải request.');
           }
           Object.assign(result, {
             vendorModules: vendor.count, vendorBytes: vendor.bytes, appBytes: app.bytes,
-            tailwindBytes: tailwind.js.length, fontBytes: fonts.bytes, fontCssBytes: fonts.css.length,
+            tailwindBytes: precompiledCss != null ? 0 : tailwind.js.length, fontBytes: fonts.bytes, fontCssBytes: fonts.css.length,
           });
         }
 
         const res = await fetch('/__save?name=' + OUT_NAME, { method: 'POST', body: html });
         if (!res.ok) throw new Error('Lưu file thất bại: HTTP ' + res.status);
         const info = await res.json();
+        if (cssInputs) {
+          // dev-only sidecar (dist/ is git-ignored, the deploy uploads ClientHub-demo.html alone): lets the audit
+          // recompile exactly what this build compiled and check every DOM class against the candidate list
+          const sidecar = inputsFileName(OUT_NAME);
+          const body = JSON.stringify({ version: 1, builtAt: new Date().toISOString(), out: OUT_NAME, htmlBytes: info.bytes, cssBytes: result.cssBytes, ...cssInputs });
+          const saved = await fetch('/__save?name=' + sidecar, { method: 'POST', body });
+          if (!saved.ok) throw new Error('Lưu ' + sidecar + ' thất bại: HTTP ' + saved.status);
+          log('Đầu vào CSS (cho tools/css-audit.html): dist/' + sidecar + ' (' + kb(body.length) + ').');
+        }
         const ms = Math.round(performance.now() - t0);
         if (MODE === 'standalone') {
           log('Tổng: ứng dụng ' + kb(result.appBytes) + ' · thư viện ' + result.vendorModules + ' module ' + kb(result.vendorBytes)
-            + ' · Tailwind ' + kb(result.tailwindBytes) + ' · phông ' + kb(result.fontCssBytes) + ' (base64).');
+            + (CSS_MODE === 'runtime' ? ' · Tailwind ' + kb(result.tailwindBytes) : ' · CSS Tailwind biên dịch sẵn ' + kb(result.cssBytes))
+            + ' · phông ' + kb(result.fontCssBytes) + ' (base64).');
         }
         log('Đã lưu dist/' + OUT_NAME + ' (' + kb(info.bytes) + ') trong ' + ms + ' ms.');
         window.__BUILD_RESULT__ = { ...result, bytes: info.bytes, ms };
       }
 
       document.getElementById('run').addEventListener('click', () => {
-        build().catch((err) => { log('LỖI: ' + err.message); window.__BUILD_RESULT__ = { ok: false, error: err.message }; });
+        build().catch((err) => { log('LỖI: ' + err.message); window.__BUILD_RESULT__ = { ok: false, mode: MODE, css: CSS_MODE, error: err.message }; });
       });
       if (params.has('auto')) document.getElementById('run').click();
     </script>

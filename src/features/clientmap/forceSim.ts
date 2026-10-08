@@ -36,7 +36,7 @@ export interface SimNode {
   isHub: boolean;
   /** ordering weight for the initial spiral (value) */
   weight: number;
-  /** drawn size 0…1 (entrance animation); the forces and the fit always use `r` */
+  /** entrance progress 0…1 (drawn as a fade + grow from 60 %, mapModel.introScale); the forces and the fit use `r` */
   grow: number;
 }
 

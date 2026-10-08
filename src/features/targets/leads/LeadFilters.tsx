@@ -38,6 +38,9 @@ export function StatusChips({ params, counts }: { params: LeadParams; counts: Re
   return (
     <ChipFilter<StatusFilter>
       ariaLabel={t('targets.leads.statusFilter')}
+      // one row from xl (the 8 chips are ~40px wider than the 1280 column): it scrolls with a faded edge, as on phones,
+      // instead of leaving one chip alone on a second row
+      className="xl:flex-nowrap xl:overflow-x-auto"
       allowDeselect={false}
       value={params.status}
       onChange={(v) => params.update({ status: v ?? 'open' })}

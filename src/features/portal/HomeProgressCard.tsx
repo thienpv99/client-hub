@@ -5,6 +5,7 @@ import { ChevronRight } from 'lucide-react';
 import type { MilestoneView, ProjectView } from '@/services/contract';
 import { t } from '@/i18n';
 import { cn } from '@/lib/utils';
+import { SMALL } from '@/components/common/cx';
 import { ForecastLabel } from '@/components/common/forecast-label';
 import { SectionCard } from '@/components/common/section-card';
 import { StageStepper } from '@/components/common/stage-stepper';
@@ -75,13 +76,14 @@ export function HomeProgressCard({ progress, className }: HomeProgressCardProps)
                     <Link to={linkTo(p.id)} className={cn(LIST_ROW, 'py-3')}>
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-table font-medium text-foreground">{p.name}</span>
+                        {/* one 13px line: the milestone name at the size of the compact forecast beside it */}
                         {p.next_milestone ? (
-                          <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-micro text-muted-foreground">
+                          <span className={cn('mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-muted-foreground', SMALL)}>
                             <span className="truncate">{p.next_milestone.name}</span>
                             <ForecastLabel milestone={p.next_milestone} compact showReason={false} />
                           </span>
                         ) : (
-                          <span className="mt-1 block text-micro text-muted-foreground">{t('portal.home.progress.noNext')}</span>
+                          <span className={cn('mt-1 block text-muted-foreground', SMALL)}>{t('portal.home.progress.noNext')}</span>
                         )}
                       </span>
                       <ChevronRight

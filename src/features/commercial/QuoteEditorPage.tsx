@@ -10,9 +10,11 @@ import { AccountLogo } from '@/components/common/account-logo';
 import { EmptyState } from '@/components/common/empty-state';
 import { ErrorState } from '@/components/common/error-state';
 import { PageHeader } from '@/components/common/page-header';
-import { CardSkeleton, ListSkeleton } from '@/components/common/skeletons';
+import { CardSkeleton } from '@/components/common/skeletons';
 import { Card } from '@/components/ui/card';
+import { cn } from '@/components/ui/cn';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useStagger } from '@/hooks/useMotion';
 import { useQuery } from '@/hooks/useQuery';
 import { t } from '@/i18n';
 import { api } from '@/services/api';
@@ -34,7 +36,7 @@ function useCatalog(accountId: string | null, enabled: boolean) {
 /** header + main column (info, lines) + side summary — the real layout's sizes */
 function EditorSkeleton() {
   return (
-    <div className="space-y-6 md:space-y-8" role="status" aria-busy="true">
+    <div className="skeleton-reveal space-y-6 md:space-y-8" role="status" aria-busy="true">
       <span className="sr-only">{t('common.loading')}</span>
       <div className="space-y-2.5">
         <Skeleton className="h-3.5 w-36" />
@@ -117,13 +119,37 @@ function ExistingQuote({ quoteId }: { quoteId: string }) {
   );
 }
 
+const PICKER_GRID = 'grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3';
+
+/** the picker's own shape: the same grid of one-line account cards (logo, name, subline) */
+function PickerSkeleton() {
+  return (
+    <div role="status" aria-busy="true" className="skeleton-reveal">
+      <span className="sr-only">{t('common.loading')}</span>
+      <div className={PICKER_GRID} aria-hidden="true">
+        {Array.from({ length: 6 }, (_, i) => (
+          <div key={i} className="flex min-h-tap items-center gap-3 rounded-xl border border-border/70 bg-card p-4 shadow-card">
+            <Skeleton className="h-9 w-9 shrink-0 rounded-lg" />
+            <div className="min-w-0 flex-1 space-y-2">
+              <Skeleton className="h-3.5 w-2/3" />
+              <Skeleton className="h-3 w-1/2" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function AccountPicker() {
   const accountsQ = useQuery(() => api.listAccounts(), []);
+  // the grid (the page's focal list) rises card by card on first paint only (DESIGN §8.4)
+  const rise = useStagger(!!accountsQ.data);
   return (
     <div className="space-y-6 md:space-y-8">
       <PageHeader title={t('commercial.editor.newTitle')} description={t('commercial.editor.pickAccount')} />
       {accountsQ.loading ? (
-        <ListSkeleton rows={5} />
+        <PickerSkeleton />
       ) : !accountsQ.data ? (
         <Card>
           <ErrorState error={accountsQ.error} onRetry={accountsQ.refetch} />
@@ -133,11 +159,13 @@ function AccountPicker() {
           <EmptyState icon={Building2} title={t('commercial.editor.noAccounts')} />
         </Card>
       ) : (
-        <ul className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {accountsQ.data.map((a) => (
-            <li key={a.id} className="min-w-0">
+        <ul className={PICKER_GRID}>
+          {accountsQ.data.map((a, i) => {
+            const r = rise(i);
+            return (
+            <li key={a.id} className={cn('min-w-0', r.className)} style={r.style}>
               <Card interactive asChild>
-                <Link to={`/app/commercial/quotes/new?account=${encodeURIComponent(a.id)}`} className="flex min-h-tap items-center gap-3 p-4">
+                <Link to={`/app/commercial/quotes/new?account=${encodeURIComponent(a.id)}`} className="group flex min-h-tap items-center gap-3 p-4">
                   <AccountLogo account={a} size="md" />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-semibold text-ink">{a.name}</span>
@@ -145,11 +173,15 @@ function AccountPicker() {
                       {t(`enums.stage.${a.stage}`)} · {a.am.full_name}
                     </span>
                   </span>
-                  <ChevronRight className="h-4 w-4 shrink-0 text-caption" aria-hidden="true" />
+                  <ChevronRight
+                    className="h-4 w-4 shrink-0 text-caption transition-transform duration-150 ease-out-quart group-hover:translate-x-0.5"
+                    aria-hidden="true"
+                  />
                 </Link>
               </Card>
             </li>
-          ))}
+            );
+          })}
         </ul>
       )}
     </div>

@@ -161,7 +161,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 function LeadForm({ onOpenChange, lead, people, isDirector, meId, onSaved }: LeadFormDialogProps) {
   const uid = useId();
   const id = (k: string) => `${uid}-${k}`;
-  const { run, pending } = useAction();
+  const { run, pending, pendingVisible } = useAction();
   const [state, setState] = useState<FormState>(() => initialState(lead, isDirector, meId));
   const [errors, setErrors] = useState<Partial<Record<ErrorKey, string>>>({});
   const options = useQuery(() => api.getTargetingOptions(), []);
@@ -413,7 +413,7 @@ function LeadForm({ onOpenChange, lead, people, isDirector, meId, onSaved }: Lea
       </div>
 
       <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-border/70 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/85 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:justify-end sm:px-6 sm:py-4">
-        <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} disabled={pending}>
+        <Button type="button" variant="secondary" onClick={() => !pending && onOpenChange(false)} disabled={pendingVisible}>
           {t('common.cancel')}
         </Button>
         <Button type="submit" loading={pending}>

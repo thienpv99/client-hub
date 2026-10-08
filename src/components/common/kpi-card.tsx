@@ -2,7 +2,9 @@ import type { ReactNode } from 'react';
 import { ArrowDownRight, ArrowRight, ArrowUpRight, ListFilter } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Area, AreaChart, ResponsiveContainer, YAxis } from 'recharts';
+import { useArrivalMotion } from '@/hooks/useMotion';
 import { t } from '@/i18n';
+import { CountUp } from './count-up';
 import { cx } from './cx';
 
 export type KpiTone = 'neutral' | 'primary' | 'success' | 'warning' | 'danger';
@@ -100,6 +102,8 @@ export function KpiTrendChip({ trend, className }: { trend: KpiTrend; className?
 }
 
 function KpiProgressBar({ progress }: { progress: KpiProgress }) {
+  // grows from empty only when the page arrives — not when a tab switch remounts the KPI row (DESIGN.md §8.5)
+  const arrival = useArrivalMotion();
   const max = progress.max > 0 ? progress.max : 1;
   const pct = Math.max(0, Math.min(100, Math.round((progress.value / max) * 100)));
   return (
@@ -112,11 +116,22 @@ function KpiProgressBar({ progress }: { progress: KpiProgress }) {
         aria-valuetext={t('components.kpi.progressPct', { pct })}
         className="h-1.5 w-full overflow-hidden rounded-full bg-muted"
       >
-        <div className="h-full rounded-full bg-primary transition-[width] duration-200 ease-out-quart" style={{ width: `${pct}%` }} />
+        {/* transform, not width: grows from empty on page arrival (animate-progress-grow), eases to later values */}
+        <div
+          className={cx(
+            'h-full w-full rounded-full bg-primary transition-transform duration-500 ease-out-quart',
+            arrival && 'animate-progress-grow',
+          )}
+          style={{ transform: `translateX(-${100 - pct}%)` }}
+        />
       </div>
+      {/* narrow tiles (≤ 200px: 2-up phones, 4-up iPad landscape) drop the percentage — the bar and the "x/y" caption
+          already say it — so the caption keeps the whole width; if it still does not fit, it wraps instead of "…" */}
       <div className="mt-1.5 flex items-center justify-between gap-2 text-micro text-muted-foreground">
-        <span className="min-w-0 truncate">{progress.label ?? t('components.kpi.progress', { value: progress.value, max: progress.max })}</span>
-        <span className="shrink-0 font-medium tabular text-foreground" aria-hidden="true">
+        <span className="min-w-0 truncate [@container_(max-width:200px)]:whitespace-normal [@container_(max-width:200px)]:text-pretty">
+          {progress.label ?? t('components.kpi.progress', { value: progress.value, max: progress.max })}
+        </span>
+        <span className="shrink-0 font-medium tabular text-foreground [@container_(max-width:200px)]:hidden" aria-hidden="true">
           {t('components.kpi.progressPct', { pct })}
         </span>
       </div>
@@ -175,9 +190,12 @@ export function KpiCard({
   const body = (
     <>
       {/* narrow cards (2-up phones, 4-up iPad): reserve two label lines so the numbers of a row line up */}
-      <div className={cx('flex min-w-0 items-start gap-2', labelLines === 2 && KPI_LABEL_RESERVE, clickable && 'pr-3')}>
+      {/* clickable: keep clear of the corner filter icon (right-2.5 + 16px = 26px from the edge) — exactly, no more:
+          the 4-up iPad tiles have ~96px for the label, and every px keeps a word on line 1 */}
+      <div className={cx('flex min-w-0 items-start gap-2', labelLines === 2 && KPI_LABEL_RESERVE, clickable && 'pr-2.5 sm:pr-1.5')}>
         {Icon ? <Icon className={cx('mt-px h-4 w-4 shrink-0', ICON_TONE[tone])} aria-hidden="true" /> : null}
-        <span className="min-w-0 flex-1 text-caption font-medium">{label}</span>
+        {/* pretty, not balance: no lone last word ("Tỷ lệ thắng / 180 ngày") without splitting "Khách / hàng" */}
+        <span className="min-w-0 flex-1 text-pretty text-caption font-medium">{label}</span>
       </div>
       {clickable ? (
         // filter cue in the corner (takes no width from the label): blue when this KPI filters the list below
@@ -196,7 +214,8 @@ export function KpiCard({
             narrow ones, so "9,22 tỷ ₫" never breaks inside a 2-up phone grid or a 4-up iPad row. Size classes a caller
             put on spans inside `value` give way to it. */}
         <span className="min-w-0 break-words text-[clamp(1.5rem,13cqi,1.875rem)] font-semibold leading-[1.2] tabular tracking-display text-ink [&_span]:text-[length:inherit] [&_span]:leading-[inherit]">
-          {value}
+          {/* counts up from 0 on first mount when the value is a formatted number (DESIGN.md §8.5) */}
+          <CountUp value={value} />
         </span>
         {trend ? <KpiTrendChip trend={trend} /> : null}
       </div>

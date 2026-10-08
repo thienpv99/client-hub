@@ -109,7 +109,8 @@ export function LogoPicker({
               onChange={(e) => void onFile(e.target.files?.[0])}
             />
             <Button type="button" variant="secondary" size="sm" loading={busy} onClick={() => inputRef.current?.click()}>
-              {!busy ? <ImageUp aria-hidden="true" /> : null}
+              {/* kept while busy: the Button swaps it for its spinner after 150 ms (DESIGN §8.2) */}
+              <ImageUp aria-hidden="true" />
               {logoUrl ? t('wizard.company.logo.replace') : t('wizard.company.logo.upload')}
             </Button>
             {logoUrl ? (
@@ -165,7 +166,7 @@ export function LogoPicker({
                 // brand colours are account data (see BRAND_COLORS), applied inline like AccountLogo does
                 style={{ backgroundColor: c.value }}
               >
-                {checked ? <Check className="h-4 w-4 text-primary-foreground" strokeWidth={3} aria-hidden="true" /> : null}
+                {checked ? <Check className="h-4 w-4 animate-check-in text-primary-foreground" strokeWidth={3} aria-hidden="true" /> : null}
               </button>
             );
           })}

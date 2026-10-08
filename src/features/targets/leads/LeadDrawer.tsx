@@ -118,7 +118,7 @@ function FactRow({ label, children }: { label: string; children: ReactNode }) {
 
 function LeadDetailView({ lead, people, isDirector, meId }: { lead: LeadDetail; people: UserRef[]; isDirector: boolean; meId: string }) {
   const today = todayISO();
-  const { run, pending } = useAction();
+  const { run, pending, pendingVisible } = useAction();
   const [editOpen, setEditOpen] = useState(false);
   const [convertOpen, setConvertOpen] = useState(false);
   const [logOpen, setLogOpen] = useState(false);
@@ -127,6 +127,7 @@ function LeadDetailView({ lead, people, isDirector, meId }: { lead: LeadDetail; 
   const company = lead.company_name;
 
   async function setStatus(status: Exclude<LeadStatus, 'converted'>, reason?: string): Promise<boolean> {
+    if (pending) return false;
     const r = await run(() => api.setLeadStatus(lead.id, status, reason), {
       success: t('targets.drawer.statusChanged', { company, status: leadStatusLabel(status) }),
     });
@@ -209,7 +210,7 @@ function LeadDetailView({ lead, people, isDirector, meId }: { lead: LeadDetail; 
                     size="sm"
                     variant={current ? 'soft' : 'secondary'}
                     aria-pressed={current}
-                    disabled={pending || current}
+                    disabled={pendingVisible || current}
                     onClick={() => (s === 'disqualified' ? setDisqualifyOpen(true) : void setStatus(s))}
                     className={cn('justify-start sm:justify-center', current && 'disabled:opacity-100')}
                   >

@@ -6,6 +6,7 @@ import { api } from '@/services/api';
 import { UserAvatar } from '@/components/common/user-avatar';
 import { Button } from '@/components/ui/button';
 import { errorMessage } from '@/hooks/useAction';
+import { riseProps, useDelayedFlag } from '@/hooks/useMotion';
 import { hasKey, t } from '@/i18n';
 import { cn } from '@/components/ui/cn';
 import { FormError } from './FormError';
@@ -40,6 +41,8 @@ function readDemoLogins(): DemoLogin[] {
 export function DemoLoginPanel({ className }: { className?: string }) {
   const logins = useMemo(readDemoLogins, []);
   const [pendingRole, setPendingRole] = useState<Role | null>(null);
+  // the busy look (spinner, dimmed siblings) waits 150 ms: a quick sign-in goes straight to the app (DESIGN §8.2)
+  const busyVisible = useDelayedFlag(pendingRole !== null);
   const [error, setError] = useState<string | null>(null);
 
   const byRole = useMemo(() => {
@@ -78,22 +81,25 @@ export function DemoLoginPanel({ className }: { className?: string }) {
       </div>
 
       <ul className="grid grid-cols-2 gap-3">
-        {main.map((login) => {
+        {main.map((login, i) => {
           const busy = pendingRole === login.role;
           const internal = INTERNAL_ROLES.has(login.role);
           const role = labelOf(login);
+          // they fade up just after the sign-in card (index + 2 = 70 ms later), one after the other
+          const motion = riseProps(i + 2);
           return (
-            <li key={login.user_id} className="min-w-0">
+            <li key={login.user_id} className={cn('min-w-0', motion.className)} style={motion.style}>
               <button
                 type="button"
                 onClick={() => void enter(login.role)}
-                disabled={pendingRole !== null}
+                // a click while one card signs in is ignored at once (enter() guards); the dimmed look waits
+                disabled={busyVisible}
                 aria-busy={busy || undefined}
                 className={cn(
-                  'group relative flex h-full w-full min-w-0 items-start gap-3 rounded-xl border border-border/70 bg-card p-3 text-left shadow-card sm:p-3.5',
-                  'transition duration-150 ease-out-quart hover:-translate-y-px hover:border-primary-border hover:shadow-card-hover active:scale-[0.98]',
-                  'disabled:cursor-not-allowed disabled:hover:translate-y-0',
-                  pendingRole !== null && !busy && 'opacity-60',
+                  // hover-lift (index.css, = Card interactive): −1px + shadow-card-hover, settles on press
+                  'hover-lift group relative flex h-full w-full min-w-0 items-start gap-3 rounded-xl border border-border/70 bg-card p-3 text-left shadow-card hover:border-border sm:p-3.5',
+                  'disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-card',
+                  busyVisible && !busy && 'opacity-60',
                 )}
               >
                 <UserAvatar
@@ -101,8 +107,10 @@ export function DemoLoginPanel({ className }: { className?: string }) {
                   size="md"
                   className="hidden sm:inline-flex lg:hidden xl:inline-flex"
                 />
+                {/* pr-5: the corner arrow sits beside the side label only, so the role (2nd line) gets the full width
+                    ("Quản lý khách hàng" stays on one line) */}
                 <span className="block min-w-0 flex-1">
-                  <span className="block text-micro font-medium text-muted-foreground">
+                  <span className="block pr-5 text-micro font-medium text-muted-foreground">
                     {internal ? t('auth.demo.sideInternal') : t('auth.demo.sideClient')}
                   </span>
                   <span className="mt-0.5 line-clamp-2 text-table font-semibold leading-5 text-ink">{role}</span>
@@ -116,14 +124,13 @@ export function DemoLoginPanel({ className }: { className?: string }) {
                     ) : null}
                   </span>
                 </span>
-                {busy ? (
-                  <LoaderCircle className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-primary" aria-hidden />
-                ) : (
-                  <ArrowUpRight
-                    className="mt-0.5 h-4 w-4 shrink-0 text-caption transition-colors duration-150 group-hover:text-primary"
-                    aria-hidden
-                  />
-                )}
+                <span className="absolute right-3 top-3 sm:right-3.5 sm:top-3.5" aria-hidden>
+                  {busy && busyVisible ? (
+                    <LoaderCircle className="h-4 w-4 animate-spin text-primary" />
+                  ) : (
+                    <ArrowUpRight className="h-4 w-4 text-caption transition-[color,transform] duration-150 ease-out-quart group-hover:-translate-y-px group-hover:translate-x-px group-hover:text-primary" />
+                  )}
+                </span>
               </button>
             </li>
           );
@@ -137,12 +144,13 @@ export function DemoLoginPanel({ className }: { className?: string }) {
             variant="ghost"
             size="sm"
             className="text-muted-foreground hover:text-foreground"
-            disabled={pendingRole !== null}
+            disabled={busyVisible && pendingRole !== 'member'}
             loading={pendingRole === 'member'}
             onClick={() => void enter('member')}
           >
             {t('auth.demo.memberLink')}
-            {pendingRole !== 'member' ? <ArrowRight aria-hidden /> : null}
+            {/* kept while busy: the Button swaps its icon for the spinner itself after 150 ms */}
+            <ArrowRight aria-hidden />
           </Button>
         </div>
       ) : null}

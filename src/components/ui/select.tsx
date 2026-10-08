@@ -81,7 +81,7 @@ const SelectContent = React.forwardRef<
       collisionPadding={collisionPadding}
       className={cn(
         menuPanelBase,
-        'relative max-h-[min(24rem,var(--radix-select-content-available-height))] min-w-[8rem] p-0',
+        'relative max-h-[min(24rem,var(--radix-select-content-available-height))] min-w-[8rem] origin-[var(--radix-select-content-transform-origin)] p-0',
         className,
       )}
       {...props}

@@ -33,6 +33,14 @@ function StatusPart({
   );
 }
 
+/**
+ * a tile label in a 2-up phone tile: pretty avoids a lone last word ("… rủi / ro") without balance's even split,
+ * which broke "Khách / hàng rủi ro" (KpiCard labels are pretty too)
+ */
+function Label({ text }: { text: string }) {
+  return <span className="block text-pretty">{text}</span>;
+}
+
 export interface DashboardKpisProps {
   kpis: DirectorDashboard['kpis'];
   year: string;
@@ -62,9 +70,9 @@ export function DashboardKpis({ kpis, year, active, onFilter }: DashboardKpisPro
   ].filter((p) => p !== null);
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
       <KpiCard
-        label={t('dashboard.kpi.risk.label')}
+        label={<Label text={t('dashboard.kpi.risk.label')} />}
         value={String(atRisk)}
         sub={
           risk.active_total === 0 ? (
@@ -93,7 +101,7 @@ export function DashboardKpis({ kpis, year, active, onFilter }: DashboardKpisPro
         active={active === 'at_risk'}
       />
       <KpiCard
-        label={t('dashboard.kpi.overdue.label')}
+        label={<Label text={t('dashboard.kpi.overdue.label')} />}
         value={String(overdueTotal)}
         sub={
           overdueTotal > 0 ? (
@@ -113,7 +121,7 @@ export function DashboardKpis({ kpis, year, active, onFilter }: DashboardKpisPro
         active={active === 'overdue_tasks'}
       />
       <KpiCard
-        label={t('dashboard.kpi.contract.label', { year })}
+        label={<Label text={t('dashboard.kpi.contract.label', { year })} />}
         value={formatMoneyCompact(kpis.contract_value_ytd)}
         sub={
           kpis.contract_count_ytd > 0
@@ -123,11 +131,12 @@ export function DashboardKpis({ kpis, year, active, onFilter }: DashboardKpisPro
         icon={FileSignature}
       />
       <KpiCard
-        label={t('dashboard.kpi.receivable.label')}
+        label={<Label text={t('dashboard.kpi.receivable.label')} />}
         value={formatMoneyCompact(kpis.receivable.total)}
         sub={
           kpis.receivable.overdue > 0 ? (
-            <StatusPart icon={CircleAlert} tone="danger">
+            // wraps in the ~130px of a 4-up tile at 1024 (the amount itself never breaks)
+            <StatusPart icon={CircleAlert} tone="danger" wrap>
               {t('dashboard.kpi.receivable.overdue', { amount: formatMoneyCompact(kpis.receivable.overdue) })}
             </StatusPart>
           ) : (

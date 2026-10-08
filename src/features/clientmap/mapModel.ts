@@ -39,6 +39,11 @@ const PAD = 4;
 /** short names longer than this are refused by the ecosystem form */
 export const SHORT_NAME_MAX = 16;
 
+/** drawn scale of a bubble during its entrance (`grow` 0…1): it fades in while growing from 60 % — a settle, no pop */
+export function introScale(grow: number): number {
+  return 0.6 + 0.4 * Math.max(0, Math.min(1, grow));
+}
+
 export function isCompany(n: ClientMapNode): boolean {
   return n.kind !== 'ecosystem';
 }

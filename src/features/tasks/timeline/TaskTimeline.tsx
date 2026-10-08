@@ -14,6 +14,7 @@ import { formatDateShort } from '@/lib/format';
 import { useMediaQuery } from '@/hooks/useMedia';
 import { useTaskDrawer } from '@/hooks/useTaskDrawer';
 import { Card } from '@/components/ui/card';
+import { SCROLL_FADE_END_CLASS, useScrollFade } from '@/components/ui/use-scroll-fade';
 import { SMALL } from '@/components/common/cx';
 import { dueLabelText } from '@/components/common/due-label';
 import { forecastSentence } from '@/components/common/forecast-label';
@@ -36,15 +37,23 @@ export function TaskTimeline({ groups, range, multiProject }: TaskTimelineProps)
   const labelW = wide ? 288 : 224;
   const chartW = range.days * DAY_W;
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  useScrollFade(scrollRef);
   const x = (d: ISODate): number => diffDays(d, range.start) * DAY_W;
   const todayX = x(today) + DAY_W / 2;
 
-  // open with today about a quarter into the visible chart
+  const weeks = useMemo(() => weekStarts(range), [range]);
+
+  // open with today about a quarter into the visible chart, snapped back to the week line at or before that point so
+  // the first date label is never half under the pinned task column
   useLayoutEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
     const visible = el.clientWidth - labelW;
-    el.scrollLeft = Math.max(0, todayX - visible * 0.25);
+    const target = Math.max(0, todayX - visible * 0.25);
+    el.scrollLeft = weeks.reduce((snap, w) => {
+      const wx = x(w);
+      return wx <= target && wx > snap ? wx : snap;
+    }, 0);
     // only when the scale changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [range.start, range.days, labelW]);
@@ -53,14 +62,20 @@ export function TaskTimeline({ groups, range, multiProject }: TaskTimelineProps)
     width: chartW,
     backgroundImage: `repeating-linear-gradient(to right, rgb(var(--border)) 0 1px, transparent 1px ${7 * DAY_W}px)`,
   };
-  const weeks = useMemo(() => weekStarts(range), [range]);
 
   const todayLine = <span className="pointer-events-none absolute inset-y-0 w-0.5 bg-primary/70" style={{ left: todayX - 1 }} aria-hidden="true" />;
 
   return (
     // `isolate`: the pinned column's z-index stays inside the card (never above the page's sticky header)
     <Card className="isolate overflow-hidden">
-      <div ref={scrollRef} className="scrollbar-thin overflow-x-auto" role="region" aria-label={t('tasks.timeline.label')} tabIndex={0}>
+      {/* end-edge fade while later weeks are cut off (the pinned task column covers the start edge) */}
+      <div
+        ref={scrollRef}
+        className={cn('scrollbar-thin overflow-x-auto', SCROLL_FADE_END_CLASS)}
+        role="region"
+        aria-label={t('tasks.timeline.label')}
+        tabIndex={0}
+      >
         <div className="relative" style={{ width: labelW + chartW }}>
           {/* scale */}
           <div className="flex border-b border-border/70">

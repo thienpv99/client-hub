@@ -38,7 +38,7 @@ export function timelineSummary(rows: ProjectPortfolioRow[]): string {
 
 function GanttSkeleton() {
   return (
-    <Card className="overflow-hidden" role="status" aria-busy="true">
+    <Card className="skeleton-reveal overflow-hidden" role="status" aria-busy="true">
       <span className="sr-only">{t('components.loading')}</span>
       <div className="flex items-start justify-between gap-4 p-4 sm:p-5">
         <div className="min-w-0 flex-1 space-y-2">

@@ -105,12 +105,24 @@ export function ReceivableValue({
   if (receivable <= 0 && overdue <= 0) {
     return <span className="text-muted-foreground">{t('dashboard.portfolio.noReceivable')}</span>;
   }
+  if (overdue > 0 && overdue >= receivable) {
+    // all of it is overdue: the amount once, in the danger colour, with one "quá hạn" line (it printed twice)
+    return (
+      <span className={cn('inline-flex flex-col gap-0.5', align === 'end' ? 'items-end' : 'items-start')}>
+        <Money value={Math.max(receivable, overdue)} compact className="font-medium text-danger" />
+        <span className={cn('inline-flex items-center gap-1 whitespace-nowrap font-medium text-danger', SMALL)}>
+          <CircleAlert className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          {t('dashboard.portfolio.receivableAllOverdue')}
+        </span>
+      </span>
+    );
+  }
   return (
     <span className={cn('inline-flex flex-col gap-0.5', align === 'end' ? 'items-end' : 'items-start')}>
       <Money value={receivable} compact className="font-medium text-foreground" />
       {overdue > 0 ? (
-        // the amount never breaks (NBSP inside); "quá hạn" may wrap in a narrow table column
-        <span className={cn('inline-flex items-start gap-1 font-medium text-danger', align === 'end' ? 'text-right' : 'text-left', SMALL)}>
+        // one line: the amount never breaks (NBSP inside) and stays with "quá hạn"
+        <span className={cn('inline-flex items-start gap-1 whitespace-nowrap font-medium text-danger', align === 'end' ? 'text-right' : 'text-left', SMALL)}>
           <CircleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
           <span className="tabular">{t('dashboard.portfolio.receivableOverdue', { amount: formatMoneyCompact(overdue) })}</span>
         </span>
@@ -153,7 +165,7 @@ function holdingLook(r: HoldingReason) {
 }
 
 /** Another milestone than the next one is held: "⛔ Mốc UAT đang bị giữ" + the task line under it. */
-function HeldMilestone({ reason: r }: { reason: HoldingReason }) {
+function HeldMilestone({ reason: r, dense = false }: { reason: HoldingReason; dense?: boolean }) {
   const { Icon, tone } = holdingLook(r);
   const title = r.kind === 'overdue_blocking' ? 'dashboard.portfolio.held.title' : 'dashboard.portfolio.held.titleSoon';
   return (
@@ -161,19 +173,19 @@ function HeldMilestone({ reason: r }: { reason: HoldingReason }) {
       <Icon className={cn('mt-[3px] h-3.5 w-3.5 shrink-0', tone)} strokeWidth={2.25} aria-hidden="true" />
       <span className="flex min-w-0 flex-col gap-0.5">
         <span className={cn('break-words font-medium', tone)}>{t(title, { milestone: r.milestone_name })}</span>
-        <span className={cn('line-clamp-2 break-words text-muted-foreground', SMALL)}>{holdingDetail(r)}</span>
+        <span className={cn(dense ? 'line-clamp-1' : 'line-clamp-2', 'break-words text-muted-foreground', SMALL)}>{holdingDetail(r)}</span>
       </span>
     </span>
   );
 }
 
 /** The next milestone itself is the held one: the task line under its dates. */
-function HoldingCause({ reason: r }: { reason: HoldingReason }) {
+function HoldingCause({ reason: r, dense = false }: { reason: HoldingReason; dense?: boolean }) {
   const { Icon, tone } = holdingLook(r);
   return (
     <span className={cn('flex min-w-0 items-start gap-1.5 text-muted-foreground', SMALL)} title={healthReasonText(r)}>
       <Icon className={cn('mt-0.5 h-3.5 w-3.5 shrink-0', tone)} strokeWidth={2.25} aria-hidden="true" />
-      <span className="line-clamp-2 min-w-0 break-words">{holdingDetail(r)}</span>
+      <span className={cn(dense ? 'line-clamp-1' : 'line-clamp-2', 'min-w-0 break-words')}>{holdingDetail(r)}</span>
     </span>
   );
 }
@@ -182,7 +194,16 @@ function HoldingCause({ reason: r }: { reason: HoldingReason }) {
  * Milestone name (+ project) and the compact "08/10 → 14/10 · lùi 6 ngày". An account that is not on track also says
  * which task holds which milestone: under the dates when it is the next milestone, else above it.
  */
-export function NextMilestoneInfo({ account, showProject = false }: { account: AccountSummary; showProject?: boolean }) {
+/** dense (table rows): the task line holding a milestone takes one line (full text in the tooltip) */
+export function NextMilestoneInfo({
+  account,
+  showProject = false,
+  dense = false,
+}: {
+  account: AccountSummary;
+  showProject?: boolean;
+  dense?: boolean;
+}) {
   const m = account.next_milestone;
   const reason = holdingReason(account);
   const heldIsNext = reason !== null && m !== null && reason.milestone_id === m.id;
@@ -193,7 +214,7 @@ export function NextMilestoneInfo({ account, showProject = false }: { account: A
         {showProject ? <span className="font-normal text-muted-foreground"> · {m.project_name}</span> : null}
       </span>
       <ForecastLabel milestone={m} compact />
-      {heldIsNext && reason ? <HoldingCause reason={reason} /> : null}
+      {heldIsNext && reason ? <HoldingCause reason={reason} dense={dense} /> : null}
     </div>
   ) : reason ? null : (
     <span className="text-muted-foreground">{t('dashboard.portfolio.noMilestone')}</span>
@@ -201,7 +222,7 @@ export function NextMilestoneInfo({ account, showProject = false }: { account: A
   if (!reason || heldIsNext) return next;
   return (
     <div className="flex min-w-0 flex-col gap-2">
-      <HeldMilestone reason={reason} />
+      <HeldMilestone reason={reason} dense={dense} />
       {next}
     </div>
   );

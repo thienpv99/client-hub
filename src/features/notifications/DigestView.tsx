@@ -117,7 +117,7 @@ export function DigestView({ digest, className }: DigestViewProps) {
 /** same frame as DigestView: envelope bar, greeting, two account sections */
 export function DigestSkeleton({ className }: { className?: string }) {
   return (
-    <div role="status" aria-busy="true" className={cn('w-full overflow-hidden rounded-xl border border-border/70 bg-card shadow-card', className)}>
+    <div role="status" aria-busy="true" className={cn('skeleton-reveal w-full overflow-hidden rounded-xl border border-border/70 bg-card shadow-card', className)}>
       <span className="sr-only">{t('common.a11y.loading')}</span>
       <div className={cn('flex justify-between gap-4 border-b border-border/60 bg-subtle py-3.5', PAD_X)}>
         <Skeleton className="h-3.5 w-48 max-w-[60%]" />

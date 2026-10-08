@@ -174,12 +174,14 @@ export function RulesTab({ viewer, onShowOutbox }: RulesTabProps) {
         <SectionCard title={t('notify.sweep.title')} description={t('notify.sweep.description')}>
           <div className="space-y-4">
             <Button type="button" className="w-full sm:w-auto" loading={sweep.pending} onClick={() => void runSweep()}>
-              {sweep.pending ? null : <Play aria-hidden="true" />}
+              {/* kept while busy: the Button swaps it for its spinner after 150 ms (DESIGN §8.2) */}
+              <Play aria-hidden="true" />
               {t('notify.sweep.run')}
             </Button>
             <div role="status" aria-live="polite">
               {last ? (
-                <div className="space-y-1 rounded-lg bg-subtle p-3 ring-1 ring-inset ring-border/60">
+                // keyed by the run: each new result fades in, so a repeated run visibly answers
+                <div key={last.at} className="animate-fade-in space-y-1 rounded-lg bg-subtle p-3 ring-1 ring-inset ring-border/60">
                   <p className="text-table text-foreground">{sweepSentence(last.result, last.at)}</p>
                   <Button type="button" variant="link" size="sm" onClick={onShowOutbox}>
                     {t('notify.sweep.viewOutbox')}

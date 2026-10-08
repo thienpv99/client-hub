@@ -6,6 +6,7 @@ import { Check, Eye, MessageCircleQuestion, MoreHorizontal, UserPlus } from 'luc
 import type { ActionResult, TaskView } from '@/services/contract';
 import { api } from '@/services/api';
 import { useAction, type ActionOptions } from '@/hooks/useAction';
+import { useDelayedFlag } from '@/hooks/useMotion';
 import { useTaskDrawer } from '@/hooks/useTaskDrawer';
 import { useViewer } from '@/hooks/useViewer';
 import { t } from '@/i18n';
@@ -61,6 +62,8 @@ export function ClientActions({ task, layout, onCompleted, className }: ClientAc
   const drawer = useTaskDrawer();
   const uid = useId();
   const [busy, setBusy] = useState<Busy>(null);
+  // the other button's busy look waits 150 ms (DESIGN §8.2); clicks check `busy` at once
+  const busyVisible = useDelayedFlag(busy !== null);
   const [changesOpen, setChangesOpen] = useState(false);
   const [answerOpen, setAnswerOpen] = useState(false);
   const [askOpen, setAskOpen] = useState(false);
@@ -94,7 +97,7 @@ export function ClientActions({ task, layout, onCompleted, className }: ClientAc
   });
 
   function onPrimary() {
-    if (disabled && !viewOnlyPrimary) return;
+    if ((disabled && !viewOnlyPrimary) || busy !== null) return;
     switch (aff.primary) {
       case 'approve':
         if (layout === 'card') {
@@ -215,10 +218,11 @@ export function ClientActions({ task, layout, onCompleted, className }: ClientAc
       size={layout === 'card' ? 'touch' : 'default'}
       onClick={onPrimary}
       loading={busy === 'primary'}
-      disabled={(disabled && !viewOnlyPrimary) || busy !== null}
+      disabled={(disabled && !viewOnlyPrimary) || (busy === 'changes' && busyVisible)}
       className={cn('min-w-0', layout === 'footer' ? 'order-3 flex-1 lg:flex-none' : 'w-full md:w-auto')}
     >
-      {busy !== 'primary' && PrimaryIcon ? <PrimaryIcon aria-hidden="true" /> : null}
+      {/* the Button swaps the icon for its spinner itself (after 150 ms) */}
+      {PrimaryIcon ? <PrimaryIcon aria-hidden="true" /> : null}
       <span className="truncate">{primaryLabel}</span>
     </Button>
   ) : null;
@@ -227,9 +231,10 @@ export function ClientActions({ task, layout, onCompleted, className }: ClientAc
     <Button
       type="button"
       variant="secondary"
-      onClick={() => setChangesOpen(true)}
-      disabled={disabled || busy !== null}
+      onClick={() => (busy !== null ? undefined : setChangesOpen(true))}
+      disabled={disabled || (busy === 'primary' && busyVisible)}
       loading={busy === 'changes'}
+      spinnerOverlay
       className="order-2 shrink-0"
     >
       {quote ? t('task.action.quoteChanges') : t('enums.taskAction.request_changes')}

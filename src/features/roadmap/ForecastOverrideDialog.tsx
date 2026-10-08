@@ -23,7 +23,7 @@ export interface ForecastOverrideDialogProps {
 
 export function ForecastOverrideDialog({ open, onOpenChange, milestone: m }: ForecastOverrideDialogProps) {
   const ids = useId();
-  const { run, pending } = useAction();
+  const { run, pending, pendingVisible } = useAction();
   const [busy, setBusy] = useState<'save' | 'clear' | null>(null);
   const [date, setDate] = useState('');
   const [reason, setReason] = useState('');
@@ -125,20 +125,25 @@ export function ForecastOverrideDialog({ open, onOpenChange, milestone: m }: For
                 size="sm"
                 onClick={() => void clear()}
                 loading={busy === 'clear'}
-                disabled={pending}
+                disabled={busy === 'save' && pendingVisible}
                 className="self-start sm:self-auto"
               >
-                {busy === 'clear' ? null : <RotateCcw aria-hidden="true" />}
+                <RotateCcw aria-hidden="true" />
                 {t('roadmap.override.clear')}
               </Button>
             </div>
           ) : null}
 
           <DialogFooter>
-            <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} disabled={pending}>
+            {/* busy looks wait 150 ms (DESIGN §8.2); save() / clear() / Cancel ignore clicks while `pending` */}
+            <Button type="button" variant="secondary" onClick={() => (pending ? undefined : onOpenChange(false))} disabled={pendingVisible}>
               {t('common.cancel')}
             </Button>
-            <Button type="submit" loading={busy === 'save'} disabled={pending || (touched && (!validDate || !why))}>
+            <Button
+              type="submit"
+              loading={busy === 'save'}
+              disabled={(busy === 'clear' && pendingVisible) || (touched && (!validDate || !why))}
+            >
               {t('roadmap.override.submit')}
             </Button>
           </DialogFooter>

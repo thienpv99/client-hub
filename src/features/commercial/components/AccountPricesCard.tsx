@@ -34,12 +34,12 @@ function PriceDialog({ accountId, row, onOpenChange }: { accountId: string; row:
   const uid = useId();
   const [price, setPrice] = useState(row?.negotiated_price ?? row?.list_price ?? 0);
   const [note, setNote] = useState(row?.note ?? '');
-  const { run, pending } = useAction();
+  const { run, pending, pendingVisible } = useAction();
   if (!row) return null;
 
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!row || price <= 0) return;
+    if (!row || price <= 0 || pending) return;
     const r = await run(() => api.setAccountPrice(accountId, row.price_item_id, price, note.trim() || null), {
       success: 'commercial.accountPrices.toast.saved',
       successParams: { name: row.name },
@@ -69,7 +69,7 @@ function PriceDialog({ accountId, row, onOpenChange }: { accountId: string; row:
             <Input id={`${uid}-note`} value={note} onChange={(e) => setNote(e.target.value)} placeholder={t('commercial.accountPrices.notePlaceholder')} />
           </FormField>
           <DialogFooter>
-            <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} disabled={pending}>
+            <Button type="button" variant="secondary" onClick={() => (pending ? undefined : onOpenChange(false))} disabled={pendingVisible}>
               {t('common.cancel')}
             </Button>
             <Button type="submit" loading={pending} disabled={price <= 0}>
@@ -86,7 +86,7 @@ export function AccountPricesCard({ accountId, manage }: { accountId: string; ma
   const breakpoint = useBreakpoint();
   const [showAll, setShowAll] = useState(false);
   const [editing, setEditing] = useState<Row | null>(null);
-  const { run, pending } = useAction();
+  const { run, pending, pendingVisible } = useAction();
   const query = useQuery(
     async () => {
       const [prices, items] = await Promise.all([api.listAccountPrices(accountId), api.listPriceItems({ includeInactive: true })]);
@@ -103,11 +103,13 @@ export function AccountPricesCard({ accountId, manage }: { accountId: string; ma
   const negotiatedCount = rows.filter((r) => r.negotiated_price !== null).length;
   const visible = showAll ? rows : rows.filter((r) => r.negotiated_price !== null);
 
-  const remove = (r: Row) =>
+  const remove = (r: Row) => {
+    if (pending) return;
     void run(() => api.setAccountPrice(accountId, r.price_item_id, null), {
       success: 'commercial.accountPrices.toast.removed',
       successParams: { name: r.name },
     });
+  };
 
   const margin = (r: Row) => {
     const applicable = r.negotiated_price ?? r.list_price;
@@ -124,7 +126,7 @@ export function AccountPricesCard({ accountId, manage }: { accountId: string; ma
           {label}
         </Button>
         {r.negotiated_price !== null ? (
-          <Button variant="ghost" size="icon-sm" disabled={pending} onClick={() => remove(r)} aria-label={t('commercial.accountPrices.removeFor', { name: r.name })}>
+          <Button variant="ghost" size="icon-sm" disabled={pendingVisible} onClick={() => remove(r)} aria-label={t('commercial.accountPrices.removeFor', { name: r.name })}>
             <X aria-hidden="true" />
           </Button>
         ) : null}

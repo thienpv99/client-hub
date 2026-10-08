@@ -1,6 +1,6 @@
 // Manager actions on one installment: Đến hạn xuất HĐ · Xuất hóa đơn (invoice no.) · Đã thu · Mở lại,
 // and the "Tự tạo việc Thanh toán" switch. Data refreshes through useQuery after each mutation.
-import { useId, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import type { FormEvent } from 'react';
 import { CircleCheck, Ellipsis, FileClock, ListChecks, Receipt, RotateCcw } from 'lucide-react';
 import type { PaymentAction, PaymentView } from '@/services/contract';
@@ -32,12 +32,12 @@ const SUCCESS: Record<Exclude<PaymentAction, 'invoice'>, string> = {
 function InvoiceDialog({ payment, open, onOpenChange }: { payment: PaymentView; open: boolean; onOpenChange: (o: boolean) => void }) {
   const id = useId();
   const [value, setValue] = useState('');
-  const { run, pending } = useAction();
+  const { run, pending, pendingVisible } = useAction();
   const tooLong = value.trim().length > 40;
 
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (tooLong) return;
+    if (tooLong || pending) return;
     const r = await run(() => api.updatePayment(payment.id, 'invoice', { invoice_no: value.trim() || undefined }));
     if (r) {
       toastSuccess(t('commercial.payment.toast.invoiced', { name: r.name, invoice: r.invoice_no ?? '' }));
@@ -72,7 +72,7 @@ function InvoiceDialog({ payment, open, onOpenChange }: { payment: PaymentView; 
             />
           </FormField>
           <DialogFooter>
-            <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} disabled={pending}>
+            <Button type="button" variant="secondary" onClick={() => (pending ? undefined : onOpenChange(false))} disabled={pendingVisible}>
               {t('common.cancel')}
             </Button>
             <Button type="submit" loading={pending} disabled={tooLong}>
@@ -110,6 +110,7 @@ export function PaymentActionButtons({ payment, className }: { payment: PaymentV
   const { primary, more } = stepsFor(payment);
 
   const perform = (action: PaymentAction) => {
+    if (pending) return;
     if (action === 'invoice') {
       setInvoiceOpen(true);
       return;
@@ -129,7 +130,8 @@ export function PaymentActionButtons({ payment, className }: { payment: PaymentV
           onClick={() => perform(primary)}
           aria-label={`${t(`commercial.payment.action.${primary}`)} – ${payment.name}`}
         >
-          {pending ? null : <PrimaryIcon aria-hidden="true" />}
+          {/* the Button swaps the icon for its spinner itself (after 150 ms) */}
+          <PrimaryIcon aria-hidden="true" />
           {t(`commercial.payment.action.${primary}`)}
         </Button>
       ) : null}
@@ -166,10 +168,25 @@ export function PaymentActionButtons({ payment, className }: { payment: PaymentV
 
 /** "Tự tạo việc Thanh toán" switch + a link to the live payment task */
 export function PaymentAutoTask({ payment, manage, showLabel = false }: { payment: PaymentView; manage: boolean; showLabel?: boolean }) {
-  const { run, pending } = useAction();
+  const { run, pending, pendingVisible } = useAction();
   const { open } = useTaskDrawer();
   const id = useId();
   const paid = payment.status === 'paid';
+  // optimistic: the thumb travels at once (spring); the refetched payment then takes over, a refusal snaps back
+  const [optimistic, setOptimistic] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (optimistic !== null && payment.auto_task_enabled === optimistic) setOptimistic(null);
+  }, [payment.auto_task_enabled, optimistic]);
+
+  async function toggle(on: boolean) {
+    if (pending) return;
+    setOptimistic(on);
+    const r = await run(() => api.setPaymentAutoTask(payment.id, on), {
+      success: on ? 'commercial.payment.toast.autoOn' : 'commercial.payment.toast.autoOff',
+      successParams: { name: payment.name },
+    });
+    if (!r) setOptimistic(null);
+  }
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
       {!paid ? (
@@ -179,14 +196,10 @@ export function PaymentAutoTask({ payment, manage, showLabel = false }: { paymen
         >
           <Switch
             id={id}
-            checked={payment.auto_task_enabled}
-            disabled={!manage || pending}
-            onCheckedChange={(on) =>
-              void run(() => api.setPaymentAutoTask(payment.id, on), {
-                success: on ? 'commercial.payment.toast.autoOn' : 'commercial.payment.toast.autoOff',
-                successParams: { name: payment.name },
-              })
-            }
+            checked={optimistic ?? payment.auto_task_enabled}
+            disabled={!manage || pendingVisible}
+            aria-busy={pending || undefined}
+            onCheckedChange={(on) => void toggle(on)}
             aria-label={showLabel ? undefined : t('commercial.payment.autoTaskFor', { name: payment.name })}
           />
           {showLabel ? <span className="text-table text-muted-foreground">{t('commercial.payment.autoTask')}</span> : null}

@@ -8,8 +8,8 @@ import { api } from '@/services/api';
 import type { PortalHome } from '@/services/contract';
 import { ErrorState } from '@/components/common/error-state';
 import { PageHeader } from '@/components/common/page-header';
-import { PageSkeleton } from '@/components/common/skeletons';
 import { StatusBand } from '@/components/common/status-band';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useMediaQuery } from '@/hooks/useMedia';
 import { usePortalProject } from '@/hooks/usePortalProject';
 import { useQuery } from '@/hooks/useQuery';
@@ -37,6 +37,82 @@ function greeting(home: Pick<PortalHome, 'my_tasks' | 'week_count'>, salute: Sal
   return { title: t('portal.home.greetingLater', { ...params, count: total }), sub: t('portal.home.greetingLaterSub') };
 }
 
+/**
+ * Same frame as the loaded home, phones first (DESIGN §8.9: nothing jumps when the data arrives): header group (date
+ * line from sm, 16/20px to the status band) → the focal task cards (no type tile on phones, full-width primary) → on
+ * lg the right column. The whole placeholder fades in as one after 120 ms (skeleton-reveal).
+ */
+function PortalHomeSkeleton({ twoColumns }: { twoColumns: boolean }) {
+  const taskCards = (
+    <div className="space-y-3">
+      <Skeleton className="h-5 w-48 max-w-full" />
+      {[0, 1, 2].map((i) => (
+        <div key={i} className="rounded-xl border border-border/70 bg-card p-4 shadow-card sm:p-5">
+          <div className="flex items-start gap-3">
+            <Skeleton className="hidden h-9 w-9 shrink-0 rounded-lg sm:block" />
+            <div className="min-w-0 flex-1 space-y-2">
+              <Skeleton className={i % 2 ? 'h-5 w-2/3' : 'h-5 w-5/6'} />
+              <Skeleton className="h-6 w-36 rounded-md" />
+            </div>
+          </div>
+          <Skeleton className="mt-4 h-16 w-full rounded-lg" />
+          <Skeleton className="mt-4 h-11 w-full rounded-lg sm:w-36 md:h-10" />
+        </div>
+      ))}
+    </div>
+  );
+  const sideCards = (
+    <div className="flex min-w-0 flex-col gap-6">
+      {[0, 1].map((i) => (
+        <div key={i} className="rounded-xl border border-border/70 bg-card p-4 shadow-card sm:p-5">
+          <Skeleton className="h-[18px] w-2/5" />
+          <div className="mt-5 space-y-3">
+            <Skeleton className="h-3.5 w-full" />
+            <Skeleton className="h-3.5 w-5/6" />
+            <Skeleton className="h-3.5 w-2/3" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+  return (
+    <div role="status" aria-busy="true" className="skeleton-reveal space-y-6 md:space-y-8">
+      <div className="space-y-4 md:space-y-5">
+        <div className="space-y-2.5">
+          <Skeleton className="hidden h-3 w-40 sm:block" />
+          <Skeleton className="h-7 w-80 max-w-full md:h-8" />
+          {/* phones: the greeting takes two lines */}
+          <Skeleton className="h-7 w-40 sm:hidden" />
+          <Skeleton className="h-4 w-64 max-w-full" />
+        </div>
+        {/* the status band: icon, label, a two-line sentence, the milestone chip under it */}
+        <div className="rounded-xl border border-border/70 bg-card p-4 shadow-card sm:p-5">
+          <div className="flex items-start gap-3.5">
+            <Skeleton className="h-10 w-10 shrink-0 rounded-full" />
+            <div className="min-w-0 flex-1 space-y-2 pt-0.5">
+              <Skeleton className="h-3 w-20" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-full sm:hidden" />
+              <Skeleton className="h-4 w-2/3" />
+            </div>
+          </div>
+          <Skeleton className="mt-4 h-8 w-56 max-w-full rounded-lg sm:ml-[54px]" />
+        </div>
+      </div>
+      {twoColumns ? (
+        <div className="grid grid-cols-3 items-start gap-6">
+          <div className="col-span-2 min-w-0">{taskCards}</div>
+          {sideCards}
+        </div>
+      ) : (
+        taskCards
+      )}
+      {/* last: as a first child it would take the space-y gap and push the frame 24px down */}
+      <span className="sr-only">{t('common.loading')}</span>
+    </div>
+  );
+}
+
 export function PortalHomePage() {
   const viewer = useViewer();
   const { projectId, projects } = usePortalProject();
@@ -54,7 +130,7 @@ export function PortalHomePage() {
 
   if (!home) {
     if (query.error) return <ErrorState error={query.error} onRetry={query.refetch} />;
-    return <PageSkeleton />;
+    return <PortalHomeSkeleton twoColumns={twoColumns} />;
   }
 
   const salute = saluteOf(viewer);

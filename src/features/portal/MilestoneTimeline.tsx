@@ -6,6 +6,7 @@ import type { MilestoneView, ProjectView } from '@/services/contract';
 import { launchMilestone } from '@/domain/graph';
 import { t } from '@/i18n';
 import { cn } from '@/lib/utils';
+import type { RiseProps } from '@/hooks/useMotion';
 import { Progress } from '@/components/ui/progress';
 import { EmptyState } from '@/components/common/empty-state';
 import { ForecastLabel } from '@/components/common/forecast-label';
@@ -35,12 +36,27 @@ function StepMarker({ state, index }: { state: StepState; index: number }) {
   );
 }
 
-function MilestoneItem({ m, state, index, last, nextState }: { m: MilestoneView; state: StepState; index: number; last: boolean; nextState: StepState | null }) {
+function MilestoneItem({
+  m,
+  state,
+  index,
+  last,
+  nextState,
+  motion,
+}: {
+  m: MilestoneView;
+  state: StepState;
+  index: number;
+  last: boolean;
+  nextState: StepState | null;
+  /** stagger props of the timeline's first appearance */
+  motion: RiseProps;
+}) {
   const totalTasks = m.open_task_count + m.done_task_count;
   const stateText = t(state === 'done' ? 'portal.progress.done' : state === 'current' ? 'portal.progress.current' : 'portal.progress.upcoming');
   const current = state === 'current';
   return (
-    <li className="relative flex gap-3 sm:gap-4" aria-current={current ? 'step' : undefined}>
+    <li className={cn('relative flex gap-3 sm:gap-4', motion.className)} style={motion.style} aria-current={current ? 'step' : undefined}>
       {!last ? (
         // connector from this marker down to the next one: filled up to the current milestone (as StageStepper)
         <span
@@ -100,7 +116,13 @@ function ProjectSummary({ steps, done }: { steps: MilestoneView[]; done: number 
   );
 }
 
-export function ProjectTimelineCard({ project }: { project: ProjectView }) {
+const NO_RISE = (): RiseProps => ({});
+
+/**
+ * `rise`: the page's `useStagger` (DESIGN §8.4) — the focal list of /portal/progress, so the milestones unfold top to
+ * bottom on the page's first load; held by the page, so switching the project selector never replays it.
+ */
+export function ProjectTimelineCard({ project, rise = NO_RISE }: { project: ProjectView; rise?: (index: number) => RiseProps }) {
   const steps = [...project.milestones].sort((a, b) => a.order_no - b.order_no);
   const done = steps.filter((m) => m.status === 'done').length;
   const states = steps.map((m) => stateOf(m, project.current_milestone_id));
@@ -123,6 +145,7 @@ export function ProjectTimelineCard({ project }: { project: ProjectView }) {
                 index={i}
                 last={i === steps.length - 1}
                 nextState={states[i + 1] ?? null}
+                motion={rise(i)}
               />
             ))}
           </ol>

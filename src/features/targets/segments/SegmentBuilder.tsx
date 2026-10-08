@@ -8,6 +8,7 @@ import type { SegmentCriteria } from '@/domain/crmTypes';
 import type { SegmentMembers, SegmentView } from '@/services/crmContract';
 import { api } from '@/services/api';
 import { useAction } from '@/hooks/useAction';
+import { useDelayedFlag } from '@/hooks/useMotion';
 import { useQuery } from '@/hooks/useQuery';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/components/ui/cn';
@@ -102,15 +103,17 @@ function Field({ label, count, children }: { label: string; count: number; child
 /** the live result: two big counts, potential and average fit, then the best-fitting members */
 function PreviewPanel({ data, updating, error }: { data: SegmentMembers | undefined; updating: boolean; error: boolean }) {
   const top = data ? topMembers(data) : [];
+  // the "Đang cập nhật…" label and the dimmed figures wait 150 ms: a quick recount never flickers (DESIGN §8.2)
+  const busy = useDelayedFlag(updating);
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-table font-semibold text-ink">{t('targets.builder.preview')}</h3>
-        {updating ? <span className="text-micro text-muted-foreground">{t('targets.builder.previewUpdating')}</span> : null}
+        {busy ? <span className="text-micro text-muted-foreground">{t('targets.builder.previewUpdating')}</span> : null}
       </div>
       {data ? (
         <>
-          <dl className={cn('grid grid-cols-2 gap-x-4 gap-y-3 transition-opacity duration-150', updating && 'opacity-60')}>
+          <dl className={cn('grid grid-cols-2 gap-x-4 gap-y-3 transition-opacity duration-150', busy && 'opacity-60')}>
             <div>
               <dt className="text-micro text-muted-foreground">{t('targets.builder.scopeOptions.leads')}</dt>
               <dd className="text-kpi font-semibold tabular tracking-display text-ink">{data.lead_count}</dd>
@@ -131,7 +134,7 @@ function PreviewPanel({ data, updating, error }: { data: SegmentMembers | undefi
           {top.length > 0 ? (
             <div className="space-y-2">
               <p className="text-micro font-medium text-muted-foreground">{t('targets.builder.previewTop')}</p>
-              <ul className={cn('divide-y divide-border/60 rounded-lg bg-card ring-1 ring-inset ring-border/70', updating && 'opacity-60')}>
+              <ul className={cn('divide-y divide-border/60 rounded-lg bg-card ring-1 ring-inset ring-border/70 transition-opacity duration-150', busy && 'opacity-60')}>
                 {top.map((m) => (
                   <li key={`${m.kind}-${m.id}`} className="flex items-center gap-3 px-3 py-2.5">
                     <span className="min-w-0 flex-1">
@@ -173,7 +176,7 @@ function PreviewPanel({ data, updating, error }: { data: SegmentMembers | undefi
 
 function BuilderForm({ segment, onClose }: { segment: SegmentView | null; onClose: () => void }) {
   const uid = useId();
-  const { run, pending } = useAction();
+  const { run, pending, pendingVisible } = useAction();
   const [name, setName] = useState(segment?.name ?? '');
   const [description, setDescription] = useState(segment?.description ?? '');
   const [shared, setShared] = useState(segment?.shared ?? true);
@@ -420,7 +423,7 @@ function BuilderForm({ segment, onClose }: { segment: SegmentView | null; onClos
           ) : null}
         </p>
         <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0">
-          <Button type="button" variant="secondary" onClick={onClose} disabled={pending}>
+          <Button type="button" variant="secondary" onClick={() => !pending && onClose()} disabled={pendingVisible}>
             {t('common.cancel')}
           </Button>
           <Button type="button" onClick={() => void save()} loading={pending}>

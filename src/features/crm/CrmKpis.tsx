@@ -13,7 +13,7 @@ export function CrmKpis({ data, year }: { data: CrmDashboard; year: string }) {
   const hasOpen = data.open_value > 0;
   const share = hasOpen ? (data.weighted_value / data.open_value) * 100 : 0;
   return (
-    <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
       <KpiCard
         label={t('crm.kpi.open.label')}
         icon={Handshake}

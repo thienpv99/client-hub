@@ -31,7 +31,46 @@ const HALO: Record<EmptyIconTone, { outer: string; inner: string }> = {
   danger: { outer: 'bg-danger-soft', inner: 'text-danger ring-danger/20' },
 };
 
-/** Icon in two concentric soft circles (DESIGN §4 empty state): 72px tinted halo, 48px white disc. */
+/** Monochrome tints of the 96px illustration, per tone (token classes only). */
+const ART: Record<EmptyIconTone, { halo: string; line: string; dot: string; dotStrong: string; bar: string }> = {
+  primary: { halo: 'fill-primary-soft', line: 'stroke-primary-border', dot: 'fill-chart-3', dotStrong: 'fill-chart-2', bar: 'fill-chart-4' },
+  neutral: { halo: 'fill-muted', line: 'stroke-border-strong', dot: 'fill-border-strong', dotStrong: 'fill-caption/40', bar: 'fill-muted' },
+  danger: { halo: 'fill-danger-soft', line: 'stroke-danger/20', dot: 'fill-danger/20', dotStrong: 'fill-danger/35', bar: 'fill-danger-soft' },
+};
+
+/**
+ * The 96px empty-state illustration (DESIGN.md §8.7): a soft halo with a dotted orbit, two quiet "cards" peeking out
+ * and a few satellites — monochrome in the tone's tints — around the icon in a white disc. Decorative (aria-hidden).
+ */
+function EmptyArt({ tone, children, className }: { tone: EmptyIconTone; children: ReactNode; className?: string }) {
+  const art = ART[tone];
+  return (
+    <span className={cx('relative flex h-24 w-24 shrink-0 items-center justify-center', className)} aria-hidden="true">
+      <svg viewBox="0 0 96 96" className="absolute inset-0 h-full w-full" focusable="false">
+        <circle cx="48" cy="48" r="46" className={art.halo} />
+        <circle cx="48" cy="48" r="35" fill="none" strokeWidth="1" strokeDasharray="1.5 4.5" strokeLinecap="round" className={art.line} />
+        <g strokeWidth="1">
+          <rect x="8.5" y="36.5" width="25" height="15" rx="4" className={cx('fill-card', art.line)} />
+          <rect x="13" y="41.5" width="11" height="2" rx="1" className={art.dot} />
+          <rect x="13" y="45.5" width="7" height="1.5" rx="0.75" className={art.bar} />
+          <rect x="62.5" y="54.5" width="25" height="15" rx="4" className={cx('fill-card', art.line)} />
+          <rect x="67" y="59.5" width="12" height="2" rx="1" className={art.dot} />
+          <rect x="67" y="63.5" width="8" height="1.5" rx="0.75" className={art.bar} />
+        </g>
+        <circle cx="71" cy="19" r="2.5" className={art.dotStrong} />
+        <circle cx="81" cy="38" r="1.5" className={art.dot} />
+        <circle cx="23" cy="75" r="2" className={art.dot} />
+        <circle cx="17" cy="25" r="1.25" className={art.dotStrong} />
+      </svg>
+      {children}
+    </span>
+  );
+}
+
+/**
+ * Empty / error icon. Default: the 96px illustration with the icon in a 48px white disc (DESIGN §4 + §8.7).
+ * `compact` (inside cards and drawers): 56px tinted halo with a 40px white disc.
+ */
 export function EmptyIcon({
   icon,
   fallback = Inbox,
@@ -46,20 +85,24 @@ export function EmptyIcon({
   className?: string;
 }) {
   const halo = HALO[tone];
+  const disc = (
+    <span
+      className={cx(
+        'relative flex items-center justify-center rounded-full bg-card shadow-xs ring-1 ring-inset',
+        compact ? 'h-10 w-10' : 'h-12 w-12 shadow-card-hover',
+        halo.inner,
+      )}
+    >
+      {renderIconProp(icon, fallback, compact ? 'h-5 w-5' : 'h-[22px] w-[22px]')}
+    </span>
+  );
+  if (!compact) return <EmptyArt tone={tone} className={className}>{disc}</EmptyArt>;
   return (
     <span
-      className={cx('flex shrink-0 items-center justify-center rounded-full', compact ? 'h-14 w-14' : 'h-18 w-18', halo.outer, className)}
+      className={cx('flex h-14 w-14 shrink-0 items-center justify-center rounded-full', halo.outer, className)}
       aria-hidden="true"
     >
-      <span
-        className={cx(
-          'flex items-center justify-center rounded-full bg-card shadow-xs ring-1 ring-inset',
-          compact ? 'h-10 w-10' : 'h-12 w-12',
-          halo.inner,
-        )}
-      >
-        {renderIconProp(icon, fallback, compact ? 'h-5 w-5' : 'h-6 w-6')}
-      </span>
+      {disc}
     </span>
   );
 }
@@ -80,16 +123,16 @@ export function EmptyState({ icon, title, description, action, compact = false, 
     <div
       className={cx(
         'flex flex-col items-center justify-center text-center',
-        compact ? 'gap-3 px-4 py-8' : 'gap-4 px-6 py-12',
+        compact ? 'gap-3 px-4 py-8' : 'gap-5 px-6 py-12 md:py-14',
         className,
       )}
     >
       <EmptyIcon icon={icon} compact={compact} />
-      <div className="max-w-md space-y-1">
+      <div className={cx('max-w-md', compact ? 'space-y-1' : 'space-y-1.5')}>
         <p className={cx('text-balance text-ink', compact ? 'text-table font-medium' : 'text-heading font-semibold tracking-tightish')}>{title}</p>
-        {description ? <p className="text-balance text-table text-muted-foreground">{description}</p> : null}
+        {description ? <p className="mx-auto max-w-sm text-balance text-table text-muted-foreground">{description}</p> : null}
       </div>
-      {action ? <div className="mt-1 flex flex-wrap items-center justify-center gap-2">{action}</div> : null}
+      {action ? <div className="flex flex-wrap items-center justify-center gap-2">{action}</div> : null}
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { useDelayedFlag } from '@/hooks/useMotion';
 
 export interface ReasonDialogProps {
   open: boolean;
@@ -58,6 +59,8 @@ export function ReasonDialog({
     }
   }, [open, defaultValue]);
 
+  // the guard is immediate (`pending`); what is drawn waits 150 ms (`busy`) so a fast save never flickers
+  const busy = useDelayedFlag(pending);
   const trimmed = reason.trim();
   const canSubmit = trimmed.length > 0 && !pending;
 
@@ -121,7 +124,7 @@ export function ReasonDialog({
               required
               aria-required="true"
               aria-describedby={`${id}-hint`}
-              disabled={pending}
+              disabled={busy}
               autoFocus
               className="min-h-[104px] resize-y"
             />
@@ -130,10 +133,17 @@ export function ReasonDialog({
             </p>
           </div>
           <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} disabled={pending}>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                if (!pending) onOpenChange(false);
+              }}
+              disabled={busy}
+            >
               {cancelLabel ?? t('components.dialog.cancel')}
             </Button>
-            <Button type="submit" variant={destructive ? 'destructive' : 'default'} disabled={!canSubmit} loading={pending}>
+            <Button type="submit" variant={destructive ? 'destructive' : 'default'} disabled={trimmed.length === 0} loading={pending} spinnerOverlay>
               {confirmLabel}
             </Button>
           </DialogFooter>

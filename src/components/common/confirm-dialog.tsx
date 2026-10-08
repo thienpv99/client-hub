@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import type { MouseEvent, ReactNode } from 'react';
 import { LoaderCircle, TriangleAlert } from 'lucide-react';
 import { t } from '@/i18n';
+import { useDelayedFlag } from '@/hooks/useMotion';
+import { cn } from '@/components/ui/cn';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -48,6 +50,8 @@ export function ConfirmDialog({
   useEffect(() => {
     if (open) setPending(false);
   }, [open]);
+  // spinner + disabled look only when the action takes longer than 150 ms (DESIGN.md §8); `pending` guards at once
+  const busy = useDelayedFlag(pending);
 
   async function handleConfirm(e: MouseEvent<HTMLButtonElement>) {
     // keep the dialog open while the action runs
@@ -90,17 +94,30 @@ export function ConfirmDialog({
           </AlertDialogHeader>
         </div>
         <AlertDialogFooter className="mt-2 flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <AlertDialogCancel disabled={pending} className="mt-0">
+          <AlertDialogCancel
+            disabled={busy}
+            className="mt-0"
+            onClick={(e) => {
+              // the action is running: the guard is immediate even before the busy look shows
+              if (pending) e.preventDefault();
+            }}
+          >
             {cancelLabel ?? t('components.dialog.cancel')}
           </AlertDialogCancel>
           <AlertDialogAction
             onClick={(e) => void handleConfirm(e)}
-            disabled={pending}
+            disabled={busy}
             variant={destructive ? 'destructive' : 'default'}
             aria-busy={pending || undefined}
           >
-            {pending ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
-            {confirmLabel}
+            {/* the label keeps its box (transparent while busy, still read out) and the spinner sits on top: the button
+                never changes width mid-action (same as Button spinnerOverlay) */}
+            <span className={cn('inline-flex items-center justify-center gap-[inherit]', busy && 'opacity-0')}>{confirmLabel}</span>
+            {busy ? (
+              <span aria-hidden="true" className="absolute inset-0 flex items-center justify-center">
+                <LoaderCircle className="h-4 w-4 animate-spin" />
+              </span>
+            ) : null}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

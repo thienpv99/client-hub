@@ -17,6 +17,8 @@ import { EmptyState } from '@/components/common/empty-state';
 import { ErrorState } from '@/components/common/error-state';
 import { PageHeader } from '@/components/common/page-header';
 import { useMediaQuery } from '@/hooks/useMedia';
+import { useStagger } from '@/hooks/useMotion';
+import type { RiseProps } from '@/hooks/useMotion';
 import { usePortalProject, usePortalShell } from '@/hooks/usePortalProject';
 import { useQuery } from '@/hooks/useQuery';
 import { TASK_PARAM, useTaskDrawer } from '@/hooks/useTaskDrawer';
@@ -95,17 +97,26 @@ function TabEmpty({ tab, salute }: { tab: TabKey; salute: Salute }) {
   );
 }
 
-/** Same frame as the loaded page: segmented tabs, then task cards (icon tile, title, chips, inset, action row). */
+/**
+ * Same frame as the loaded page: the tab strip (phones: underline strip; from sm: segmented control), then task cards
+ * (type tile from sm, title, chips, inset, full-width action on phones). Fades in as one after 120 ms.
+ */
 function CardsSkeleton({ tabs }: { tabs: number }) {
   return (
-    <div role="status" aria-busy="true" className="space-y-4">
+    // same rhythm as the loaded page (tabs → cards 16px, 20px from md) and the strip's real size, so nothing jumps
+    <div role="status" aria-busy="true" className="skeleton-reveal space-y-4 md:space-y-5">
       <span className="sr-only">{t('common.loading')}</span>
-      <Skeleton className={cn('h-[100px] w-full rounded-lg sm:h-10', tabs > 3 ? 'sm:w-[440px]' : 'h-14 sm:w-[340px]')} />
+      <div className="-mx-4 flex h-11 items-center gap-6 overflow-hidden px-4 shadow-[inset_0_-1px_0_0_rgb(var(--border))] sm:hidden">
+        {Array.from({ length: Math.min(tabs, 4) }, (_, i) => (
+          <Skeleton key={i} className="h-4 w-16 shrink-0" />
+        ))}
+      </div>
+      <Skeleton className={cn('hidden h-[52px] max-w-full rounded-lg sm:block md:h-10', tabs > 3 ? 'sm:w-[600px]' : 'sm:w-[340px]')} />
       <div className="space-y-3">
         {Array.from({ length: 3 }, (_, i) => (
           <div key={i} className="rounded-xl border border-border/70 bg-card p-4 shadow-card sm:p-5">
             <div className="flex items-start gap-3">
-              <Skeleton className="h-9 w-9 shrink-0 rounded-lg" />
+              <Skeleton className="hidden h-9 w-9 shrink-0 rounded-lg sm:block" />
               <div className="min-w-0 flex-1 space-y-2">
                 <Skeleton className={cn('h-5', i % 2 ? 'w-2/3' : 'w-5/6')} />
                 <Skeleton className="h-7 w-36 rounded-md" />
@@ -128,10 +139,12 @@ export function PortalTasksPage() {
   const [params, setParams] = useSearchParams();
   const { taskId: drawerTaskId } = useTaskDrawer();
   const { projectId, projects } = usePortalProject();
-  const { account } = usePortalShell();
+  const { account, loading: shellLoading } = usePortalShell();
   const owner = viewer?.role === 'client_owner';
   const salute = saluteOf(viewer);
   const wide = useMediaQuery('(min-width: 1024px)');
+  // phones: page tabs as the underline strip (one row that scrolls, DESIGN §3/§4); from sm the segmented control
+  const smUp = useMediaQuery('(min-width: 640px)');
 
   // Email deep link /portal/tasks/:taskId → /portal/tasks?task=:taskId: the drawer opens on top of the list (full
   // screen on phones) and closing it leaves the reader on /portal/tasks.
@@ -148,6 +161,8 @@ export function PortalTasksPage() {
     { enabled: !!viewer && !routeTaskId, keepPreviousData: true },
   );
   const lists = query.data ?? null;
+  // the open tab's cards fade up one after the other when the lists first arrive — not on a tab switch or a refetch
+  const rise = useStagger(!!lists);
 
   const tabs = useMemo(() => ALL_TABS.filter((x) => owner || !OWNER_TABS.has(x)), [owner]);
   const requested = params.get(TAB_PARAM) as TabKey | null;
@@ -183,7 +198,20 @@ export function PortalTasksPage() {
   const header = (
     <PageHeader
       title={t('portal.tasks.title')}
-      description={company ? t('portal.tasks.description', { company }) : t('portal.tasks.descriptionNoCompany')}
+      description={
+        !account && shellLoading ? (
+          // the sentence names the company, which arrives with the shell: hold its room (2 lines of 24px on phones,
+          // 1 from sm) so the tabs and the focal cards below do not move down when it lands (DESIGN §8.9)
+          <div aria-hidden="true" className="flex h-12 flex-col justify-center gap-2.5 sm:h-6">
+            <Skeleton className="h-3.5 w-full sm:w-[420px]" />
+            <Skeleton className="h-3.5 w-1/3 sm:hidden" />
+          </div>
+        ) : company ? (
+          t('portal.tasks.description', { company })
+        ) : (
+          t('portal.tasks.descriptionNoCompany')
+        )
+      }
     />
   );
 
@@ -209,22 +237,15 @@ export function PortalTasksPage() {
       )
     ) : (
       <Tabs value={active} onValueChange={setTab} aria-busy={query.refreshing || undefined}>
-        {/* segmented control; phones: every tab visible at once (decision maker: two columns, "Cả công ty" on a
-            full-width last row; member: one row of 3, label and count stacked as the row is too narrow for both
-            side by side) */}
+        {/* phones: the underline strip, edge to edge, one row that scrolls with a faded edge and keeps the active tab
+            in view (it used to be a 3-row grid of segments above the list); from sm: the segmented control */}
         <TabsList
-          variant="segmented"
+          variant={smUp ? 'segmented' : 'underline'}
           aria-label={t('portal.tasks.tabsLabel')}
-          className={cn(
-            // items-stretch: segments of one row keep one height even when only some carry a count
-            'grid w-full items-stretch gap-1 sm:inline-flex sm:w-auto sm:items-center sm:gap-0.5',
-            tabs.length > 3 ? 'grid-cols-2' : 'grid-cols-3',
-          )}
+          className={smUp ? undefined : '-mx-4 w-auto max-w-none px-4'}
         >
-          {tabs.map((tab, i) => {
+          {tabs.map((tab) => {
             const count = countOf(lists, tab);
-            // an odd last segment of the two-column grid takes the whole row instead of leaving a hole
-            const fullRow = tabs.length > 3 && tabs.length % 2 === 1 && i === tabs.length - 1;
             return (
               <TabsTrigger
                 key={tab}
@@ -232,11 +253,6 @@ export function PortalTasksPage() {
                 // no "0" pills: an empty tab says so itself, and a zero only adds noise to the switch
                 count={count > 0 ? count : null}
                 countLabel={t('portal.tasks.tabCount', { count })}
-                className={cn(
-                  'min-w-0',
-                  tabs.length > 3 ? 'px-3' : 'h-auto min-h-11 flex-col gap-0.5 px-1 py-1.5 sm:h-8 sm:min-h-0 sm:flex-row sm:gap-2 sm:px-3 sm:py-0',
-                  fullRow && 'col-span-2',
-                )}
               >
                 <span className="truncate">{t(`portal.tasks.tabs.${tab}`)}</span>
               </TabsTrigger>
@@ -245,12 +261,16 @@ export function PortalTasksPage() {
         </TabsList>
 
         <TabsContent value="mine" className="mt-4 md:mt-5">
-          {lists.mine.length ? <TaskCardList tasks={lists.mine} showProject={showProject} /> : <TabEmpty tab="mine" salute={salute} />}
+          {lists.mine.length ? (
+            <TaskCardList tasks={lists.mine} showProject={showProject} rise={rise} />
+          ) : (
+            <TabEmpty tab="mine" salute={salute} />
+          )}
         </TabsContent>
         {owner ? (
           <TabsContent value="delegated" className="mt-4 md:mt-5">
             {lists.delegated.length ? (
-              <DelegatedTab tasks={lists.delegated} showProject={showProject} highlightId={drawerTaskId} />
+              <DelegatedTab tasks={lists.delegated} showProject={showProject} highlightId={drawerTaskId} rise={rise} />
             ) : (
               <TabEmpty tab="delegated" salute={salute} />
             )}
@@ -258,7 +278,7 @@ export function PortalTasksPage() {
         ) : null}
         <TabsContent value="waiting" className="mt-4 md:mt-5">
           {lists.waiting.length ? (
-            <TaskCardList tasks={lists.waiting} variant="waiting" showProject={showProject} />
+            <TaskCardList tasks={lists.waiting} variant="waiting" showProject={showProject} rise={rise} />
           ) : (
             <TabEmpty tab="waiting" salute={salute} />
           )}
@@ -291,12 +311,22 @@ export function PortalTasksPage() {
   );
 }
 
-function DelegatedTab({ tasks, showProject, highlightId }: { tasks: TaskView[]; showProject: boolean; highlightId: string | null }) {
+function DelegatedTab({
+  tasks,
+  showProject,
+  highlightId,
+  rise,
+}: {
+  tasks: TaskView[];
+  showProject: boolean;
+  highlightId: string | null;
+  rise: (index: number) => RiseProps;
+}) {
   const open = tasks.filter((x) => x.status !== 'done');
   const finished = tasks.filter((x) => x.status === 'done');
   return (
     <div className="space-y-6">
-      {open.length ? <TaskCardList tasks={open} variant="delegated" showProject={showProject} /> : null}
+      {open.length ? <TaskCardList tasks={open} variant="delegated" showProject={showProject} rise={rise} /> : null}
       {finished.length ? (
         <section className="space-y-3">
           <h2 className="text-table font-medium text-muted-foreground">{t('portal.tasks.delegatedDone')}</h2>

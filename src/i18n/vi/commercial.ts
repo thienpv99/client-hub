@@ -76,11 +76,15 @@ const commercial = {
     empty: 'Chưa có báo giá nào.',
     emptyHint: 'Báo giá lập từ bảng giá sẽ hiện ở đây, kèm trạng thái duyệt và quyết định của khách.',
     emptyFiltered: 'Không có báo giá nào khớp với bộ lọc đang chọn.',
+    // KPI tile labels: two-syllable words are joined with a non-breaking space so a narrow tile (2-up phones, 4-up
+    // iPad) wraps between words, never inside one ("Khách đã / chấp thuận", not "Khách đã chấp / thuận")
     kpi: {
-      pending_approval: 'Chờ Giám đốc duyệt',
-      sent: 'Chờ khách quyết định',
-      changes_requested: 'Khách đề nghị điều chỉnh',
-      accepted: 'Khách đã chấp thuận',
+      pending_approval: 'Chờ Giám đốc duyệt',
+      /** the same on tiles too narrow for it on one line (it would leave "duyệt" alone on line 2) */
+      pending_approvalShort: 'Chờ GĐ duyệt',
+      sent: 'Chờ khách quyết định',
+      changes_requested: 'Khách đề nghị điều chỉnh',
+      accepted: 'Khách đã chấp thuận',
       value: 'Tổng {value}',
       none: 'Hiện không có',
     },
@@ -542,8 +546,9 @@ const commercial = {
     paidPct: 'Đã thanh toán {pct} giá trị hợp đồng',
     schedule: 'Lịch thanh toán',
     historyTitle: 'Báo giá đã nhận',
-    paidOn: 'Đã thanh toán ngày {date}',
-    dueOn: 'Dự kiến {date}',
+    // non-breaking space: the date never wraps away from its label on phones
+    paidOn: 'Đã thanh toán ngày\u00a0{date}',
+    dueOn: 'Dự kiến\u00a0{date}',
     milestone: 'khi xong mốc {name}',
     reported: 'Đã báo chuyển khoản ngày {date}. New Era đang kiểm tra.',
   },

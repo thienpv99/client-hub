@@ -4,6 +4,7 @@ import { api } from '@/services/api';
 import { hasKey, t, type TParams } from '@/i18n';
 import { apiErrorMessage, errorMessageKey } from '@/lib/errors';
 import { toastError, toastSuccess } from '@/lib/toast';
+import { useDelayedFlag } from '@/hooks/useMotion';
 
 export interface ActionOptions<T> {
   /**
@@ -18,7 +19,16 @@ export interface ActionOptions<T> {
 
 export interface ActionRunner {
   run<T>(fn: () => Promise<T>, opts?: ActionOptions<T>): Promise<T | undefined>;
+  /**
+   * An action is running — immediate. Use it for logic: `disabled`, double-submit guards, `loading` on a kit Button
+   * (Button itself waits 150 ms before it shows a spinner or a busy look, so passing `pending` never flickers).
+   */
   pending: boolean;
+  /**
+   * `pending` held for 150 ms (DESIGN.md §8): for pending visuals drawn OUTSIDE a kit Button — a "Đang lưu…" label,
+   * an inline spinner, a dimmed row — so a fast action never flashes them.
+   */
+  pendingVisible: boolean;
 }
 
 /**
@@ -89,5 +99,7 @@ export function useAction(): ActionRunner {
     }
   }, []);
 
-  return { run, pending: pendingCount > 0 };
+  const pending = pendingCount > 0;
+  const pendingVisible = useDelayedFlag(pending);
+  return { run, pending, pendingVisible };
 }

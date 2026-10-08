@@ -169,7 +169,8 @@ export function InvitesTab({ viewer }: { viewer: Viewer }) {
             <div className="flex w-full flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-caption">{t('settings.invites.after')}</p>
               <Button type="submit" loading={pending} disabled={!canInvite} className="w-full sm:w-auto">
-                {!pending ? <Send aria-hidden="true" /> : null}
+                {/* kept while busy: the Button swaps it for its spinner after 150 ms (DESIGN §8.2) */}
+                <Send aria-hidden="true" />
                 {t('settings.invites.submit')}
               </Button>
             </div>
@@ -258,7 +259,8 @@ export function InvitesTab({ viewer }: { viewer: Viewer }) {
               label={t('settings.invites.contactRole')}
               htmlFor="invite-contact-role"
               hint={t('settings.invites.contactRoleHint')}
-              className="sm:max-w-xs"
+              // appears with the "Thành viên" choice: fades in rather than popping
+              className="animate-fade-in sm:max-w-xs"
             >
               <NativeSelect
                 id="invite-contact-role"

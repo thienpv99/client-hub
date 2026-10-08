@@ -1,10 +1,11 @@
 // Internal navigation pieces (DESIGN §3): full sidebar (≥1024), icon rail (768–1023), phone sheet menu (<768).
-import { Fragment } from 'react';
+import { Fragment, useRef } from 'react';
 import { Link, NavLink, useMatch, useResolvedPath } from 'react-router-dom';
 import { Search } from 'lucide-react';
 import { NewEraMark } from '@/components/common/new-era-logo';
 import { Kbd } from '@/components/ui/kbd';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { useSlidingIndicator } from '@/components/ui/use-sliding-indicator';
 import { UserMenu } from '@/features/shell/UserMenu';
 import { t } from '@/i18n';
 import { cn } from '@/components/ui/cn';
@@ -93,9 +94,12 @@ function SidebarLink({ item, badge, size }: { item: NavItem; badge: NavBadge | n
       end={item.end}
       className={({ isActive }) =>
         cn(
-          'group flex items-center gap-3 rounded-lg px-3 font-medium transition-colors duration-150 ease-out-quart',
+          'group relative flex items-center gap-3 rounded-lg px-3 font-medium transition-colors duration-150 ease-out-quart',
           size === 'sidebar' ? 'touch-tap h-9 text-table' : 'min-h-tap text-body',
-          isActive ? 'bg-primary-soft text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+          // the active fill is the nav's sliding pill once it is placed (GroupedNav); until then the link draws it
+          isActive
+            ? 'bg-primary-soft text-primary group-data-[indicator=ready]/nav:bg-transparent'
+            : 'text-muted-foreground hover:bg-muted/70 hover:text-foreground',
         )
       }
     >
@@ -130,11 +134,20 @@ export function GroupedNav({
   className?: string;
 }) {
   const sections = groupNav(items);
+  const navRef = useRef<HTMLElement | null>(null);
+  const pillRef = useRef<HTMLSpanElement | null>(null);
+  // one soft pill glides to the current page (DESIGN.md §8.3)
+  useSlidingIndicator(navRef, pillRef, { activeSelector: 'a[aria-current="page"]', itemSelector: 'a' });
   return (
-    <nav aria-label={t('layout.nav.main')} className={className}>
+    <nav ref={navRef} aria-label={t('layout.nav.main')} className={cn('group/nav relative', className)}>
+      <span
+        ref={pillRef}
+        aria-hidden="true"
+        className="pointer-events-none absolute left-0 top-0 rounded-lg bg-primary-soft opacity-0 transition-[transform,width,height] duration-250 ease-out-quart"
+      />
       {sections.map((section, i) => (
         <div key={section.id} className={i === 0 ? '' : size === 'sidebar' ? 'mt-5' : 'mt-6'}>
-          <p className="mb-1 px-3 text-micro font-medium text-muted-foreground" id={`nav-${size}-${section.id}`}>
+          <p className="mb-1.5 px-3 text-micro font-medium text-muted-foreground" id={`nav-${size}-${section.id}`}>
             {t(section.labelKey)}
           </p>
           <ul aria-labelledby={`nav-${size}-${section.id}`} className="space-y-0.5">
@@ -195,9 +208,11 @@ function RailLink({ item, badge }: { item: NavItem; badge: NavBadge | null }) {
           )}
         >
           <span
+            data-rail-pill=""
             className={cn(
               'relative flex h-8 w-12 items-center justify-center rounded-lg transition-colors duration-150 ease-out-quart',
-              isActive ? 'bg-primary-soft' : 'group-hover:bg-muted',
+              // the rail's sliding pill draws the active fill once placed (Rail)
+              isActive ? 'bg-primary-soft group-data-[indicator=ready]/rail:bg-transparent' : 'group-hover:bg-muted/70',
             )}
           >
             <Icon className="h-5 w-5" strokeWidth={isActive ? 2 : 1.75} aria-hidden />
@@ -226,6 +241,9 @@ function RailLink({ item, badge }: { item: NavItem; badge: NavBadge | null }) {
 /** 768–1023: 72px icon rail with one-line short labels + tooltips. */
 export function Rail({ items, counts, home }: { items: NavItem[]; counts: NavCounts; home: string }) {
   const sections = groupNav(items);
+  const navRef = useRef<HTMLElement | null>(null);
+  const pillRef = useRef<HTMLSpanElement | null>(null);
+  useSlidingIndicator(navRef, pillRef, { activeSelector: 'a[aria-current="page"] [data-rail-pill]', itemSelector: '[data-rail-pill]' });
   return (
     <aside className="fixed inset-y-0 left-0 z-30 flex w-[72px] flex-col items-center border-r border-border/70 bg-sidebar">
       <div className="flex h-14 shrink-0 items-center">
@@ -236,7 +254,16 @@ export function Rail({ items, counts, home }: { items: NavItem[]; counts: NavCou
           <NewEraMark className="h-7 w-7" label={`${t('common.companyName')} ${t('layout.brand')}`} />
         </Link>
       </div>
-      <nav aria-label={t('layout.nav.main')} className="no-scrollbar flex min-h-0 w-full flex-1 flex-col items-center overflow-y-auto pb-4 pt-2">
+      <nav
+        ref={navRef}
+        aria-label={t('layout.nav.main')}
+        className="group/rail no-scrollbar relative flex min-h-0 w-full flex-1 flex-col items-center overflow-y-auto pb-4 pt-2"
+      >
+        <span
+          ref={pillRef}
+          aria-hidden="true"
+          className="pointer-events-none absolute left-0 top-0 rounded-lg bg-primary-soft opacity-0 transition-[transform,width,height] duration-250 ease-out-quart"
+        />
         {sections.map((section, i) => (
           <Fragment key={section.id}>
             {i > 0 ? <span aria-hidden className="my-2 h-px w-8 shrink-0 bg-border" /> : null}

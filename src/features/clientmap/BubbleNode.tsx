@@ -15,7 +15,7 @@ import { t } from '@/i18n';
 import { formatMoneyCompact } from '@/lib/format';
 import { cn } from '@/components/ui/cn';
 import { shortNameOf } from '@/domain/crm';
-import { R_DETAIL } from './mapModel';
+import { introScale, R_DETAIL } from './mapModel';
 import { fitSize, textWidth } from './textMeasure';
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
@@ -348,7 +348,9 @@ function BubbleNodeImpl(p: BubbleNodeProps) {
   const hub = node.kind === 'ecosystem';
   const lead = node.kind === 'lead';
   const role = hub || !node.href ? 'button' : 'link';
-  const g = Math.max(0, p.grow);
+  // entrance: fade in while growing from 60 % (mapModel.introScale)
+  const g = Math.min(1, Math.max(0, p.grow));
+  const entering = g < 1;
 
   let disc: ReactNode;
   if (hub && node.value <= 0) {
@@ -411,7 +413,7 @@ function BubbleNodeImpl(p: BubbleNodeProps) {
 
   return (
     <g
-      transform={`translate(${p.x} ${p.y})${g < 1 ? ` scale(${g})` : ''}`}
+      transform={`translate(${p.x} ${p.y})${entering ? ` scale(${introScale(g)})` : ''}`}
       data-node-id={node.id}
       tabIndex={0}
       role={role}
@@ -424,7 +426,12 @@ function BubbleNodeImpl(p: BubbleNodeProps) {
       onKeyDown={(e) => p.handlers.onKeyDown(node.id, e)}
       onClick={(e) => p.handlers.onClick(node.id, e)}
     >
-      <g className={cn('transition-transform duration-200 ease-out-quart', p.hovered && 'scale-[1.04]')} aria-hidden="true">
+      {/* the entrance fade sits on this inner group: the outer one transitions its (dimmed) opacity */}
+      <g
+        className={cn('transition-transform duration-200 ease-out-quart', p.hovered && 'scale-[1.04]')}
+        opacity={entering ? g : undefined}
+        aria-hidden="true"
+      >
         {/* hit area of at least 44px on screen for small bubbles (touch) */}
         {R < 22 ? <circle r={22 * s} fill="transparent" /> : null}
         {p.focused ? <circle r={r + 5 * s} fill="none" className="stroke-primary" strokeWidth={2.5 * s} /> : null}

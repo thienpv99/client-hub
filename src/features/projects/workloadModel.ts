@@ -23,9 +23,12 @@ export function heatLevel(count: number): HeatLevel {
   return 4;
 }
 
-/** chart blue ramp only (never status colours); text keeps ≥ 4.5:1 on every step */
+/**
+ * chart blue ramp only (never status colours); text keeps ≥ 4.5:1 on every step. An empty week is a quiet dash (the
+ * cell's sr-only label says it in words), so the loaded weeks carry the row.
+ */
 export const HEAT_CLASSES: Record<HeatLevel, string> = {
-  0: 'bg-transparent text-muted-foreground',
+  0: 'bg-transparent text-border-strong',
   1: 'bg-primary-soft text-foreground',
   2: 'bg-chart-4 text-foreground',
   3: 'bg-chart-3 text-ink',

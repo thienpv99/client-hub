@@ -38,7 +38,7 @@ export function InviteInternalDialog({
 }) {
   const [form, setForm] = useState<InviteForm>(EMPTY);
   const [attempted, setAttempted] = useState(false);
-  const { run, pending } = useAction();
+  const { run, pending, pendingVisible } = useAction();
 
   useEffect(() => {
     if (open) {
@@ -134,13 +134,14 @@ export function InviteInternalDialog({
           </div>
           <p className="text-caption">{t(`settings.users.invite.roleHint.${form.role}`)}</p>
           <DialogFooter>
+            {/* a close while sending is blocked at once (onOpenChange); "Hủy" only looks disabled after 150 ms */}
             <DialogClose asChild>
-              <Button type="button" variant="secondary" disabled={pending}>
+              <Button type="button" variant="secondary" disabled={pendingVisible}>
                 {t('common.cancel')}
               </Button>
             </DialogClose>
             <Button type="submit" loading={pending}>
-              {!pending ? <Send aria-hidden="true" /> : null}
+              <Send aria-hidden="true" />
               {t('settings.users.invite.submit')}
             </Button>
           </DialogFooter>

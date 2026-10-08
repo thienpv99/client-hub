@@ -19,6 +19,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { dateOf, todayISO } from '@/domain/clock';
 import { addDays } from '@/domain/dates';
 import { useAction } from '@/hooks/useAction';
+import type { RiseProps } from '@/hooks/useMotion';
 import type { QueryResult } from '@/hooks/useQuery';
 import { t } from '@/i18n';
 import { KIND_ORDER, kindIcon, kindLabel } from './kinds';
@@ -39,7 +40,14 @@ export interface InboxTabProps {
   query: QueryResult<NotificationView[]>;
   /** false in "Xem như khách hàng" (read-only) */
   canMarkRead: boolean;
+  /**
+   * Stagger of the page's first load (`useStagger` held by the page, so switching back to this tab or filtering
+   * never replays it). Omitted: no motion.
+   */
+  rise?: (index: number) => RiseProps;
 }
+
+const NO_RISE = (): RiseProps => ({});
 
 function InboxSkeleton() {
   return (
@@ -56,7 +64,7 @@ function InboxSkeleton() {
   );
 }
 
-export function InboxTab({ query, canMarkRead }: InboxTabProps) {
+export function InboxTab({ query, canMarkRead, rise = NO_RISE }: InboxTabProps) {
   const navigate = useNavigate();
   const markAll = useAction();
   const markOne = useAction();
@@ -146,7 +154,8 @@ export function InboxTab({ query, canMarkRead }: InboxTabProps) {
             aria-label={t('notify.inbox.markAll')}
             onClick={() => void markAll.run(() => api.markNotificationsRead(), { success: 'notify.inbox.markedAll' })}
           >
-            {markAll.pending ? null : <CheckCheck aria-hidden="true" />}
+            {/* kept while busy: the Button swaps it for its spinner after 150 ms (DESIGN §8.2) */}
+            <CheckCheck aria-hidden="true" />
             {/* short label up to lg: the toolbar stays on one row on iPad portrait (rail + 648px column) */}
             <span className="lg:hidden">{t('notify.inbox.markAllShort')}</span>
             <span className="hidden lg:inline">{t('notify.inbox.markAll')}</span>
@@ -200,26 +209,33 @@ export function InboxTab({ query, canMarkRead }: InboxTabProps) {
           )}
         </Card>
       ) : (
-        grouped.map(({ group, items: list }) => (
-          <section key={group} aria-labelledby={`ntf-group-${group}`} className="space-y-2">
-            <h2 id={`ntf-group-${group}`} className="flex items-center gap-2 px-1 text-caption font-medium">
-              {t(`notify.inbox.groups.${group}`)}
-              <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-micro font-medium tabular text-muted-foreground">
-                <span aria-hidden="true">{list.length}</span>
-                <span className="sr-only">{t('notify.inbox.groupCount', { count: list.length })}</span>
-              </span>
-            </h2>
-            <Card className="overflow-hidden">
-              <ul className="divide-y divide-border/60">
-                {list.map((n) => (
-                  <li key={n.id}>
-                    <NotificationRow n={n} onOpen={openItem} />
-                  </li>
-                ))}
-              </ul>
-            </Card>
-          </section>
-        ))
+        grouped.map(({ group, items: list }, g) => {
+          // one running index over the day groups, so the stagger flows from "Hôm nay" into "Hôm qua"
+          const offset = grouped.slice(0, g).reduce((sum, x) => sum + x.items.length, 0);
+          return (
+            <section key={group} aria-labelledby={`ntf-group-${group}`} className="space-y-2">
+              <h2 id={`ntf-group-${group}`} className="flex items-center gap-2 px-1 text-caption font-medium">
+                {t(`notify.inbox.groups.${group}`)}
+                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-micro font-medium tabular text-muted-foreground">
+                  <span aria-hidden="true">{list.length}</span>
+                  <span className="sr-only">{t('notify.inbox.groupCount', { count: list.length })}</span>
+                </span>
+              </h2>
+              <Card className="overflow-hidden">
+                <ul className="divide-y divide-border/60">
+                  {list.map((n, i) => {
+                    const motion = rise(offset + i);
+                    return (
+                      <li key={n.id} className={motion.className} style={motion.style}>
+                        <NotificationRow n={n} onOpen={openItem} />
+                      </li>
+                    );
+                  })}
+                </ul>
+              </Card>
+            </section>
+          );
+        })
       )}
     </div>
   );

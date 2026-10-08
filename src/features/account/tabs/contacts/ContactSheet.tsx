@@ -55,7 +55,7 @@ export function ContactSheet({ account, contact, open, onOpenChange }: ContactSh
   const [draft, setDraft] = useState<Draft>(() => draftOf(contact));
   const [emailError, setEmailError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
-  const { run, pending } = useAction();
+  const { run, pending, pendingVisible } = useAction();
   const emailRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -69,7 +69,9 @@ export function ContactSheet({ account, contact, open, onOpenChange }: ContactSh
 
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => setDraft((d) => ({ ...d, [key]: value }));
   const hasLogin = !!contact?.user;
-  const canSubmit = draft.full_name.trim().length > 0 && draft.salutation !== null && !pending;
+  // `ready` draws the submit button (it shows its own busy look after 150 ms); `canSubmit` also guards a double submit
+  const ready = draft.full_name.trim().length > 0 && draft.salutation !== null;
+  const canSubmit = ready && !pending;
 
   function interactionAt(): string | null | undefined {
     const original = contact?.last_interaction_at ?? null;
@@ -222,10 +224,10 @@ export function ContactSheet({ account, contact, open, onOpenChange }: ContactSh
             {formError ? <FormAlert>{formError}</FormAlert> : null}
           </SheetBody>
           <SheetFooter>
-            <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} disabled={pending}>
+            <Button type="button" variant="secondary" onClick={() => (pending ? undefined : onOpenChange(false))} disabled={pendingVisible}>
               {t('common.cancel')}
             </Button>
-            <Button type="submit" disabled={!canSubmit} loading={pending}>
+            <Button type="submit" disabled={!ready} loading={pending}>
               {contact ? t('common.save') : t('account.contacts.addSubmit')}
             </Button>
           </SheetFooter>

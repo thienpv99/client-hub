@@ -18,14 +18,16 @@ import type { Role, SearchResult } from '@/services/contract';
 import { api } from '@/services/api';
 import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Kbd } from '@/components/ui/kbd';
+import { PENDING_VISUAL_DELAY_MS, useDelayedFlag } from '@/hooks/useMotion';
 import { useViewer } from '@/hooks/useViewer';
 import { t } from '@/i18n';
-import { normalizeText } from '@/lib/utils';
+import { cn, normalizeText } from '@/lib/utils';
 
 type ResultType = SearchResult['type'];
 
 const GROUP_ORDER: ResultType[] = ['page', 'account', 'task', 'opportunity', 'lead', 'quote', 'contact'];
 const MAX_PER_GROUP = 6;
+const SEARCH_DEBOUNCE_MS = 150;
 /** when the query matches a single kind of result */
 const MAX_SINGLE_GROUP = 12;
 
@@ -83,7 +85,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const trimmed = query.trim();
-  const debounced = useDebounced(trimmed, 150);
+  const debounced = useDebounced(trimmed, SEARCH_DEBOUNCE_MS);
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const requestId = useRef(0);
@@ -164,6 +166,9 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   }, [results, pages, trimmed, debounced]);
 
   const searching = !!trimmed && (loading || debounced !== trimmed);
+  // "Đang tìm…" / the footer spinner only once a search has really been waited for (DESIGN §8.2: the debounce plus the
+  // usual 150 ms) — fast typing over quick answers never flashes them; meanwhile the empty area stays blank
+  const searchingVisible = useDelayedFlag(searching, SEARCH_DEBOUNCE_MS + PENDING_VISUAL_DELAY_MS);
 
   function go(href: string) {
     onOpenChange(false);
@@ -224,12 +229,17 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
         ))}
         <CommandEmpty className="py-10">
           {searching ? (
-            <span className="inline-flex items-center gap-2 text-table text-muted-foreground">
+            <span
+              className={cn(
+                'inline-flex items-center gap-2 text-table text-muted-foreground transition-opacity duration-150 ease-out-quart',
+                !searchingVisible && 'opacity-0',
+              )}
+            >
               <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden />
               {t('layout.search.searching')}
             </span>
           ) : (
-            <span className="flex flex-col items-center gap-3">
+            <span className="flex animate-fade-in flex-col items-center gap-3">
               <span className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-soft text-primary">
                 <SearchX className="h-5 w-5" strokeWidth={1.75} aria-hidden />
               </span>
@@ -258,7 +268,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
           </span>
         </span>
         <span className="sr-only">{t('layout.search.footer')}</span>
-        {searching && groups.length > 0 ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" aria-hidden /> : null}
+        {searchingVisible && groups.length > 0 ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" aria-hidden /> : null}
       </div>
     </CommandDialog>
   );

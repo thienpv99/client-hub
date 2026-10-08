@@ -54,7 +54,7 @@ function Chain({ template }: { template: ProjectTemplate }) {
 
 export function TemplateDialog({ open, onOpenChange, accountId, applyCandidate, defaultTarget, onDone }: TemplateDialogProps) {
   const ids = useId();
-  const { run, pending } = useAction();
+  const { run, pending, pendingVisible } = useAction();
   const templates = useQuery(() => api.listTemplates(), [], { enabled: open });
   const [templateId, setTemplateId] = useState('');
   const [target, setTarget] = useState<TemplateTarget>('new');
@@ -237,7 +237,7 @@ export function TemplateDialog({ open, onOpenChange, accountId, applyCandidate, 
           ) : null}
 
           <DialogFooter>
-            <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} disabled={pending}>
+            <Button type="button" variant="secondary" onClick={() => (pending ? undefined : onOpenChange(false))} disabled={pendingVisible}>
               {t('common.cancel')}
             </Button>
             <Button type="submit" loading={pending} disabled={!template || (touched && !valid)}>

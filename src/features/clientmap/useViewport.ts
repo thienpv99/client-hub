@@ -1,6 +1,9 @@
-// Zoom & pan of the map canvas: a { k, x, y } transform (screen = world × k + (x, y)), animated moves, and the
-// "fit everything" view. `autoFit` stays on until the person zooms or pans by hand ("Vừa màn hình" turns it back on).
+// Zoom & pan of the map canvas: a { k, x, y } transform (screen = world × k + (x, y)), animated moves (ease-out-quart,
+// the app's curve), and the "fit everything" view. `autoFit` stays on until the person zooms or pans by hand ("Vừa màn
+// hình" turns it back on). Animated zooms chain: a second step (wheel notch, "+" pressed twice) continues from where
+// the running one is heading, so stepping through zoom levels glides instead of stuttering.
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { easeOutQuart } from '@/hooks/useMotion';
 
 export interface View {
   k: number;
@@ -28,7 +31,8 @@ export const K_MAX = 4;
 const FIT_MAX = 1.8;
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
-const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
+/** one animated zoom step (buttons, wheel notches) */
+const ZOOM_MS = 200;
 
 export function clampK(k: number): number {
   return clamp(k, K_MIN, K_MAX);
@@ -75,12 +79,15 @@ export function useViewport(reducedMotion: boolean): Viewport {
   const viewRef = useRef<View>(view);
   const autoFit = useRef(true);
   const anim = useRef<number | null>(null);
+  /** where the running animation is heading (null when none runs) */
+  const heading = useRef<View | null>(null);
   const reduced = useRef(reducedMotion);
   reduced.current = reducedMotion;
 
   const stop = useCallback(() => {
     if (anim.current !== null) cancelAnimationFrame(anim.current);
     anim.current = null;
+    heading.current = null;
   }, []);
 
   useEffect(() => stop, [stop]);
@@ -94,16 +101,22 @@ export function useViewport(reducedMotion: boolean): Viewport {
   const animateTo = useCallback(
     (target: View, ms = 280) => {
       stop();
-      if (reduced.current) {
+      // reduced motion, or a hidden page (no frames would come): jump
+      if (reduced.current || (typeof document !== 'undefined' && document.visibilityState === 'hidden')) {
         setView(target);
         return;
       }
       const from = viewRef.current;
       const start = performance.now();
+      heading.current = target;
       const frame = (now: number) => {
         const p = Math.min(1, (now - start) / ms);
-        setView(lerpView(from, target, easeOutCubic(p)));
-        anim.current = p < 1 ? requestAnimationFrame(frame) : null;
+        setView(lerpView(from, target, easeOutQuart(p)));
+        if (p < 1) anim.current = requestAnimationFrame(frame);
+        else {
+          anim.current = null;
+          heading.current = null;
+        }
       };
       anim.current = requestAnimationFrame(frame);
     },
@@ -112,13 +125,14 @@ export function useViewport(reducedMotion: boolean): Viewport {
 
   const zoomAt = useCallback(
     (px: number, py: number, factor: number, animated = false) => {
-      const v = viewRef.current;
+      // an animated step continues from where a running animation is heading (chained steps add up)
+      const v = (animated ? heading.current : null) ?? viewRef.current;
       const k = clampK(v.k * factor);
       const wx = (px - v.x) / v.k;
       const wy = (py - v.y) / v.k;
       const next = { k, x: px - wx * k, y: py - wy * k };
       autoFit.current = false;
-      if (animated) animateTo(next, 200);
+      if (animated) animateTo(next, ZOOM_MS);
       else {
         stop();
         setView(next);

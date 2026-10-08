@@ -8,8 +8,14 @@ import { cx } from './cx';
 export interface PageHeaderProps {
   title: ReactNode;
   description?: ReactNode;
-  /** buttons on the right (primary last); they wrap below the title on mobile */
+  /** buttons on the right (primary last); they wrap below the title on mobile (see ctionsInline) */
   actions?: ReactNode;
+  /**
+   * phones: keep ctions on the title row (right of the h1, the description under both at full width) instead of
+   * a row of their own — for a single short action ("Tạo báo giá", "Bản tin tuần"), so the tabs and the focal list
+   * start ~60px higher. From sm the layout is the same either way.
+   */
+  actionsInline?: boolean;
   /**
    * back link above the title: a path, or { to, label } (label defaults to "Quay lại"). Not rendered inside the
    * internal app frame (see PageHeaderBackContext): its top bar already shows the way back.
@@ -38,7 +44,19 @@ export const PAGE_TABS_BLEED = '-mx-4 w-auto max-w-none px-4 md:-mx-6 md:px-6 xl
  */
 export const PageHeaderBackContext = createContext(true);
 
-export function PageHeader({ title, description, actions, back, eyebrow, children, tabs, compact = false, className }: PageHeaderProps) {
+export function PageHeader({
+  title,
+  description,
+  actions,
+  actionsInline = false,
+  back,
+  eyebrow,
+  children,
+  tabs,
+  compact = false,
+  className,
+}: PageHeaderProps) {
+  const inline = actionsInline && !!actions;
   const backAllowed = useContext(PageHeaderBackContext);
   const backTo = !backAllowed ? undefined : typeof back === 'string' ? back : back?.to;
   const backLabel = typeof back === 'object' && back.label ? back.label : t('components.pageHeader.back');
@@ -53,20 +71,31 @@ export function PageHeader({ title, description, actions, back, eyebrow, childre
           {backLabel}
         </Link>
       ) : null}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between sm:gap-6">
-        <div className="min-w-0">
-          {eyebrow ? <div className="mb-1.5 text-caption font-medium">{eyebrow}</div> : null}
+      <div
+        className={cx(
+          'sm:flex sm:flex-row sm:items-end sm:justify-between sm:gap-6',
+          // inline (phones): a 2-column grid — eyebrow and description span both columns, the actions fill the free
+          // cell beside the title (dense packing), so the DOM / reading order stays title → description → actions
+          inline ? 'grid grid-flow-row-dense grid-cols-[minmax(0,1fr)_auto] gap-x-3' : 'flex flex-col gap-4',
+        )}
+      >
+        <div className={inline ? 'contents sm:block sm:min-w-0' : 'min-w-0'}>
+          {eyebrow ? <div className="col-span-2 mb-1.5 text-caption font-medium">{eyebrow}</div> : null}
           <h1
             className={cx(
-              'break-words font-semibold text-ink',
+              'min-w-0 break-words font-semibold text-ink',
               compact ? 'text-title tracking-tightish' : 'text-title tracking-tightish md:text-display md:tracking-display',
+              // level with the (44px) action beside it
+              inline && 'self-center',
             )}
           >
             {title}
           </h1>
-          {description ? <div className="mt-1 max-w-3xl text-body text-muted-foreground">{description}</div> : null}
+          {description ? <div className="col-span-2 mt-1.5 max-w-3xl text-pretty text-body text-muted-foreground">{description}</div> : null}
         </div>
-        {actions ? <div className="flex flex-wrap items-center gap-2 sm:shrink-0 sm:justify-end">{actions}</div> : null}
+        {actions ? (
+          <div className={cx('flex flex-wrap items-center gap-2 sm:shrink-0 sm:justify-end', inline && 'justify-end self-center')}>{actions}</div>
+        ) : null}
       </div>
       {children}
       {tabs ? <div className="mt-1">{tabs}</div> : null}

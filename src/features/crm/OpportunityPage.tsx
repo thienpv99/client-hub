@@ -38,7 +38,7 @@ import { StageMenu } from './pipeline/StageMenu';
 
 function PageSkeletonView() {
   return (
-    <div role="status" aria-busy="true" className="space-y-6 md:space-y-8">
+    <div role="status" aria-busy="true" className="skeleton-reveal space-y-6 md:space-y-8">
       <span className="sr-only">{t('common.a11y.loading')}</span>
       <div className="flex items-start gap-3 md:gap-4">
         <Skeleton className="h-9 w-9 shrink-0 rounded-lg" />
@@ -90,7 +90,8 @@ function lostAtStage(opp: OpportunityDetail): OpenStage | null {
 
 function OpportunityBody({ opp }: { opp: OpportunityDetail }) {
   const today = todayISO();
-  const { run, pending } = useAction();
+  // logic uses pending at once; what is drawn (disabled look) waits 150 ms so a fast action never flickers (DESIGN §8.2)
+  const { run, pending, pendingVisible } = useAction();
   const close = useCloseFlow();
   const [editOpen, setEditOpen] = useState(false);
   // "Gắn báo giá có sẵn" / "Đổi báo giá" open the same dialog with the focus on its "Báo giá" field
@@ -103,11 +104,13 @@ function OpportunityBody({ opp }: { opp: OpportunityDetail }) {
   const open = isOpenStage(opp.stage);
   const closeDays = diffDays(opp.expected_close_date, today);
 
-  const move = (to: OpenStage) =>
+  const move = (to: OpenStage) => {
+    if (pending) return;
     void run(() => api.moveOpportunityStage(opp.id, to), {
       success: 'crm.pipeline.toast.moved',
       successParams: { name: opp.name, stage: stageLabel(to) },
     });
+  };
   const reopen = () => void run(() => api.reopenOpportunity(opp.id), { success: 'crm.opportunity.reopenToast', successParams: { name: opp.name } });
   const logDefaults = useMemo(() => ({ account_id: opp.account.id, opportunity_id: opp.id }), [opp.account.id, opp.id]);
 
@@ -115,11 +118,11 @@ function OpportunityBody({ opp }: { opp: OpportunityDetail }) {
   const outcomeActions = (phone: boolean) =>
     open ? (
       <>
-        <Button variant="secondary" onClick={() => close.askLose(opp)} disabled={pending} className={phone ? 'w-full' : undefined}>
+        <Button variant="secondary" onClick={() => !pending && close.askLose(opp)} disabled={pendingVisible} className={phone ? 'w-full' : undefined}>
           <CircleX aria-hidden="true" />
           {phone ? t('crm.opportunity.loseShort') : t('crm.opportunity.lose')}
         </Button>
-        <Button onClick={() => close.askWin(opp)} disabled={pending} className={phone ? 'w-full' : undefined}>
+        <Button onClick={() => !pending && close.askWin(opp)} disabled={pendingVisible} className={phone ? 'w-full' : undefined}>
           <CircleCheck aria-hidden="true" />
           {phone ? t('crm.opportunity.winShort') : t('crm.opportunity.win')}
         </Button>
@@ -216,13 +219,13 @@ function OpportunityBody({ opp }: { opp: OpportunityDetail }) {
                   onMove={move}
                   onWin={() => close.askWin(opp)}
                   onLose={() => close.askLose(opp)}
-                  disabled={pending}
+                  disabled={pendingVisible}
                   className="h-9 md:h-8"
                 />
               ) : null
             }
           >
-            <StageProgress stage={opp.stage} lostAt={opp.stage === 'lost' ? lostAtStage(opp) : null} onMove={move} disabled={pending} />
+            <StageProgress stage={opp.stage} lostAt={opp.stage === 'lost' ? lostAtStage(opp) : null} onMove={move} disabled={pendingVisible} />
             {open ? (
               <div className="mt-5 rounded-lg bg-subtle p-3 ring-1 ring-inset ring-border/60 sm:p-4">
                 <p className="text-micro font-medium text-muted-foreground">{t('crm.opportunity.nextStep')}</p>

@@ -90,7 +90,7 @@ interface TaskFormProps {
 
 function TaskForm({ accountId, task, defaultProjectId, defaultMilestoneId, onDone }: TaskFormProps) {
   const editing = task !== null;
-  const { run, pending } = useAction();
+  const { run, pending, pendingVisible } = useAction();
   const [state, setState] = useState<TaskFormState>(() =>
     initialFormState(task, { projectId: defaultProjectId, milestoneId: defaultMilestoneId }),
   );
@@ -493,7 +493,7 @@ function TaskForm({ accountId, task, defaultProjectId, defaultMilestoneId, onDon
       {/* sticky action bar: one row on phones too (full-screen form), the primary action last and widest */}
       <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-border/70 bg-card/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur supports-[backdrop-filter]:bg-card/85 sm:px-6 sm:py-4">
         {cycleText ? <p className={cn('w-full text-danger sm:mr-auto sm:w-auto', SMALL)}>{t('tasks.form.cycle.blockedSave')}</p> : null}
-        <Button type="button" variant="secondary" onClick={onDone} disabled={pending}>
+        <Button type="button" variant="secondary" onClick={() => (pending ? undefined : onDone())} disabled={pendingVisible}>
           {t('common.cancel')}
         </Button>
         <Button type="submit" loading={pending} disabled={!!cycleText || loadingCore} className="flex-1 sm:flex-none">

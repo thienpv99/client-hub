@@ -2,10 +2,13 @@ import * as React from 'react';
 import { Tabs as TabsPrimitive } from 'radix-ui';
 import { cn } from '@/components/ui/cn';
 import { SCROLL_FADE_CLASS, useScrollFade } from '@/components/ui/use-scroll-fade';
+import { useSlidingIndicator } from '@/components/ui/use-sliding-indicator';
 
 /**
  * 'underline' = page tabs right under a PageHeader (full-bleed hairline, 2px primary bar under the active tab).
  * 'segmented' (= 'pill' = 'default') = in-card switch: muted track, white active segment.
+ * Both draw ONE active indicator (white segment / 2px bar) that glides between the tabs (DESIGN.md §8.3); until it
+ * is measured, the active tab draws its own.
  */
 export type TabsListVariant = 'default' | 'pill' | 'segmented' | 'underline';
 
@@ -20,11 +23,24 @@ export interface TabsListProps extends React.ComponentPropsWithoutRef<typeof Tab
   variant?: TabsListVariant;
 }
 
+/** the sliding active indicator: white segment (pill) · 2px primary bar (underline). Positioned by useSlidingIndicator. */
+const INDICATOR = {
+  pill: 'pointer-events-none absolute left-0 top-0 rounded-md bg-card opacity-0 shadow-segment transition-[transform,width,height] duration-250 ease-out-quart',
+  underline:
+    'pointer-events-none absolute left-0 top-0 h-0.5 rounded-full bg-primary opacity-0 transition-transform duration-250 ease-out-quart',
+} as const;
+
 const TabsList = React.forwardRef<React.ElementRef<typeof TabsPrimitive.List>, TabsListProps>(
-  ({ className, variant = 'default', ...props }, ref) => {
+  ({ className, variant = 'default', children, ...props }, ref) => {
     const kind = variant === 'underline' ? 'underline' : 'pill';
     const innerRef = React.useRef<HTMLDivElement | null>(null);
+    const indicatorRef = React.useRef<HTMLSpanElement | null>(null);
     React.useImperativeHandle(ref, () => innerRef.current as HTMLDivElement);
+    useSlidingIndicator(innerRef, indicatorRef, {
+      activeSelector: '[role="tab"][data-state="active"]',
+      itemSelector: '[role="tab"]',
+      mode: kind === 'underline' ? 'underline' : 'box',
+    });
 
     // Keep the active tab visible when the list scrolls horizontally (mobile), also when the
     // value changes from outside (URL, uncontrolled state) — clear of the 40px edge fade (index.css .scroll-fade-x),
@@ -76,15 +92,21 @@ const TabsList = React.forwardRef<React.ElementRef<typeof TabsPrimitive.List>, T
           ref={innerRef}
           data-variant={kind}
           className={cn(
-            'no-scrollbar relative max-w-full overflow-x-auto overflow-y-hidden',
+            'group/tabs no-scrollbar relative max-w-full overflow-x-auto overflow-y-hidden',
             SCROLL_FADE_CLASS,
             kind === 'pill'
-              ? 'inline-flex items-center gap-0.5 rounded-lg bg-muted p-1 text-muted-foreground'
+              ? // the hairline keeps the track readable on the page background (bg-muted ≈ bg-background); inside a white
+                // card it is barely there
+                'inline-flex items-center gap-0.5 rounded-lg bg-muted p-1 text-muted-foreground ring-1 ring-inset ring-border/70'
               : 'flex w-full items-stretch gap-1 shadow-[inset_0_-1px_0_0_rgb(var(--border))] md:gap-2',
             className,
           )}
           {...props}
-        />
+        >
+          {/* first child: the tabs (position: relative) paint above it */}
+          <span ref={indicatorRef} aria-hidden="true" data-tabs-indicator="" className={INDICATOR[kind]} />
+          {children}
+        </TabsPrimitive.List>
       </TabsVariantContext.Provider>
     );
   },
@@ -98,12 +120,18 @@ const triggerBase =
 const triggerByKind = {
   // same active segment as ToggleGroup variant="segmented": white + shadow-segment (lift and hairline; a shadow, so
   // the focus ring still shows on the active tab)
-  pill: 'h-11 rounded-md px-3 hover:text-foreground data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-segment md:h-8',
-  // the 2px bar is a pseudo element as wide as the label (inset by the padding); hovering an inactive tab previews it
+  // once the sliding indicator is placed (list data-indicator="ready"), it draws the segment instead of the tab
+  pill: cn(
+    'h-11 rounded-md px-3 hover:text-foreground data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-segment md:h-8',
+    'group-data-[indicator=ready]/tabs:data-[state=active]:bg-transparent group-data-[indicator=ready]/tabs:data-[state=active]:shadow-none',
+  ),
+  // the 2px bar is a pseudo element as wide as the label (inset by the padding); hovering an inactive tab previews it.
+  // Once the sliding bar is placed, the active tab's own bar steps aside.
   underline: cn(
     'h-11 rounded-t-md px-3 text-muted-foreground hover:text-foreground data-[state=active]:text-foreground',
     'after:pointer-events-none after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-full after:bg-transparent after:transition-colors after:duration-150',
     'data-[state=inactive]:hover:after:bg-border-strong data-[state=active]:after:bg-primary',
+    'group-data-[indicator=ready]/tabs:data-[state=active]:after:bg-transparent',
   ),
 } as const;
 

@@ -28,7 +28,7 @@ const RadioGroupItem = React.forwardRef<
     )}
     {...props}
   >
-    <RadioGroupPrimitive.Indicator className="flex h-full w-full items-center justify-center data-[state=checked]:animate-zoom-in">
+    <RadioGroupPrimitive.Indicator className="flex h-full w-full items-center justify-center data-[state=checked]:animate-check-in">
       <span className="block h-2 w-2 rounded-full bg-card" />
     </RadioGroupPrimitive.Indicator>
   </RadioGroupPrimitive.Item>

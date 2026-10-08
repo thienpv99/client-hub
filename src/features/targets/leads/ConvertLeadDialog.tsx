@@ -32,7 +32,7 @@ const DEFAULT_CLOSE_DAYS = 60;
 export function ConvertLeadDialog({ open, onOpenChange, lead, people, isDirector, meId }: ConvertLeadDialogProps) {
   const uid = useId();
   const navigate = useNavigate();
-  const { run, pending } = useAction();
+  const { run, pending, pendingVisible } = useAction();
   const [name, setName] = useState('');
   const [value, setValue] = useState('');
   const [close, setClose] = useState('');
@@ -135,7 +135,7 @@ export function ConvertLeadDialog({ open, onOpenChange, lead, people, isDirector
             </FormField>
           </div>
           <DialogFooter>
-            <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} disabled={pending}>
+            <Button type="button" variant="secondary" onClick={() => !pending && onOpenChange(false)} disabled={pendingVisible}>
               {t('common.cancel')}
             </Button>
             <Button type="submit" loading={pending}>

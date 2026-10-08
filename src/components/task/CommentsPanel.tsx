@@ -25,12 +25,29 @@ function excerpt(s: string, max = 90): string {
   return one.length > max ? `${one.slice(0, max - 1)}…` : one;
 }
 
-function CommentItem({ comment, parent, onReply }: { comment: CommentView; parent: CommentView | null; onReply?: () => void }) {
+function CommentItem({
+  comment,
+  parent,
+  fresh = false,
+  onReply,
+}: {
+  comment: CommentView;
+  parent: CommentView | null;
+  /** arrived while the thread was open: rises in (6px + fade, transform only) */
+  fresh?: boolean;
+  onReply?: () => void;
+}) {
   const internal = comment.visibility === 'internal';
   return (
     // every item has the same inner padding (the list hangs it into the margin), so the avatars line up; an
     // internal note is a pale-yellow inset with a lock (SPEC §4.2)
-    <li className={cn('flex gap-3 rounded-lg px-3 py-2.5', internal && 'bg-note ring-1 ring-inset ring-note-border')}>
+    <li
+      className={cn(
+        'flex gap-3 rounded-lg px-3 py-2.5',
+        internal && 'bg-note ring-1 ring-inset ring-note-border',
+        fresh && 'animate-rise',
+      )}
+    >
       <span className="shrink-0 pt-0.5">
         <UserAvatar user={comment.author} size="sm" />
       </span>
@@ -105,6 +122,27 @@ export function CommentsPanel({ task, className }: CommentsPanelProps) {
   }, [task.id]);
 
   const byId = useMemo(() => new Map(task.comments.map((c) => [c.id, c])), [task.comments]);
+  // comments that arrive while the drawer is open (just sent, or a refetch) rise into the thread; the ones it opened
+  // with do not move
+  const seen = useRef<Set<string> | null>(null);
+  if (seen.current === null) seen.current = new Set(task.comments.map((c) => c.id));
+  // ids that keep their rise class for the length of the animation, whatever re-renders meanwhile
+  const rising = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const known = seen.current;
+    if (!known) return undefined;
+    const added = task.comments.filter((c) => !known.has(c.id)).map((c) => c.id);
+    if (added.length === 0) return undefined;
+    for (const cid of added) {
+      known.add(cid);
+      rising.current.add(cid);
+    }
+    const timer = window.setTimeout(() => {
+      for (const cid of added) rising.current.delete(cid);
+    }, 400);
+    return () => window.clearTimeout(timer);
+  }, [task.comments]);
+  const isFresh = (cid: string) => !(seen.current?.has(cid) ?? true) || rising.current.has(cid);
   const audience: Visibility = internalViewer ? tab : 'shared';
   const asNote = internalViewer && audience === 'internal';
   const canWrite = !readOnly && (audience === 'internal' ? canInternal : canShared);
@@ -211,7 +249,8 @@ export function CommentsPanel({ task, className }: CommentsPanelProps) {
             // the client reads is soft blue, an internal note a quiet secondary
             variant={asNote ? 'secondary' : 'soft'}
           >
-            {!pending && <Send aria-hidden="true" />}
+            {/* the Button swaps the icon for its spinner itself (after 150 ms) */}
+            <Send aria-hidden="true" />
             {asNote ? t('task.comments.saveNote') : t('task.comments.send')}
           </Button>
         </div>
@@ -229,7 +268,15 @@ export function CommentsPanel({ task, className }: CommentsPanelProps) {
           {task.comments.map((c) => {
             const parent = c.reply_to_id ? (byId.get(c.reply_to_id) ?? null) : null;
             const replyable = internalViewer && !readOnly && canShared && c.visibility === 'shared' && c.author.org_type === 'client';
-            return <CommentItem key={c.id} comment={c} parent={parent} onReply={replyable ? () => startReply(c) : undefined} />;
+            return (
+              <CommentItem
+                key={c.id}
+                comment={c}
+                parent={parent}
+                fresh={isFresh(c.id)}
+                onReply={replyable ? () => startReply(c) : undefined}
+              />
+            );
           })}
         </ol>
       )}

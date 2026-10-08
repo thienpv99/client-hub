@@ -22,7 +22,7 @@ export function VersionSwitcher({
   if (versions.length <= 1) return null;
   const ordered = [...versions].sort((a, b) => a.version - b.version);
   return (
-    <nav aria-label={label} className="inline-flex items-center gap-0.5 rounded-lg bg-muted p-1">
+    <nav aria-label={label} className="inline-flex items-center gap-0.5 rounded-lg bg-muted p-1 ring-1 ring-inset ring-border/70">
       {ordered.map((v) => {
         const active = v.id === currentId;
         return (

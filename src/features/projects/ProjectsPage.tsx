@@ -4,6 +4,7 @@
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { api } from '@/services/api';
 import { PAGE_TABS_BLEED, PageHeader } from '@/components/common/page-header';
+import { useEntryView } from '@/components/crm/useEntryView';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useQuery } from '@/hooks/useQuery';
@@ -21,6 +22,8 @@ export function ProjectsPage() {
   const viewer = useViewer();
   const params = useProjectParams();
   const portfolio = useQuery(() => api.listProjectPortfolio(), [viewer?.user.id]);
+  // the focal list staggers in on the tab the page was opened on only (a tab switch just fades, DESIGN §8.3)
+  const stagger = useEntryView(rawTab ?? 'portfolio');
 
   if (rawTab !== undefined && !isProjectTab(rawTab)) return <Navigate to="/app/projects" replace />;
   const tab: ProjectTab = rawTab ?? 'portfolio';
@@ -60,7 +63,7 @@ export function ProjectsPage() {
       />
       <TabsContent value="portfolio" className="mt-6 focus-visible:ring-offset-background md:mt-8">
         {tab === 'portfolio' ? (
-          <PortfolioTab rows={rows} loading={portfolio.loading} error={portfolio.error} onRetry={portfolio.refetch} params={params} />
+          <PortfolioTab rows={rows} loading={portfolio.loading} error={portfolio.error} onRetry={portfolio.refetch} params={params} stagger={stagger} />
         ) : null}
       </TabsContent>
       <TabsContent value="timeline" className="mt-6 focus-visible:ring-offset-background md:mt-8">
@@ -69,7 +72,7 @@ export function ProjectsPage() {
         ) : null}
       </TabsContent>
       <TabsContent value="workload" className="mt-6 focus-visible:ring-offset-background md:mt-8">
-        {tab === 'workload' ? <WorkloadTab /> : null}
+        {tab === 'workload' ? <WorkloadTab stagger={stagger} /> : null}
       </TabsContent>
     </Tabs>
   );

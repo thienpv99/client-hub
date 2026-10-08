@@ -9,6 +9,7 @@ import type { UserRef } from '@/services/contract';
 import { todayISO } from '@/domain/clock';
 import { api } from '@/services/api';
 import { useMediaQuery } from '@/hooks/useMedia';
+import { useStagger } from '@/hooks/useMotion';
 import { useQuery } from '@/hooks/useQuery';
 import { EmptyState, SearchEmptyState } from '@/components/common/empty-state';
 import { ErrorState } from '@/components/common/error-state';
@@ -28,6 +29,8 @@ import { LEAD_SORTS, useLeadParams } from './useLeadParams';
 import type { LeadSort } from './useLeadParams';
 
 const SEARCH_DEBOUNCE_MS = 250;
+/** a longer list appears at once (DESIGN §8.4: no stagger on long tables) */
+const STAGGER_MAX_ROWS = 30;
 const EMPTY_SEGMENTS: SegmentView[] = [];
 
 function serverFilter(owner: string, segmentId: string | null): LeadFilter {
@@ -45,9 +48,11 @@ export interface LeadsTabProps {
   onOpenLead: (id: string) => void;
   /** opens the page's "Thêm mục tiêu" form (empty state action) */
   onAddLead: () => void;
+  /** the list rises in on first appearance (the page's entry tab only) */
+  stagger?: boolean;
 }
 
-export function LeadsTab({ people, isDirector, meId, onOpenLead, onAddLead }: LeadsTabProps) {
+export function LeadsTab({ people, isDirector, meId, onOpenLead, onAddLead, stagger = false }: LeadsTabProps) {
   const params = useLeadParams(isDirector ? 'all' : 'me');
   const wide = useMediaQuery('(min-width: 1280px)');
   const tablet = useMediaQuery('(min-width: 768px)');
@@ -84,6 +89,8 @@ export function LeadsTab({ people, isDirector, meId, onOpenLead, onAddLead }: Le
   const shown = sortLeads(filterByStatus(base, params.status), params.sort);
   const selectedIds = shown.filter((l) => selected.has(l.id) && isSelectable(l.status)).map((l) => l.id);
   const filtered = params.filtered || query.trim() !== '';
+  // DESIGN §8.4: the first list rises in once; filters, sorting and refetches appear without motion
+  const rise = useStagger(stagger && leadsQ.data !== undefined && shown.length <= STAGGER_MAX_ROWS);
 
   function clearAll() {
     pushed.current = '';
@@ -136,9 +143,9 @@ export function LeadsTab({ people, isDirector, meId, onOpenLead, onAddLead }: Le
         </div>
         {shown.length > 0 ? (
           wide ? (
-            <LeadTable leads={shown} today={today} selected={selected} onToggle={toggle} onToggleAll={toggleAll} onOpen={onOpenLead} />
+            <LeadTable leads={shown} today={today} selected={selected} onToggle={toggle} onToggleAll={toggleAll} onOpen={onOpenLead} rise={rise} />
           ) : (
-            <LeadCards leads={shown} today={today} selected={selected} onToggle={toggle} onToggleAll={toggleAll} onOpen={onOpenLead} />
+            <LeadCards leads={shown} today={today} selected={selected} onToggle={toggle} onToggleAll={toggleAll} onOpen={onOpenLead} rise={rise} />
           )
         ) : leads.length === 0 && !filtered && params.owner === 'me' ? (
           <Card>
@@ -188,56 +195,59 @@ export function LeadsTab({ people, isDirector, meId, onOpenLead, onAddLead }: Le
     );
   }
 
+  // page rhythm (DESIGN §7.5): KPI row, then the toolbar grouped with the list it filters
   return (
-    <div className="space-y-5">
+    <div className="space-y-6 md:space-y-8">
       <TargetStats isDirector={isDirector} meId={meId} params={params} />
 
-      <div className="flex flex-col gap-2 md:flex-row md:flex-wrap md:items-center md:gap-3">
-        <Input
-          type="search"
-          icon={<Search />}
-          inputSize="sm"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Escape' && query) {
-              e.preventDefault();
-              setQuery('');
-            }
-          }}
-          placeholder={t('targets.leads.searchPlaceholder')}
-          aria-label={t('targets.leads.searchLabel')}
-          wrapperClassName="w-full md:w-[280px]"
-          autoComplete="off"
-          enterKeyHint="search"
-        />
-        <div className="flex min-w-0 items-center gap-2">
-          <OwnerSwitch params={params} className="min-w-0 flex-1 md:flex-none" />
-          <LeadFilterButton params={params} people={people} segments={segments} isDirector={isDirector} />
+      <div className="space-y-4">
+        <div className="flex flex-col gap-2 md:flex-row md:flex-wrap md:items-center md:gap-3">
+          <Input
+            type="search"
+            icon={<Search />}
+            inputSize="sm"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape' && query) {
+                e.preventDefault();
+                setQuery('');
+              }
+            }}
+            placeholder={t('targets.leads.searchPlaceholder')}
+            aria-label={t('targets.leads.searchLabel')}
+            wrapperClassName="w-full md:w-[280px]"
+            autoComplete="off"
+            enterKeyHint="search"
+          />
+          <div className="flex min-w-0 items-center gap-2">
+            <OwnerSwitch params={params} className="min-w-0 flex-1 md:flex-none" />
+            <LeadFilterButton params={params} people={people} segments={segments} isDirector={isDirector} />
+          </div>
+          {tablet ? (
+            <label className="flex items-center gap-2 md:ml-auto">
+              <span className="shrink-0 text-caption">{t('targets.leads.sortLabel')}</span>
+              <NativeSelect
+                size="sm"
+                value={params.sort}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if ((LEAD_SORTS as string[]).includes(v)) params.update({ sort: v as LeadSort });
+                }}
+                wrapperClassName="w-40"
+              >
+                {LEAD_SORTS.map((s) => (
+                  <option key={s} value={s}>
+                    {t(`targets.leads.sort.${s}`)}
+                  </option>
+                ))}
+              </NativeSelect>
+            </label>
+          ) : null}
         </div>
-        {tablet ? (
-          <label className="flex items-center gap-2 md:ml-auto">
-            <span className="shrink-0 text-caption">{t('targets.leads.sortLabel')}</span>
-            <NativeSelect
-              size="sm"
-              value={params.sort}
-              onChange={(e) => {
-                const v = e.target.value;
-                if ((LEAD_SORTS as string[]).includes(v)) params.update({ sort: v as LeadSort });
-              }}
-              wrapperClassName="w-40"
-            >
-              {LEAD_SORTS.map((s) => (
-                <option key={s} value={s}>
-                  {t(`targets.leads.sort.${s}`)}
-                </option>
-              ))}
-            </NativeSelect>
-          </label>
-        ) : null}
-      </div>
 
-      {body}
+        {body}
+      </div>
     </div>
   );
 }

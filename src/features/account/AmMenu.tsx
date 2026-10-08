@@ -23,7 +23,8 @@ import { UserAvatar } from '@/components/common/user-avatar';
 function AmName({ am }: { am: UserRef }) {
   return (
     <span className="inline-flex min-w-0 items-center gap-2">
-      <UserAvatar user={am} size="xs" />
+      {/* the header sits on the page background: a white disc keeps the initials reading as an avatar */}
+      <UserAvatar user={am} size="xs" className="bg-card" />
       <span className="truncate text-table font-medium text-foreground">{am.full_name}</span>
     </span>
   );
@@ -36,14 +37,14 @@ export interface AmMenuProps {
 
 export function AmMenu({ account, canAssign }: AmMenuProps) {
   const [open, setOpen] = useState(false);
-  const { run, pending } = useAction();
+  const { run, pending, pendingVisible } = useAction();
   const ams = useQuery(() => api.listUsers({ orgType: 'internal', role: 'am' }), [], { enabled: canAssign && open });
 
   if (!canAssign) return <AmName am={account.am} />;
 
   async function assign(amId: string) {
     const previous = account.am;
-    if (amId === previous.id) return;
+    if (amId === previous.id || pending) return;
     const next = ams.data?.find((u) => u.id === amId);
     const result = await run(() => api.assignAm(account.id, amId));
     if (!result) return;
@@ -68,7 +69,9 @@ export function AmMenu({ account, canAssign }: AmMenuProps) {
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          disabled={pending}
+          // dims only once the reassignment takes 150 ms (DESIGN §8.2); `assign` itself ignores a second pick
+          disabled={pendingVisible}
+          aria-busy={pending || undefined}
           aria-label={t('account.am.change', { name: account.am.full_name })}
           className={cn(
             // -ml-1.5 aligns the avatar with the label above; the max width gives that margin back (no early ellipsis)

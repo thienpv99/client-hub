@@ -36,11 +36,28 @@
     --danger-soft: 254 242 242; /* #FEF2F2 */
     --note: 255 251 235; /* #FFFBEB internal note */
     --note-border: 253 230 138; /* #FDE68A */
+    /* Motion v3 (DESIGN.md §8) — same values as tailwind.config.js, for plain CSS */
+    --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+    --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);
+    --skeleton-delay: 120ms;
+    /* skeleton shimmer: two quiet tints of the muted fill */
+    --skeleton-base: 241 244 249; /* = --muted */
+    --skeleton-glint: 247 249 252;
   }
 
   html {
     -webkit-text-size-adjust: 100%;
     text-rendering: optimizeLegibility;
+    /* thin neutral scrollbars (Firefox + Chromium ≥ 121); WebKit fallback below */
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--border-strong)) transparent;
+  }
+
+  /* in-page anchors glide (programmatic page scrolls that need a jump opt out with an inline scroll-behavior) */
+  @media (prefers-reduced-motion: no-preference) {
+    html {
+      scroll-behavior: smooth;
+    }
   }
 
   body {
@@ -50,8 +67,18 @@
 
   * {
     @apply border-border;
+    /* inner scrollers (tables, drawers, menus) get the same thin neutral bar; `.no-scrollbar` still hides it */
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--border-strong)) transparent;
   }
 
+  ::selection {
+    /* the primary tint: #EEF3FF alone would vanish on white cards, so its border tone at 65 % */
+    background-color: rgb(var(--primary-border) / 0.65);
+    color: rgb(var(--ink));
+  }
+
+  /* one focus ring everywhere: 2px primary, offset 2px (kit controls draw the same ring with ring-2) */
   :focus-visible {
     outline: 2px solid rgb(var(--primary));
     outline-offset: 2px;
@@ -69,17 +96,58 @@
   h3 {
     letter-spacing: -0.01em;
   }
+
+  /* page and section titles balance their lines; card titles (h3, often a long task / quote name filling a wide
+     card) only avoid a lone last word — balance would split them into two short lines with an empty right side */
+  h1,
+  h2 {
+    text-wrap: balance;
+  }
+
+  h3,
+  p {
+    text-wrap: pretty;
+  }
 }
 
 @layer utilities {
   .tabular {
     font-variant-numeric: tabular-nums;
   }
+  /* Skeleton block: invisible for the first 120 ms (a fast load never flashes grey), then fades in; a slow, low-contrast
+     shimmer. Inside a `.skeleton-reveal` group the group fades instead (see below). */
   .skeleton {
-    background: linear-gradient(90deg, rgb(var(--muted)) 0px, rgb(236 240 246) 120px, rgb(var(--muted)) 240px);
-    background-size: 800px 100%;
-    animation: shimmer 1.4s linear infinite;
-    border-radius: 8px;
+    background: linear-gradient(
+      90deg,
+      rgb(var(--skeleton-base)) 0px,
+      rgb(var(--skeleton-glint)) 160px,
+      rgb(var(--skeleton-base)) 320px
+    );
+    background-size: 960px 100%;
+    animation:
+      skeleton-in 240ms var(--ease-out-quart) var(--skeleton-delay) both,
+      skeleton-shimmer 1.8s ease-in-out var(--skeleton-delay) infinite;
+  }
+  /* a whole loading layout (frames + blocks): fades in as one after 120 ms */
+  .skeleton-reveal {
+    animation: skeleton-in 240ms var(--ease-out-quart) var(--skeleton-delay) both;
+  }
+  /* Hover lift for custom clickable surfaces (= Card interactive). */
+  .hover-lift {
+    transition-property: transform, box-shadow, border-color, background-color;
+    transition-duration: 200ms;
+    transition-timing-function: var(--ease-out-quart);
+  }
+  /* devices that really hover only (= tailwind future.hoverOnlyWhenSupported): iOS keeps :hover after a tap */
+  @media (hover: hover) and (pointer: fine) {
+    .hover-lift:hover {
+      transform: translateY(-1px);
+      box-shadow: theme('boxShadow.card-hover');
+    }
+  }
+  .hover-lift:active {
+    transform: translateY(0);
+    transition-duration: 120ms;
   }
   .scrollbar-thin {
     scrollbar-width: thin;
@@ -107,6 +175,69 @@
     -webkit-mask-image: linear-gradient(to right, transparent, #000 40px, #000 calc(100% - 40px), transparent);
     mask-image: linear-gradient(to right, transparent, #000 40px, #000 calc(100% - 40px), transparent);
   }
+  /* End edge only — for scrollers with a pinned (sticky) first column (Gantt, task timeline): the start edge is
+     covered by that column, so fading it would fade the names. Same `useScrollFade` + data-fade. */
+  .scroll-fade-end[data-fade='end'],
+  .scroll-fade-end[data-fade='both'] {
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent);
+  }
+}
+
+@keyframes skeleton-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes skeleton-shimmer {
+  from {
+    background-position: -480px 0;
+  }
+  to {
+    background-position: 480px 0;
+  }
+}
+
+/* default skeleton radius at zero specificity: any rounded-* class on a <Skeleton> wins, wherever it lands in the CSS
+   (no "!rounded-*" rewriting needed) */
+:where(.skeleton) {
+  border-radius: 8px;
+}
+
+/* blocks inside a revealing group only shimmer (the group does the fade, no double fade) */
+.skeleton-reveal .skeleton {
+  animation: skeleton-shimmer 1.8s ease-in-out var(--skeleton-delay) infinite;
+}
+
+/* Stagger recipe (DESIGN.md §8.4): fade-up with a 35 ms step per item, items from the 10th share the last step.
+   <li className="animate-rise" style={{ '--i': i }}> — or riseProps(i) / useStagger() from '@/hooks/useMotion'.
+   Doubled class (0,2,0): wins over the `animate-rise` shorthand wherever the utilities land, so it cannot reset the
+   delay. */
+.animate-rise.animate-rise {
+  animation-delay: calc(min(var(--i, 0), 10) * 35ms);
+}
+
+/* WebKit scrollbars (Safari; Chromium uses scrollbar-width / scrollbar-color above) */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background-color: rgb(var(--border-strong));
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(var(--caption) / 0.55);
 }
 
 /* Touch screens — phones AND iPad (SPEC §7: 44px tap targets; iPad is the C-level device). The kit switches to
@@ -124,7 +255,8 @@
 
 /* Reduced motion: animations end at once (Radix still gets its animationend) and nothing transitions. A 0s
    duration matters: transition-property defaults to `all`, so any non-zero duration here would start a transition
-   on EVERY property change of EVERY element (e.g. when the Tailwind CDN adds a class's rule after first paint). */
+   on EVERY property change of EVERY element (e.g. when the Tailwind CDN adds a class's rule after first paint).
+   Delays stay: they only hold back pending visuals (skeletons after 120 ms), nothing moves. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -134,6 +266,9 @@
     transition-duration: 0s !important;
     scroll-behavior: auto !important;
   }
+  .animate-rise.animate-rise {
+    animation-delay: 0ms !important;
+  }
 }
 
 @media print {
@@ -142,5 +277,10 @@
   }
   .no-print {
     display: none !important;
+  }
+  .skeleton,
+  .skeleton-reveal,
+  .animate-rise {
+    animation: none !important;
   }
 }

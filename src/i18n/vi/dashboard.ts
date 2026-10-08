@@ -34,7 +34,8 @@ const dashboard = {
       none: 'Không có việc trễ hạn',
     },
     contract: {
-      label: 'Giá trị hợp đồng {year}',
+      /** "hợp đồng" is one word (non-breaking space): a narrow tile breaks "Giá trị / hợp đồng 2026", never inside it */
+      label: 'Giá trị hợp đồng {year}',
       sub: '{count} hợp đồng đã ký',
       subNone: 'Chưa có hợp đồng ký trong năm',
     },
@@ -202,6 +203,8 @@ const dashboard = {
     waitingTitle: 'Đang chờ khách: {client} · Đang chờ New Era: {internal}',
     /** non-breaking space: "quá hạn" never splits in a narrow table cell */
     receivableOverdue: '{amount} quá hạn',
+    /** the whole receivable is overdue: one line under the amount */
+    receivableAllOverdue: 'quá hạn toàn bộ',
     noReceivable: 'Không có',
     /** contract value column for prospects without a signed contract */
     noContract: 'Chưa có',
