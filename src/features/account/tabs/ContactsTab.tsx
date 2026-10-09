@@ -1,9 +1,12 @@
-// Client contacts (SPEC §4.2 "Tab Liên hệ"): name, title, salutation, decision role, login status, last interaction.
-// Managers edit contacts and invite them (company email domain only).
-import { useState } from 'react';
+// Client people (SPEC §4.2, moved into "Quan hệ" by SPEC-CARE §6.4): name, title, salutation, decision role, login
+// status, last interaction — and, for the director / AM, the relationship fields (stakeholder). Managers edit
+// contacts, invite them (company email domain only) and edit the relationship.
+import { useEffect, useState } from 'react';
 import { Send, UserPlus, Users } from 'lucide-react';
 import type { AccountDetail, ContactView } from '@/services/contract';
+import type { StakeholderView } from '@/services/careContract';
 import { t } from '@/i18n';
+import { jumpScrollTo } from '@/hooks/useMotion';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/common/empty-state';
 import { SectionCard } from '@/components/common/section-card';
@@ -14,16 +17,39 @@ import { InviteSheet } from './contacts/InviteSheet';
 
 export interface ContactsTabProps {
   account: AccountDetail;
+  /** director / AM: relationship data per contact (order = the api's: decision role, then closeness) */
+  stakeholders?: StakeholderView[] | null;
+  onEditRelation?: (contactId: string) => void;
+  /**
+   * `?contact=<id>` on the plain list (members, review QA-L6): scroll that person's card into view and ring it for a
+   * moment — the director / AM open the relationship sheet instead
+   */
+  focusId?: string | null;
 }
 
 type Panel = { kind: 'edit'; contact: ContactView | null } | { kind: 'invite'; contact: ContactView | null } | null;
 
-export function ContactsTab({ account }: ContactsTabProps) {
+export function ContactsTab({ account, stakeholders = null, onEditRelation, focusId = null }: ContactsTabProps) {
   const access = useAccountAccess(account);
+  const [ringed, setRinged] = useState<string | null>(null);
+  useEffect(() => {
+    if (!focusId || !account.contacts.some((c) => c.id === focusId)) return;
+    const el = document.getElementById(`contact-${focusId}`);
+    if (!el) return;
+    // under the sticky top bar and the tab strip (the card's scroll-mt-40 margin)
+    jumpScrollTo(Math.max(0, el.getBoundingClientRect().top + window.scrollY - 160));
+    setRinged(focusId);
+    const id = window.setTimeout(() => setRinged(null), 2400);
+    return () => window.clearTimeout(id);
+  }, [focusId, account.contacts]);
   const [panel, setPanel] = useState<Panel>(null);
   // keep the last panel's content while its drawer closes
   const [last, setLast] = useState<Exclude<Panel, null>>({ kind: 'edit', contact: null });
-  const contacts = account.contacts;
+  const byContact = new Map((stakeholders ?? []).map((s) => [s.contact_id, s]));
+  const rank = new Map((stakeholders ?? []).map((s, i) => [s.contact_id, i]));
+  const contacts = stakeholders
+    ? account.contacts.slice().sort((a, b) => (rank.get(a.id) ?? 999) - (rank.get(b.id) ?? 999))
+    : account.contacts;
   const active = contacts.filter((c) => c.user?.status === 'active').length;
   const invited = contacts.filter((c) => c.user?.status === 'invited').length;
   const noLogin = contacts.filter((c) => !c.user).length;
@@ -59,11 +85,11 @@ export function ContactsTab({ account }: ContactsTabProps) {
   const current = panel ?? last;
 
   return (
-    <div className="space-y-4">
+    <section aria-labelledby="account-people-title" className="space-y-4">
       {contacts.length > 0 ? (
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <h2 className="flex items-center gap-2 text-heading font-semibold tracking-tightish text-ink">
+            <h2 id="account-people-title" className="flex items-center gap-2 text-heading font-semibold tracking-tightish text-ink">
               {t('account.contacts.title')}
               <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-micro font-medium tabular text-muted-foreground">
                 {contacts.length}
@@ -82,7 +108,11 @@ export function ContactsTab({ account }: ContactsTabProps) {
           </div>
           {actions(true)}
         </div>
-      ) : null}
+      ) : (
+        <h2 id="account-people-title" className="sr-only">
+          {t('account.contacts.title')}
+        </h2>
+      )}
 
       {contacts.length === 0 ? (
         <SectionCard>
@@ -90,15 +120,23 @@ export function ContactsTab({ account }: ContactsTabProps) {
         </SectionCard>
       ) : (
         <ul className="grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-3">
-          {contacts.map((c) => (
-            <ContactCard
-              key={c.id}
-              contact={c}
-              canManage={access.manage}
-              onEdit={(contact) => open({ kind: 'edit', contact })}
-              onInvite={(contact) => open({ kind: 'invite', contact })}
-            />
-          ))}
+          {contacts.map((c) => {
+            const s = byContact.get(c.id) ?? null;
+            const manager = s?.reports_to_contact_id ? account.contacts.find((x) => x.id === s.reports_to_contact_id) : undefined;
+            return (
+              <ContactCard
+                key={c.id}
+                contact={c}
+                canManage={access.manage}
+                onEdit={(contact) => open({ kind: 'edit', contact })}
+                onInvite={(contact) => open({ kind: 'invite', contact })}
+                stakeholder={s}
+                reportsToName={manager ? manager.full_name : null}
+                onEditRelation={onEditRelation ? (contact) => onEditRelation(contact.id) : undefined}
+                className={ringed === c.id ? 'ring-2 ring-primary ring-offset-2 ring-offset-background transition-shadow duration-200' : undefined}
+              />
+            );
+          })}
         </ul>
       )}
 
@@ -122,6 +160,6 @@ export function ContactsTab({ account }: ContactsTabProps) {
           />
         </>
       ) : null}
-    </div>
+    </section>
   );
 }

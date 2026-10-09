@@ -4,10 +4,10 @@ import { api } from '@/services/api';
 import { todayISO } from '@/domain/clock';
 import { t } from '@/i18n';
 
-export type SuiteId = 'domain' | 'crm' | 'rbac' | 'sso' | 'seed' | 'api';
+export type SuiteId = 'domain' | 'crm' | 'rbac' | 'sso' | 'seed' | 'api' | 'care';
 
 /** suites that sign in as other people (the previous session is put back afterwards) */
-const SWITCHES_SESSION: ReadonlySet<SuiteId> = new Set<SuiteId>(['rbac', 'sso', 'api']);
+const SWITCHES_SESSION: ReadonlySet<SuiteId> = new Set<SuiteId>(['rbac', 'sso', 'api', 'care']);
 
 export interface CheckRow {
   suite?: string;
@@ -135,6 +135,11 @@ async function load(id: SuiteId): Promise<unknown> {
       // every read method as every demo role + the demo scenario checks, on a private copy of the db (db.isolated)
       const m = await import('@/dev/apiSmoke');
       return await m.runApiSmoke();
+    }
+    case 'care': {
+      // client care rules (SPEC-CARE §3), request / gate / care flows through the api on a private copy, care seed checks
+      const m = await import('@/dev/careTests');
+      return await m.runCareTests();
     }
     default: {
       const never: never = id;

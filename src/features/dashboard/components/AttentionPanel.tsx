@@ -1,11 +1,15 @@
-// "Cần chú ý hôm nay" — the dashboard's focal block (SPEC §4.1, DESIGN §5): ≤7 exceptions, most severe first.
-// Each row = severity icon in a soft circle + one sentence (account name semibold) + caption meta + a soft primary
-// action and a ghost one.
-import { useState } from 'react';
+// "Cần chú ý hôm nay" — the dashboard's focal block (SPEC §4.1, SPEC-CARE §6.2, DESIGN §5): most severe first —
+// requests owed to clients (delivery debt), requests waiting more than 7 days, clients overdue for a care touch, plus
+// the classic exceptions (a milestone held up, a quote to approve, a late payment). Each row = severity icon in a soft
+// circle + one sentence (account name semibold) + caption meta + a soft primary action and a ghost one. The first
+// VISIBLE rows show; "Xem thêm" opens the rest. Requests open in the shared triage sheet right here.
+import { useId, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowRight,
   BadgePercent,
+  ChevronDown,
+  ChevronUp,
   CalendarClock,
   CircleCheck,
   Clock,
@@ -17,7 +21,9 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { AttentionAction, AttentionItem, AttentionKind } from '@/services/contract';
+import type { ChangeRequestView } from '@/services/careContract';
 import { api } from '@/services/api';
+import { CrTriageSheet } from '@/components/care/CrTriageSheet';
 import { ConfirmDialog } from '@/components/common/confirm-dialog';
 import { EmptyState } from '@/components/common/empty-state';
 import { SectionCard } from '@/components/common/section-card';
@@ -30,6 +36,11 @@ import type { RiseProps } from '@/hooks/useMotion';
 import { useTaskDrawer } from '@/hooks/useTaskDrawer';
 import { t } from '@/i18n';
 import { attentionMeta, attentionParams, attentionSentenceParts } from '../attentionText';
+import { REQUESTS_HREF, type FocusItem } from '../careModel';
+import { CareRow, NextStepRow, RequestRow, RowShell } from './FocusRows';
+
+/** rows shown before "Xem thêm" — the list stays a one-look block at 1440×900 */
+const VISIBLE = 8;
 
 const KIND_ICON: Record<AttentionKind, LucideIcon> = {
   client_overdue_blocking: Hourglass,
@@ -42,19 +53,6 @@ const KIND_ICON: Record<AttentionKind, LucideIcon> = {
   internal_overdue: Clock,
 };
 
-/** severity is a status: danger / warning / neutral "theo dõi" — always with an icon and the word */
-const SEVERITY_TONE: Record<AttentionItem['severity'], string> = {
-  1: 'bg-danger-soft text-danger',
-  2: 'bg-warning-soft text-warning',
-  3: 'bg-muted text-muted-foreground',
-};
-
-/** the severity word under the sentence, in the same status colour as its icon */
-const SEVERITY_WORD: Record<AttentionItem['severity'], string> = {
-  1: 'text-danger',
-  2: 'text-warning',
-  3: '',
-};
 
 function accountPath(id: string): string {
   return `/app/accounts/${id}`;
@@ -113,59 +111,25 @@ function ActionButton({ item, action, primary, onApprove }: RowProps & { action:
 function AttentionRow({ item, onApprove, rise }: RowProps & { rise: RiseProps }) {
   const Icon = KIND_ICON[item.kind] ?? Clock;
   const { parts } = attentionSentenceParts(item);
-  const meta = attentionMeta(item);
   const actions = item.actions.slice(0, 2);
   return (
-    // side by side from lg only: on iPad portrait the text column would be ~250px and its meta line would clip.
-    // Rows rise one after another on the page's first paint only (DESIGN §8.4: the focal list).
-    <li
-      className={cn(
-        'flex flex-col gap-3 px-4 py-4 sm:px-5 lg:flex-row lg:items-center lg:gap-6',
-        rise.className,
-      )}
-      style={rise.style}
-    >
-      <div className="flex min-w-0 flex-1 items-start gap-3.5">
-        <span
-          className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-full', SEVERITY_TONE[item.severity])}
-          aria-hidden="true"
-        >
-          <Icon className="h-[18px] w-[18px]" strokeWidth={2} />
-        </span>
-        <div className="min-w-0 flex-1 pt-px">
-          <p className="text-body leading-6 text-foreground">
-            {parts.map((p, i) =>
-              i % 2 === 1 ? (
-                <span key={i} className="font-semibold text-ink">
-                  {p}
-                </span>
-              ) : (
-                <span key={i}>{p}</span>
-              ),
-            )}
-          </p>
-          {/* may wrap (a client's quote note can be long): two lines at most, the whole note in the tooltip */}
-          <p className="mt-0.5 line-clamp-2 break-words text-caption" title={meta || undefined}>
-            <span className={cn('font-medium', SEVERITY_WORD[item.severity])}>{t(`dashboard.attention.severity.${item.severity}`)}</span>
-            {meta ? <span aria-hidden="true"> · </span> : null}
-            {meta ? <span className="sr-only">, </span> : null}
-            {meta}
-          </p>
-        </div>
-      </div>
-      {actions.length > 0 ? (
-        <div className="flex flex-wrap items-center gap-2 pl-[50px] lg:shrink-0 lg:justify-end lg:pl-0">
-          {actions.map((a, i) => (
-            <ActionButton key={a} item={item} action={a} primary={i === 0} onApprove={onApprove} />
-          ))}
-        </div>
-      ) : null}
-    </li>
+    <RowShell
+      icon={Icon}
+      severity={item.severity}
+      parts={parts}
+      meta={attentionMeta(item)}
+      rise={rise}
+      actions={
+        actions.length > 0
+          ? actions.map((a, i) => <ActionButton key={a} item={item} action={a} primary={i === 0} onApprove={onApprove} />)
+          : undefined
+      }
+    />
   );
 }
 
 /** "2 nghiêm trọng · 3 cần xử lý" — only the non-zero severities */
-function severitySummary(items: AttentionItem[]): string {
+function severitySummary(items: FocusItem[]): string {
   return ([1, 2, 3] as const)
     .map((s) => ({ s, count: items.filter((i) => i.severity === s).length }))
     .filter((x) => x.count > 0)
@@ -173,19 +137,31 @@ function severitySummary(items: AttentionItem[]): string {
     .join(' · ');
 }
 
-export function AttentionPanel({ items, className }: { items: AttentionItem[]; className?: string }) {
+export function AttentionPanel({ items, today, className }: { items: FocusItem[]; today: string; className?: string }) {
   const { run } = useAction();
-  // the panel mounts with its data: only that first appearance staggers (an approval refetch does not)
+  const listId = useId();
+  // the panel mounts with its data: only that first appearance staggers (an approval or a triage refetch does not)
   const rise = useStagger(true);
+  const [expanded, setExpanded] = useState(false);
   // the item stays set while the dialog animates out, so its sentence never shows raw placeholders
   const [approving, setApproving] = useState<AttentionItem | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  // the request stays set while the triage sheet slides out (the row may already be gone after a save)
+  const [triage, setTriage] = useState<ChangeRequestView | null>(null);
+  const [triageOpen, setTriageOpen] = useState(false);
   const approveParams = approving ? attentionParams(approving) : undefined;
   const critical = items.some((i) => i.severity === 1);
+  const hidden = Math.max(0, items.length - VISIBLE);
+  const shown = expanded || hidden === 0 ? items : items.slice(0, VISIBLE);
 
   function askApproval(item: AttentionItem) {
     setApproving(item);
     setConfirmOpen(true);
+  }
+
+  function openRequest(r: ChangeRequestView) {
+    setTriage(r);
+    setTriageOpen(true);
   }
 
   async function approve(): Promise<boolean> {
@@ -199,6 +175,8 @@ export function AttentionPanel({ items, className }: { items: AttentionItem[]; c
     return result !== undefined;
   }
 
+  const linkClass = '-ml-2 text-primary hover:text-primary';
+
   return (
     <SectionCard
       className={cn('flex flex-col', className)}
@@ -206,12 +184,35 @@ export function AttentionPanel({ items, className }: { items: AttentionItem[]; c
       flush
       footer={
         items.length > 0 ? (
-          <Button asChild variant="ghost" size="sm" className="-ml-2 text-primary hover:text-primary">
-            <Link to="/app/tasks?flag=overdue">
-              {t('dashboard.attention.viewOverdue')}
-              <ArrowRight aria-hidden="true" />
-            </Link>
-          </Button>
+          <>
+            {hidden > 0 ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                className={linkClass}
+                aria-expanded={expanded}
+                aria-controls={listId}
+                onClick={() => setExpanded((v) => !v)}
+              >
+                {expanded ? <ChevronUp aria-hidden="true" /> : <ChevronDown aria-hidden="true" />}
+                {expanded ? t('carePortfolio.attention.less') : t('carePortfolio.attention.more', { count: hidden })}
+              </Button>
+            ) : null}
+            <span className="-mx-2 flex flex-wrap items-center sm:ml-auto">
+              <Button asChild variant="ghost" size="sm" className="text-primary hover:text-primary">
+                <Link to={REQUESTS_HREF}>
+                  {t('carePortfolio.attention.viewRequests')}
+                  <ArrowRight aria-hidden="true" />
+                </Link>
+              </Button>
+              <Button asChild variant="ghost" size="sm" className="text-primary hover:text-primary">
+                <Link to="/app/tasks?flag=overdue">
+                  {t('dashboard.attention.viewOverdue')}
+                  <ArrowRight aria-hidden="true" />
+                </Link>
+              </Button>
+            </span>
+          </>
         ) : undefined
       }
       title={
@@ -235,15 +236,26 @@ export function AttentionPanel({ items, className }: { items: AttentionItem[]; c
       {items.length === 0 ? (
         <EmptyState
           icon={CircleCheck}
-          title={t('dashboard.attention.empty.title')}
-          description={t('dashboard.attention.empty.description')}
+          title={t('carePortfolio.attention.empty.title')}
+          description={t('carePortfolio.attention.empty.description')}
           compact
         />
       ) : (
-        <ul className="mt-1 divide-y divide-border/60 border-t border-border/60" aria-label={t('dashboard.attention.listLabel')}>
-          {items.map((item, i) => (
-            <AttentionRow key={item.id} item={item} onApprove={askApproval} rise={rise(i)} />
-          ))}
+        <ul id={listId} className="mt-1 divide-y divide-border/60 border-t border-border/60" aria-label={t('dashboard.attention.listLabel')}>
+          {shown.map((f, i) => {
+            switch (f.type) {
+              case 'attention':
+                return <AttentionRow key={f.key} item={f.item} onApprove={askApproval} rise={rise(i)} />;
+              case 'debt':
+              case 'untriaged':
+              case 'undated':
+                return <RequestRow key={f.key} item={f} onOpen={openRequest} rise={rise(i)} />;
+              case 'care':
+                return <CareRow key={f.key} item={f} today={today} rise={rise(i)} />;
+              case 'nextStep':
+                return <NextStepRow key={f.key} item={f} today={today} rise={rise(i)} />;
+            }
+          })}
         </ul>
       )}
 
@@ -255,6 +267,7 @@ export function AttentionPanel({ items, className }: { items: AttentionItem[]; c
         confirmLabel={t('dashboard.attention.approve.confirm')}
         onConfirm={approve}
       />
+      <CrTriageSheet request={triage} open={triageOpen && triage !== null} onOpenChange={setTriageOpen} />
     </SectionCard>
   );
 }

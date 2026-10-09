@@ -1,9 +1,11 @@
 // Controls above the map: size metric (segmented), "Hiện khách hàng mục tiêu" and the AM filter (director); the
-// Bản đồ / Bảng switch sits in the page header. Phones: a compact toolbar — the view switch one tap away, the
-// rest in a "Bộ lọc" bottom sheet.
+// Bản đồ / Bảng / Ma trận switch sits in the page header. Phones: a compact toolbar — the view switch one tap away, the
+// rest in a "Bộ lọc" bottom sheet. Feature flags (SPEC-CARE §1): no "Cơ hội" / "Tổng giá trị" metric (so no metric
+// control at all) without `sales`, no targets switch without `targets`.
 import { useId, useState } from 'react';
-import { Loader2, Network, SlidersHorizontal, Table2 } from 'lucide-react';
+import { Grid3x3, Loader2, Network, SlidersHorizontal, Table2 } from 'lucide-react';
 import type { UserRef } from '@/services/contract';
+import { isFeatureOn } from '@/config/features';
 import type { ClientMapMetric } from '@/services/crmContract';
 import { useDelayedFlag } from '@/hooks/useMotion';
 import { Button } from '@/components/ui/button';
@@ -13,9 +15,14 @@ import { Switch } from '@/components/ui/switch';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { t } from '@/i18n';
 import { cn } from '@/components/ui/cn';
-import { isMetric, METRICS } from './mapModel';
+import { defaultMetric, isMetric, isMetricAvailable, METRICS } from './mapModel';
 
-export type MapView = 'map' | 'table';
+export type MapView = 'map' | 'table' | 'matrix';
+
+/** the size metrics on offer: "Cơ hội" and "Tổng giá trị" only while the sales module is on (one metric → no control) */
+export function visibleMetrics(): ClientMapMetric[] {
+  return METRICS.filter(isMetricAvailable);
+}
 
 export interface MapToolbarProps {
   metric: ClientMapMetric;
@@ -38,6 +45,7 @@ export interface MapToolbarProps {
 const ALL = '__all__';
 
 function MetricControl({ metric, onMetric, full }: { metric: ClientMapMetric; onMetric(m: ClientMapMetric): void; full?: boolean }) {
+  const metrics = visibleMetrics();
   return (
     <ToggleGroup
       type="single"
@@ -47,9 +55,9 @@ function MetricControl({ metric, onMetric, full }: { metric: ClientMapMetric; on
         if (isMetric(v)) onMetric(v);
       }}
       aria-label={t('clientmap.metric.label')}
-      className={cn(full && 'grid w-full grid-cols-3')}
+      className={cn(full && 'grid w-full', full && (metrics.length === 3 ? 'grid-cols-3' : 'grid-cols-2'))}
     >
-      {METRICS.map((m) => (
+      {metrics.map((m) => (
         <ToggleGroupItem key={m} value={m} className={cn('px-3', full && 'w-full')}>
           {t(`clientmap.metric.${m}`)}
         </ToggleGroupItem>
@@ -97,7 +105,7 @@ function AmSelect({ ams, amId, onAm, id, full }: { ams: UserRef[]; amId: string 
   );
 }
 
-/** Bản đồ / Bảng — in the page header from md, in the compact toolbar on phones */
+/** Bản đồ / Bảng / Ma trận — in the page header from md, in the compact toolbar on phones */
 export function ViewSwitch({ view, onView, full }: { view: MapView; onView(v: MapView): void; full?: boolean }) {
   return (
     <ToggleGroup
@@ -105,10 +113,10 @@ export function ViewSwitch({ view, onView, full }: { view: MapView; onView(v: Ma
       variant="segmented"
       value={view}
       onValueChange={(v) => {
-        if (v === 'map' || v === 'table') onView(v);
+        if (v === 'map' || v === 'table' || v === 'matrix') onView(v);
       }}
       aria-label={t('clientmap.controls.view')}
-      className={cn(full && 'grid flex-1 grid-cols-2')}
+      className={cn(full && 'grid min-w-0 flex-1 grid-cols-3')}
     >
       <ToggleGroupItem value="map" className="min-w-0 px-3">
         {full ? null : <Network aria-hidden="true" />}
@@ -117,6 +125,10 @@ export function ViewSwitch({ view, onView, full }: { view: MapView; onView(v: Ma
       <ToggleGroupItem value="table" className="min-w-0 px-3">
         {full ? null : <Table2 aria-hidden="true" />}
         {t('clientmap.controls.viewTable')}
+      </ToggleGroupItem>
+      <ToggleGroupItem value="matrix" className="min-w-0 px-3">
+        {full ? null : <Grid3x3 aria-hidden="true" />}
+        {t('clientmap.controls.viewMatrix')}
       </ToggleGroupItem>
     </ToggleGroup>
   );
@@ -145,7 +157,7 @@ export function MapToolbar(p: MapToolbarProps) {
   const [open, setOpen] = useState(false);
 
   if (p.compact) {
-    const active = (p.metric !== 'total' ? 1 : 0) + (p.showLeads ? 1 : 0) + (p.amId ? 1 : 0);
+    const active = (p.metric !== defaultMetric() ? 1 : 0) + (p.showLeads ? 1 : 0) + (p.amId ? 1 : 0);
     return (
       <div className="flex items-center gap-2">
         <ViewSwitch view={p.view} onView={p.onView} full />
@@ -182,11 +194,13 @@ export function MapToolbar(p: MapToolbarProps) {
               <SheetDescription>{t('clientmap.controls.filtersDescription')}</SheetDescription>
             </SheetHeader>
             <SheetBody className="space-y-6">
-              <div className="space-y-2">
-                <p className="text-table font-medium text-foreground">{t('clientmap.metric.label')}</p>
-                <MetricControl metric={p.metric} onMetric={p.onMetric} full />
-              </div>
-              <LeadsSwitch checked={p.showLeads} onChange={p.onShowLeads} id={`${uid}-leads-m`} />
+              {visibleMetrics().length > 1 ? (
+                <div className="space-y-2">
+                  <p className="text-table font-medium text-foreground">{t('clientmap.metric.label')}</p>
+                  <MetricControl metric={p.metric} onMetric={p.onMetric} full />
+                </div>
+              ) : null}
+              {isFeatureOn('targets') ? <LeadsSwitch checked={p.showLeads} onChange={p.onShowLeads} id={`${uid}-leads-m`} /> : null}
               {p.ams ? <AmSelect ams={p.ams} amId={p.amId} onAm={p.onAm} id={`${uid}-am-m`} full /> : null}
             </SheetBody>
             <SheetFooter>
@@ -202,13 +216,15 @@ export function MapToolbar(p: MapToolbarProps) {
 
   return (
     <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
-      <div className="flex items-center gap-3">
-        <span className="hidden text-table text-muted-foreground xl:inline" aria-hidden="true">
-          {t('clientmap.metric.label')}
-        </span>
-        <MetricControl metric={p.metric} onMetric={p.onMetric} />
-      </div>
-      <LeadsSwitch checked={p.showLeads} onChange={p.onShowLeads} id={`${uid}-leads`} short />
+      {visibleMetrics().length > 1 ? (
+        <div className="flex items-center gap-3">
+          <span className="hidden text-table text-muted-foreground xl:inline" aria-hidden="true">
+            {t('clientmap.metric.label')}
+          </span>
+          <MetricControl metric={p.metric} onMetric={p.onMetric} />
+        </div>
+      ) : null}
+      {isFeatureOn('targets') ? <LeadsSwitch checked={p.showLeads} onChange={p.onShowLeads} id={`${uid}-leads`} short /> : null}
       <div className="flex items-center gap-2">
         {p.ams ? <AmSelect ams={p.ams} amId={p.amId} onAm={p.onAm} id={`${uid}-am`} /> : null}
         <Refreshing show={p.refreshing} />

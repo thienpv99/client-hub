@@ -1,10 +1,17 @@
-// i18n namespace 'clientmap' — owner: map-ui (Bản đồ khách hàng).
+// i18n namespace 'clientmap' — owner: map-ui (Bản đồ & tập đoàn). Business groups are called "tập đoàn" on screen
+// (SPEC-CARE §6.1/§6.6); the copy of the "Ma trận" view lives in carePm.ts.
 const clientmap = {
   page: {
-    title: 'Bản đồ khách hàng',
+    title: 'Bản đồ & tập đoàn',
     /** keep in step with mapModel.computeRadii: companies on one value scale, hubs on their own */
     description:
-      'Khách hàng và khách mục tiêu chung một thang: bong bóng càng lớn, giá trị càng cao. Vòng hệ sinh thái thể hiện tổng giá trị cả nhóm, theo thang riêng.',
+      'Khách hàng và khách mục tiêu chung một thang: bong bóng càng lớn, giá trị càng cao. Vòng tập đoàn thể hiện tổng giá trị cả nhóm, theo thang riêng.',
+    /** without the targets module (SPEC-CARE §1): customers only, and the matrix view */
+    descriptionCare:
+      'Khách hàng theo tập đoàn: ai đang dùng gì, còn có thể bán thêm gì. Bong bóng càng lớn, giá trị càng cao.',
+    /** the "Bảng" and "Ma trận" views have no bubbles */
+    descriptionTable: 'Khách hàng xếp theo giá trị, gom theo tập đoàn khi cần.',
+    descriptionMatrix: 'Mỗi công ty trong tập đoàn đang dùng gì và còn có thể bán thêm gì.',
   },
   metric: {
     label: 'Kích thước theo',
@@ -27,8 +34,10 @@ const clientmap = {
     view: 'Chế độ xem',
     viewMap: 'Bản đồ',
     viewTable: 'Bảng',
-    ecosystems: 'Quản lý hệ sinh thái',
-    ecosystemsShort: 'Hệ sinh thái',
+    /** units × solution categories of one group (SPEC-CARE §6.6) */
+    viewMatrix: 'Ma trận',
+    ecosystems: 'Quản lý tập đoàn',
+    ecosystemsShort: 'Tập đoàn',
     filters: 'Bộ lọc',
     filtersActive: 'Bộ lọc ({count})',
     filtersTitle: 'Bộ lọc bản đồ',
@@ -47,18 +56,23 @@ const clientmap = {
     accounts: 'Số khách hàng',
     accountsSub: '+ {count} mục tiêu',
     accountsSubHidden: 'ẩn khách mục tiêu',
-    ecosystems: 'Số hệ sinh thái',
+    /** without the targets module: the customers that need attention */
+    accountsAtRisk: '{count} cần chú ý',
+    accountsAllWell: 'Tất cả đang ổn',
+    ecosystems: 'Số tập đoàn',
     ecosystemsSub: '{count} công ty',
-    ecosystemsSubNone: 'chưa có nhóm nào',
-    topGroup: 'Hệ sinh thái lớn nhất',
+    ecosystemsSubNone: 'chưa có tập đoàn nào',
+    topGroup: 'Tập đoàn lớn nhất',
     /** phones (2 × 2 grid) */
-    topGroupShort: 'Nhóm lớn nhất',
+    topGroupShort: 'Lớn nhất',
     topGroupSub: '{name} · {share}',
     topGroupNone: 'Chưa có',
   },
   map: {
     label:
-      'Bản đồ {accounts} khách hàng, {leads} khách hàng mục tiêu và {ecosystems} hệ sinh thái, tổng giá trị {value}. Dùng phím Tab để đi qua từng bong bóng, Enter để mở.',
+      'Bản đồ {accounts} khách hàng, {leads} khách hàng mục tiêu và {ecosystems} tập đoàn, tổng giá trị {value}. Dùng phím Tab để đi qua từng bong bóng, Enter để mở.',
+    /** without the targets module (no leads on the map) */
+    labelCare: 'Bản đồ {accounts} khách hàng và {ecosystems} tập đoàn, tổng giá trị {value}. Dùng phím Tab để đi qua từng bong bóng, Enter để mở.',
     zoomLabel: 'Thu phóng bản đồ',
     zoomIn: 'Phóng to',
     zoomOut: 'Thu nhỏ',
@@ -69,9 +83,10 @@ const clientmap = {
     searchCount: '{count} kết quả',
     searchNone: 'Không thấy công ty nào',
     emptyTitle: 'Chưa có khách hàng nào để hiển thị',
-    emptyDescription: 'Khi có khách hàng hoặc cơ hội, bản đồ sẽ hiện ở đây.',
+    emptyDescription: 'Khi có khách hàng, bản đồ sẽ hiện ở đây.',
     emptyFilteredTitle: 'Không có công ty nào khớp bộ lọc',
     emptyFilteredDescription: 'Thử chọn “Tất cả AM” hoặc bật khách hàng mục tiêu.',
+    emptyFilteredDescriptionCare: 'Thử chọn “Tất cả AM”.',
     clearFilters: 'Bỏ lọc',
     companies: '{count} công ty',
   },
@@ -81,11 +96,11 @@ const clientmap = {
     /** customers and targets share one value scale (mapModel.computeRadii) */
     size: 'Cỡ công ty = giá trị, chung một thang',
     /** hubs are sized on a scale of their own */
-    hub: 'Hệ sinh thái: tổng nhóm, thang riêng',
+    hub: 'Tập đoàn: tổng cả nhóm, thang riêng',
     lead: 'Khách mục tiêu (giá trị = ngân sách ước tính)',
     /** contract metric: a target has no contract yet, it is drawn at the minimum size */
     leadNoValue: 'Khách mục tiêu (chưa có hợp đồng, cỡ nhỏ nhất)',
-    link: 'Cùng hệ sinh thái',
+    link: 'Cùng tập đoàn',
   },
   a11y: {
     account: '{name}, giá trị {value}, {health}',
@@ -93,7 +108,7 @@ const clientmap = {
     lead: '{name}, khách hàng mục tiêu, giá trị {value}, độ phù hợp {grade}',
     leadNoGrade: '{name}, khách hàng mục tiêu, giá trị {value}',
     /** {value} = the group's value in the chosen metric (not always the "Tổng giá trị" one) */
-    hub: 'Hệ sinh thái {name}, {count} công ty, giá trị cả nhóm {value}',
+    hub: 'Tập đoàn {name}, {count} công ty, giá trị cả nhóm {value}',
     currencyWord: 'đồng',
     billionWord: 'tỷ',
     millionWord: 'triệu',
@@ -112,12 +127,12 @@ const clientmap = {
     open: 'Nhấn để mở',
     openTouch: 'Chạm lần nữa để mở',
     openButton: 'Mở',
-    hubHint: 'Nhấn để xem hệ sinh thái',
+    hubHint: 'Nhấn để xem tập đoàn',
   },
   kind: {
     account: 'Khách hàng',
     lead: 'Mục tiêu',
-    ecosystem: 'Hệ sinh thái',
+    ecosystem: 'Tập đoàn',
   },
   table: {
     title: 'Xếp hạng theo {metric}',
@@ -125,7 +140,7 @@ const clientmap = {
     modeLabel: 'Cách hiển thị',
     mode: {
       rank: 'Xếp hạng',
-      group: 'Theo hệ sinh thái',
+      group: 'Theo tập đoàn',
     },
     count: '{count} công ty',
     columns: {
@@ -139,37 +154,40 @@ const clientmap = {
       owner: 'Phụ trách',
     },
     rank: 'Hạng {rank}',
-    noEcosystem: 'Không thuộc hệ sinh thái',
+    noEcosystem: 'Không thuộc tập đoàn nào',
     subtotal: 'Cộng {count} công ty',
     fit: 'Phù hợp {grade}',
     noHealth: 'Chưa triển khai',
   },
   eco: {
-    sheetTitle: 'Hệ sinh thái',
+    sheetTitle: 'Tập đoàn',
     sheetDescription: 'Các công ty cùng tập đoàn hoặc cùng nhóm, nơi có thể bán chéo.',
-    create: 'Tạo hệ sinh thái',
+    create: 'Tạo tập đoàn',
     edit: 'Sửa',
-    editLabel: 'Sửa hệ sinh thái {name}',
+    editLabel: 'Sửa tập đoàn {name}',
     showOnMap: 'Xem trên bản đồ',
     /** accessible name: starts with the visible words, then the group (four such buttons in the sheet) */
     showOnMapLabel: 'Xem trên bản đồ: {name}',
-    closePanel: 'Đóng thông tin hệ sinh thái',
+    /** the group's matrix: what each company uses, what is left to sell (SPEC-CARE §6.6) */
+    showMatrix: 'Xem ma trận',
+    showMatrixLabel: 'Xem ma trận: {name}',
+    closePanel: 'Đóng thông tin tập đoàn',
     contract: 'Giá trị hợp đồng',
     potential: 'Giá trị tiềm năng',
     members: 'Thành viên',
-    noMembers: 'Chưa có công ty nào trong hệ sinh thái này.',
+    noMembers: 'Chưa có công ty nào trong tập đoàn này.',
     leadTag: 'Mục tiêu',
     crossSell: 'Cơ hội bán chéo: {count} công ty chưa là khách hàng',
     crossSellNone: 'Mọi công ty trong nhóm đã là khách hàng',
-    emptyTitle: 'Chưa có hệ sinh thái nào',
+    emptyTitle: 'Chưa có tập đoàn nào',
     emptyDescription: 'Gom các công ty cùng tập đoàn để thấy giá trị cả nhóm và cơ hội bán chéo.',
-    count: '{count} hệ sinh thái',
+    count: '{count} tập đoàn',
   },
   dialog: {
-    createTitle: 'Tạo hệ sinh thái',
-    editTitle: 'Sửa hệ sinh thái',
+    createTitle: 'Tạo tập đoàn',
+    editTitle: 'Sửa tập đoàn',
     description: 'Các công ty được chọn sẽ nối với nhau trên bản đồ khách hàng.',
-    name: 'Tên hệ sinh thái',
+    name: 'Tên tập đoàn',
     namePlaceholder: 'VD: Tập đoàn Sao Mai',
     shortName: 'Tên ngắn',
     shortNamePlaceholder: 'VD: Sao Mai',
@@ -180,6 +198,8 @@ const clientmap = {
     descriptionPlaceholder: 'Tập đoàn gồm những công ty nào, ai là đầu mối…',
     members: 'Công ty thành viên',
     membersHint: 'Chọn khách hàng và khách hàng mục tiêu thuộc cùng nhóm.',
+    /** without the targets module only customers are listed */
+    membersHintCare: 'Chọn các khách hàng thuộc cùng tập đoàn.',
     searchMembers: 'Tìm công ty',
     accounts: 'Khách hàng',
     leads: 'Khách hàng mục tiêu',
@@ -187,11 +207,11 @@ const clientmap = {
     inOther: 'Đang thuộc {name}, sẽ chuyển sang nhóm này',
     noOptions: 'Không có công ty nào khớp.',
     loading: 'Đang tải danh sách công ty…',
-    save: 'Lưu hệ sinh thái',
+    save: 'Lưu tập đoàn',
     cancel: 'Hủy',
-    saved: 'Đã lưu hệ sinh thái {name}',
+    saved: 'Đã lưu tập đoàn {name}',
     errors: {
-      name: 'Nhập tên hệ sinh thái',
+      name: 'Nhập tên tập đoàn',
       shortName: 'Nhập tên ngắn',
       shortNameLong: 'Tên ngắn tối đa {max} ký tự',
     },

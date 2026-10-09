@@ -42,6 +42,11 @@ const dev = {
       title: 'Dữ liệu mẫu',
       description: 'Đủ 6 tình huống mẫu, ngày tương đối theo hôm nay, liên kết hợp lệ.',
     },
+    care: {
+      title: 'Chăm sóc khách hàng',
+      description:
+        'Yêu cầu chưa xử lý quá 7 ngày, nợ triển khai và lý do, độ phủ phòng ban, chặn mở rộng, nhịp chăm sóc; luồng gửi → tiếp nhận → lên kế hoạch → xong kèm thông báo; dữ liệu mẫu. Chạy trên bản sao riêng.',
+    },
     api: {
       title: 'Gọi API tổng quát',
       description:

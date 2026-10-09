@@ -879,6 +879,37 @@ export interface DigestSection {
   done_last_week: TaskView[];
   waiting_on_you: TaskView[];
   upcoming_milestones: MilestoneView[];
+  /**
+   * "Yêu cầu & chăm sóc" (SPEC-CARE, review QA-CARE-F22): the account's OPEN change requests, most urgent first. A client
+   * gets their company's requests in client wording (never New Era's internal proposals, never a flag); internal
+   * recipients get every open request with its flag.
+   */
+  requests: DigestRequestLine[];
+  /** director / AM only (null for members and clients): delivery debt, waiting / undated requests and the care rhythm */
+  care_brief: DigestCareBrief | null;
+}
+
+export interface DigestRequestLine {
+  id: ID;
+  code: string;
+  title: string;
+  /** internal or client wording, as the recipient reads it */
+  status_label: string;
+  promised_date: ISODate | null;
+  /** an open request whose promised date has passed */
+  late: boolean;
+  /** internal recipients only (null for clients): the flag that needs New Era */
+  flag: 'debt' | 'untriaged' | 'undated' | null;
+}
+
+export interface DigestCareBrief {
+  debt: number;
+  untriaged: number;
+  undated: number;
+  care_status: 'ok' | 'due_soon' | 'overdue';
+  care_status_label: string;
+  next_action: string | null;
+  next_action_due: ISODate | null;
 }
 
 export interface WeeklyDigest {
@@ -923,8 +954,11 @@ export interface DemoLogin {
 }
 
 export interface SearchResult {
-  /** 'opportunity' | 'lead': CRM results, internal director / AM viewers only */
-  type: 'account' | 'task' | 'quote' | 'contact' | 'page' | 'opportunity' | 'lead';
+  /**
+   * 'opportunity' | 'lead': CRM results, internal director / AM viewers only · 'request' | 'deployment': client care
+   * (change requests by code / title, deployed solutions by name), internal viewers only
+   */
+  type: 'account' | 'task' | 'quote' | 'contact' | 'page' | 'opportunity' | 'lead' | 'request' | 'deployment';
   id: string;
   title: string;
   subtitle: string;

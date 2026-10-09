@@ -1,7 +1,8 @@
 // Table on desktop (≥1280), cards below (iPad portrait/landscape and phones), with natural-sentence empty states.
+// Two views (SPEC-CARE §6.2–6.3): "Chăm sóc" (deployments, requests, next care action, decision maker — director / AM)
+// and "Tiến độ" (next milestone, waiting, money — everyone; members only have this one).
 import { Building2 } from 'lucide-react';
 import type { ReactNode } from 'react';
-import type { AccountSummary } from '@/services/contract';
 import { EmptyState, SearchEmptyState } from '@/components/common/empty-state';
 import { TableSkeleton } from '@/components/common/skeletons';
 import { Card } from '@/components/ui/card';
@@ -9,13 +10,16 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useBreakpoint } from '@/hooks/useMedia';
 import { useStagger } from '@/hooks/useMotion';
 import { t } from '@/i18n';
+import type { PortfolioAccount, PortfolioView } from '../portfolioModel';
 import { PortfolioCards } from './PortfolioCards';
+import { PortfolioCareCards } from './PortfolioCareCards';
+import { PortfolioCareTable } from './PortfolioCareTable';
 import { PortfolioTable } from './PortfolioTable';
 
 /** Loading state shaped like what will replace it: the table from 1280, the card grid below. */
-export function PortfolioSkeleton({ rows = 6, showMoney = true }: { rows?: number; showMoney?: boolean }) {
+export function PortfolioSkeleton({ rows = 6, showMoney = true, view = 'progress' }: { rows?: number; showMoney?: boolean; view?: PortfolioView }) {
   const breakpoint = useBreakpoint();
-  if (breakpoint === 'desktop') return <TableSkeleton rows={rows} cols={showMoney ? 8 : 6} />;
+  if (breakpoint === 'desktop') return <TableSkeleton rows={rows} cols={view === 'care' ? 6 : showMoney ? 8 : 6} />;
   return (
     // skeleton-reveal: the card frames wait 120 ms with their blocks and fade in as one (DESIGN §8.2)
     <div role="status" aria-busy="true" aria-live="polite" className="skeleton-reveal">
@@ -61,7 +65,9 @@ export function PortfolioSkeleton({ rows = 6, showMoney = true }: { rows?: numbe
 }
 
 export interface PortfolioListProps {
-  accounts: AccountSummary[];
+  accounts: PortfolioAccount[];
+  /** 'care' needs the care rows (director / AM) */
+  view?: PortfolioView;
   /** number of accounts before filtering (0 → "Chưa có khách hàng nào") */
   total: number;
   showMoney: boolean;
@@ -73,7 +79,7 @@ export interface PortfolioListProps {
   stagger?: boolean;
 }
 
-export function PortfolioList({ accounts, total, showMoney, query, onClear, emptyAction, stagger = false }: PortfolioListProps) {
+export function PortfolioList({ accounts, view = 'progress', total, showMoney, query, onClear, emptyAction, stagger = false }: PortfolioListProps) {
   const breakpoint = useBreakpoint();
   // held here, not in the table / cards: a filter that empties the list and brings it back never replays it
   const rise = useStagger(stagger);
@@ -96,6 +102,9 @@ export function PortfolioList({ accounts, total, showMoney, query, onClear, empt
     return <Card>{body}</Card>;
   }
 
+  if (view === 'care') {
+    return breakpoint === 'desktop' ? <PortfolioCareTable accounts={accounts} rise={rise} /> : <PortfolioCareCards accounts={accounts} rise={rise} />;
+  }
   return breakpoint === 'desktop' ? (
     <PortfolioTable accounts={accounts} showMoney={showMoney} rise={rise} />
   ) : (

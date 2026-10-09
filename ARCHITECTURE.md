@@ -703,11 +703,16 @@ Feature phase (later) — each replaces the stubs it owns:
 | `/dev/selftest` | `features/dev/SelfTestPage` → `SelfTestPage` | G1 |
 | `*` | `features/shell/NotFoundPage` → `NotFoundPage` | G1 |
 
-Account detail tabs (`:tab` = overview|tasks|roadmap|sales|commercial|documents|contacts|activity; `sales` = CRM "Bán hàng",
-director / AM only, §13; `commercial` only when `AccountDetail.commercial !== null`), rendered by AccountDetailPage:
-`features/account/tabs/OverviewTab|DocumentsTab|ContactsTab|ActivityTab` (account), `features/tasks/AccountTasksTab`
-→ `AccountTasksTab({ account: AccountDetail })` (task-views), `features/roadmap/RoadmapTab` → `RoadmapTab({ account })`
-(roadmap), `features/commercial/AccountCommercialTab` → `AccountCommercialTab({ account })` (commercial).
+Account detail tabs (`features/account/accountTabs.ts`, SPEC-CARE §6.4): `:tab` = overview · delivery · tasks · roadmap ·
+expansion · relationships · sales · commercial · documents · activity — "Tổng quan · Triển khai · Việc · Lộ trình · Mở rộng ·
+Quan hệ · (Bán hàng) · Thương mại · Tài liệu · Hoạt động". `expansion` = director / AM only (a member's link lands on the
+overview); `relationships` is labelled "Liên hệ" for members (the contact list only, no map); `sales` = CRM "Bán hàng"
+(§13), only while `FEATURES.sales` is on (else → overview); `commercial` only when `AccountDetail.commercial !== null`;
+the old `contacts` path redirects to `relationships` keeping its query string. Rendered by AccountDetailPage:
+`features/account/tabs/OverviewTab|DeliveryTab|ExpansionTab|RelationshipsTab|DocumentsTab|ActivityTab` (account),
+`features/tasks/AccountTasksTab` → `AccountTasksTab({ account: AccountDetail })` (task-views), `features/roadmap/RoadmapTab`
+→ `RoadmapTab({ account })` (roadmap), `features/commercial/AccountCommercialTab` → `AccountCommercialTab({ account })`
+(commercial), `features/crm/AccountSalesTab` (flag). Deep links: `accountTabPath(id, tab, params)` (§14).
 Portal first-login intro: `features/portal/OnboardingIntro` → `OnboardingIntro({ onDone })` (portal), rendered by
 ClientLayout when `viewer.user.onboarded_at === null && !viewer.read_only`.
 
@@ -775,11 +780,12 @@ activities are logged with visibility `internal` (new ActivityAction values `opp
 ### Routes & pages (internal, director + am unless stated)
 | Path | Component | Owner |
 |---|---|---|
-| `/app/crm/:tab?` (pipeline · list · forecast · followups) | `features/crm/CrmPage` → `CrmPage` | crm-ui |
-| `/app/crm/opportunities/:opportunityId` | `features/crm/OpportunityPage` → `OpportunityPage` | crm-ui |
-| `/app/targets/:tab?` (leads · segments · accounts · icp) and `/app/targets/leads/:leadId` | `features/targets/TargetsPage` → `TargetsPage` | targets-ui |
-| `/app/projects/:tab?` (portfolio · timeline · workload) — members too | `features/projects/ProjectsPage` → `ProjectsPage` | projects-ui |
-| account detail tab `sales` | `features/crm/AccountSalesTab` → `AccountSalesTab({ account })` | crm-ui (wired by the integrator) |
+| `/app/crm/:tab?` (pipeline · list · forecast · followups) — only while `FEATURES.sales` is on, else → `/app` | `features/crm/CrmPage` → `CrmPage` | crm-ui |
+| `/app/crm/opportunities/:opportunityId` — same flag | `features/crm/OpportunityPage` → `OpportunityPage` | crm-ui |
+| `/app/targets/:tab?` (leads · segments · accounts · icp) and `/app/targets/leads/:leadId` — only while `FEATURES.targets` is on, else → `/app` | `features/targets/TargetsPage` → `TargetsPage` | targets-ui |
+| `/app/projects/:tab?` (portfolio · requests · timeline · workload) — members too | `features/projects/ProjectsPage` → `ProjectsPage` | projects-ui |
+| `/app/map` (`?view=` map · table · matrix, `&eco=<ecosystemId>`) — director / AM | `features/clientmap/ClientMapPage` → `ClientMapPage` | clientmap |
+| account detail tab `sales` (flag) | `features/crm/AccountSalesTab` → `AccountSalesTab({ account })` | crm-ui (wired by the integrator) |
 
 Shared CRM components (owner crm-ui, `src/components/crm/*`): `FitScoreBadge({ fit, showBreakdown? })`,
 `OpportunityStageBadge({ stage })`, `InteractionTimeline({ items, compact? })`,
@@ -797,3 +803,183 @@ outcomes — reused by targets/projects UIs), `targets.ts`, `projects.ts`, `acti
   renames a group that holds a company of hers — other groups are listed by name only and can only be joined).
   Clients, view-as and members → forbidden. UI: `src/features/clientmap/**` (SVG + own force simulation in `forceSim.ts`, table view,
   ecosystem panel), i18n `clientmap.ts`.
+
+## 14. Client care refocus (SPEC-CARE)
+
+Leadership feedback: focus on Clients + Projects, "quản lý và chăm sóc từng account chốt tốt" — what each client already
+uses, the room to sell more, the relationships (also across the units of a business group); prospecting and sales are
+hidden for now. `SPEC-CARE.md` is the product contract; this section is the code contract.
+
+### Feature flags — `src/config/features.ts`
+`FEATURES = { sales: false, targets: false }` (+ `isFeatureOn(flag)`). Nothing is deleted: CRM / targets services, the
+`crm` self-test suite and the interactions table stay. `sales: false` hides the "Bán hàng" nav item (`/app/crm*` →
+`/app`), the account tab `sales` (→ overview), CRM command-palette entries, dashboard teasers into CRM and the map's
+"Cơ hội" metric; `LogInteractionDialog` hides its opportunity / lead / follow-up fields (a care touch is still
+`api.logInteraction`). `targets: false` hides "Khách hàng mục tiêu" (`/app/targets*` → `/app`) and leads on the map.
+
+### Tables (`src/domain/careTypes.ts`; all OPTIONAL_TABLES in `db.ts`, SEED_VERSION 6 → 8)
+| Table | Row | Notes |
+|---|---|---|
+| `deployments` | `Deployment` "Giải pháp đã triển khai" | `contract_value`, `adoption`, `notes` are internal; soft delete |
+| `account_departments` | `AccountDepartment` (id `dept_<account>_<department>`) | stored status engaged / untouched / not_fit; `opportunity_category` = the group-matrix column of the opportunity (addition to SPEC-CARE §2) |
+| `stakeholders` | `Stakeholder` (id `stk_<contact>`) | one per contact; defaults derived from the contact when no row is stored |
+| `relation_links` | `RelationLink` "from <kind> to" | both ends in one account or one business group; hard delete |
+| `change_requests` | `ChangeRequest` "Yêu cầu thay đổi", code `YC-07` per account (internal proposals `ĐX-02`) | owner / plan / task / internal note / flags internal; soft delete |
+| `care_plans` | `CarePlan` (id `care_<account>`) | cadence default by tier (14 · 21 · 30) when no row is stored |
+
+Enums + their orders are exported next to the types (`SOLUTION_CATEGORIES`, `DEPARTMENT_KEYS`, `CR_STATUSES`…). New
+`ActivityAction`s: `deployment.created|updated|deleted`, `department.updated|gate_overridden`, `stakeholder.updated`,
+`relation.saved|deleted`, `care_plan.updated`, `change_request.submitted|created|triaged|status_changed|updated`;
+new `ActivityTargetType`s `deployment | department | stakeholder | relation | care_plan | change_request`; new
+`NotificationKind` `request` (icon in `features/notifications/kinds.ts` + `NotificationBell`, label `enums.notificationKind.request`).
+
+### Rules — `src/domain/care.ts` (pure, unit-tested in `src/dev/careTests.ts`)
+- `isUntriaged(cr, today)`: status `new` and received MORE than `TRIAGE_SLA_DAYS` (7) calendar days ago.
+- `deliveryDebtReasons(cr, today)` → `('no_owner' | 'no_plan' | 'date_passed')[]` for a triaged / planned / in-progress
+  request WITH a promised date (no owner · no `plan_ref` and no `task_id` · `promised_date < today`);
+  `deliveryDebtReason` = the main one (date_passed first); `isDeliveryDebt`.
+- `isUndated(cr, today)` (review 09/10): status `triaged`, no `promised_date`, taken in (`triaged_at`, else received) MORE
+  than `UNDATED_SLA_DAYS` (14) days ago — flag `CrFlags.undated` + `days_since_triage`, overview row, sweep notice.
+- `crRollup(crs, today)` → `{ open, untriaged, undated, debt, done_30d, delivery_health: 'debt' | 'attention' | 'ok' }`;
+  attention = untriaged > 0 or undated > 0.
+- Codes: `nextCrCode(codes, prefix = CLIENT_CR_PREFIX)` numbers one series per account — `YC-07` for the requests the client
+  sees, `ĐX-02` (`INTERNAL_CR_PREFIX`, `crCodePrefix(source)`) for New Era's own proposals, so the client's list has no gaps.
+- `effectiveDepartmentStatus` = `'using'` when a live / rolling_out / pilot deployment lists the department;
+  `coverage` = using + engaged over the map minus not_fit ("Phòng ban đã phủ x/y").
+- Gate: `expansionBlocked = debt > 0`; `isExpansionMove(fromEffective | null, to)` = a move to `engaged` from untouched /
+  not_fit / not on the map. Blocked → `ApiError('conflict', 'errors.care.expansionBlocked', { count })`; only a
+  director with `override_reason` passes (logged `department.gate_overridden`, internal). `saveDeployment` applies the
+  same gate: an active solution whose departments include one not used by another active solution and not stored
+  `engaged` (`DeploymentInput.override_reason`; details `{ count, departments }`; one gate line per department).
+- `careStatus({ last_touch_at, cadence_days, next_action_due, today })`: `days_since > cadence` → overdue,
+  `> cadence − 3` → due_soon, a passed `next_action_due` → overdue, never touched → overdue. Last touch
+  (`careData.accountLastTouch`) = latest touch by New Era: the account's interactions except kind `note`, its contacts'
+  `last_interaction_at`, and the client's decisions on what New Era sent (`CLIENT_DECISION_ACTIONS`: task approved /
+  changes requested / answered / confirmed / signed, quote accepted / changes requested). Client requests, uploads,
+  delegations and comments are not touches.
+- Room to sell: `whitespaceCategories` (categories without an ACTIVE deployment — paused / retired free the category) +
+  departments where `hasOpportunity` (stored engaged / untouched with an opportunity note or value); `matrixCellState`:
+  live > in_progress (rolling_out / pilot) > opportunity (a department opportunity of that category) > none — a paused
+  solution does not hold its cell (it is still listed in `cell.deployments` with its status).
+- `SIGNED_STAGES` / `isSignedStage` (implementing · operating · paused): care KPIs, attention rows, room-to-grow and the
+  group-matrix totals count signed clients only; prospects are listed last / marked "Chưa ký hợp đồng".
+
+### API — `src/services/careContract.ts` (`CareApi`), `src/services/api/care.ts`; `FullApi = Api & CrmApi & CareApi`
+DTO builders: `src/services/careViews.ts`; memoized indexes / derived facts: `src/services/careData.ts`.
+| Method | Who |
+|---|---|
+| `getCarePortfolio(filter?)` → `CarePortfolioRow[]` | director, AM (own accounts) |
+| `getAccountCare(accountId)` → `AccountCareView` | director, AM; member (accessible accounts): deployments + roll-up, `departments / stakeholders / relations / care / expansion / key_people` and `account.ecosystem` null, no `contract_value` |
+| `saveDeployment` / `deleteDeployment` · `saveDepartment` (gate) · `saveStakeholder` · `saveCarePlan` | director, the account's AM |
+| `saveRelationLink` / `deleteRelationLink` | director, an AM managing at least one end |
+| `listChangeRequests(filter?)` → `ChangeRequestView[]` | internal (member: accessible accounts) |
+| `createChangeRequest(input)` | internal, account access, source ≠ client_portal; status `new` |
+| `updateChangeRequest(id, patch)` | director, the account's AM, the request owner (only managers reassign); `planned` needs a promised date, `declined` a reason |
+| `listMyRequests()` / `listClientDeployments()` | clients, own account (view-as: read) |
+| `submitRequest(input)` | client_owner, client_member (view-as → read_only); status `new`, source `client_portal` |
+| `getGroupMatrix(ecosystemId)` | director; AM through a group holding one of her accounts (units = her accounts) |
+Clients and view-as get `forbidden` on every internal method; an internal viewer outside its scope gets `forbidden`.
+Notifications (`notifyRequestEvent` in notifyEvents.ts, texts `notifyTemplates.request.*`, kind `request`, mail by the
+1-mail/day policy): a client request → the account's AM; planned (with date) / rescheduled (the promised date of a
+planned / in-progress request moved) / done / declined → the requesting client user; the daily sweep
+(`notifyEngine.sweepRequests`) → the account's AM + directors when a request becomes debt (dedupe
+`crdebt:<id>:<reason>:<date>`), waits > 7 days (`crwait:<id>`) or stays taken in without a date > 14 days (`crundated:<id>`, kind
+`undated`). Links: internal `/app/accounts/<id>/delivery?cr=<crId>`,
+client `/portal/progress?cr=<crId>`.
+Activities: internal, except the client-facing request lines (`change_request.submitted`, `.created`, `.triaged`,
+`.status_changed` with the client wording, `.rescheduled` with `date`) which are `shared` (params `code`, `request`,
+`project_id`, `status_label`). A request of source `internal` ("New Era đề xuất") is internal end to end: no requester,
+internal lines, no client notice, left out of `listMyRequests` (sorted: open first, a late promise on top, then the
+promised date). A request taken in never returns to `new` (`errors.care.cannotReopenAsNew`); a member may log a request
+for himself only (owner = self); `saveRelationLink` keeps one link per pair and kind (symmetric for works_with /
+former_colleague; an edit that would duplicate another → `conflict errors.care.relationExists`).
+DTO additions (review 09/10): `DeploymentView` / `ClientDeploymentView.go_live_forecast` (the project's launch milestone
+forecast while rolling out, client: visible milestones only); `GroupMatrixUnit.signed / opportunity_count / est_value`;
+`GroupMatrix.totals.opportunities / extra_opportunity_cells / unsigned_units` (signed units only) and `other_members`
+(lead companies of the group, names only). Review round 2: `CarePortfolioRow.expansion.next_steps` (`ExpansionNextStep[]`: the
+expansion map's next steps due within `NEXT_STEP_WINDOW_DAYS` (7) or overdue — the overview's "Theo dõi" rows);
+`DigestSection.requests` (`DigestRequestLine[]`, open requests in the recipient's wording; clients never get internal
+proposals or flags) and `DigestSection.care_brief` (director / AM only) — the "Yêu cầu & chăm sóc" block of the weekly digest
+(page + mail); `SearchResult.type` `'request' | 'deployment'` (internal viewers: a request by code / title → its triage sheet, a
+solution by name → Triển khai). `api.search` still computes deal / lead hits (the rbac suite reads them); the command
+palette drops them while their flag is off.
+
+### RBAC (data layer) — `sanitize.ts`
+Clients never receive the care-internal keys (`plan_ref`, `adoption`, `stakeholders`, `relations`, `care`, `expansion`,
+`flags`, `key_people`, `need_note`, `opportunity_note`, `est_value`, `influence`, `stance`, `strength`, `cadence_days`,
+`next_action*` … in `CLIENT_FORBIDDEN_KEYS`), nor `CLIENT_FORBIDDEN_DEPLOYMENT_KEYS` inside a Deployment-shaped object
+(`go_live_date` + `category`) or `CLIENT_FORBIDDEN_REQUEST_KEYS` inside a ChangeRequest-shaped object (`received_at` +
+`promised_date`) — `isClientForbiddenKey` stays the single rule (RBAC scan). Members lose a deployment's
+`contract_value` and the manager-only activity lines (`CARE_MANAGER_ACTION_PREFIXES`: department., stakeholder.,
+relation., care_plan.; `isManagerOnlyActivity`). Tests: `src/dev/careRbac.ts` (inside `runRbacTests`), `apiSmoke`
+(`CARE_READ_METHODS`), suite `care` (`src/dev/careTests.ts`, registered in features/dev).
+
+### Seed (SPEC-CARE §7) — `src/data/seed/care*.ts`, checks `careChecks.ts` (called by `checkSeed`); SEED_VERSION 8 (7: plain words instead of Go-live / UAT / kickoff in the care data, the driver app's value inside the TMS contract, Thiên Trường's contact log no longer stamped with a client upload · 8: the contact logs of chị Lan, chị Mai, chị Hạnh, chị Ngân and chị Thảo record New Era's calls / meetings, not the client's uploads or transfers)
+16 extra contacts on the six active accounts (no login; seed check now 2–8 contacts), a stakeholder row for every
+contact, 8 relation links (1–3 cross-unit per group), 13 deployments, 6–9 departments per account, 33 requests,
+9 care plans. Stories: Cỏ Xanh has 3 debt requests (broken date · no plan · no owner) → expansion blocked; Thịnh An has
+2 requests 'new' for 9 and 11 days; Mây Trắng is healthy with 5 priced opportunities; Thiên Trường and Hải Đăng are
+overdue for care (next action passed), Sao Bắc due soon.
+
+### Shared care UI kit — `src/components/care/**` (owner: care core; screens use it, never fork it)
+`badges.tsx`: `DeploymentStatusChip({ status, audience? })`, `CategoryLabel({ category, short? })` (+ `CATEGORY_ICONS`),
+`DepartmentStatusChip({ status })`, `CrStatusChip({ status, audience? })`, `CrFlags({ flags, showReason? })`,
+`StrengthBadge`, `StanceBadge`, `InfluenceBadge`, `CareStatusBadge({ status, short? })`, `ExpansionBlockedChip({ title? })`
+— all `size?: 'sm' | 'md'`. `CrFlags` also shows "Tiếp nhận N ngày, chưa hẹn ngày" and takes `wrap` (narrow board cards: the pill wraps);
+`hasCrFlag(flags)` tells whether it renders anything.
+`CrFormDialog({ open, onOpenChange, accountId?, defaults?, onCreated? })` · `CrTriageSheet({ request, open,
+onOpenChange, onSaved? })` (outside the account's own page it links to "Mở trang khách hàng" → `delivery?cr=<id>`) ·
+`CareTouchButton({ accountId, contactId?, kind?, subject?, variant?, size?, label?, iconOnly? })` (director / AM only;
+opens `LogInteractionDialog` with `care`) · `CareNextStep` (+ `planSettledBy`, `carePlanDraft`, `careDraftChanged`,
+`careDraftError`: the next care action inside a care touch) · `ExpansionGateBanner({ debtCount, onViewDebt?,
+canOverride?, compact? })` · hook `useAccountCare(accountId)` (src/hooks/useAccountCare.ts).
+
+### Ownership (care refocus)
+- **care core**: `config/features.ts`, `domain/careTypes|care.ts`, `services/careContract|careData|careViews.ts`,
+  `services/api/care.ts`, the care parts of `api.ts`, `db.ts`, `sanitize.ts`, `notifyEvents.ts`, `domain/types.ts`
+  (care actions / kinds); `data/seed/care*.ts`, `seed.ts`, `seedChecks.ts`; `dev/careTests|careRbac.ts` + the care parts
+  of `rbacTests.ts`, `apiSmoke.ts`, `features/dev/**`; `components/care/**`, `hooks/useAccountCare.ts`; i18n `care.ts`,
+  `activityCare.ts`, `notifyTemplates.request`, the empty screen namespaces below and their registration in `i18n/index.ts`.
+- **account UI**: `features/account/**` (tabs overview · delivery · tasks · roadmap · expansion · relationships ·
+  commercial · documents · activity; `contacts` → `relationships`), i18n `careAccount.ts`.
+- **dashboard / list / nav**: `features/dashboard/**`, `layouts/navItems.ts`, `App.tsx`, `features/shell/CommandPalette.tsx`,
+  i18n `carePortfolio.ts`.
+- **projects / group matrix**: `features/projects/**` (tab "Yêu cầu"), `features/clientmap/**` (view "Ma trận"), i18n `carePm.ts`.
+- **portal**: `features/portal/**`, `features/notifications/kinds.ts`, i18n `carePortal.ts`.
+
+### Screens, links and words (integration, 09/10/2026)
+Internal sidebar (SPEC-CARE §6.1, `layouts/navItems.ts`, items carry `feature?`): **Điều hành** Tổng quan · **Khách hàng**
+Khách hàng, Bản đồ & tập đoàn, Dự án · **Vận hành** Việc, Thương mại · **Hệ thống** Thông báo, Cài đặt. Members: Khách hàng ·
+Dự án · Việc · Thông báo. With `sales` / `targets` off there is no way into Bán hàng / Khách hàng mục tiêu: nav, command
+palette (pages, deal and target-company results, any `/app/crm|targets` href), dashboard ("Bản đồ giá trị" teaser), map
+("Cơ hội" and "Tổng giá trị" metrics — `mapModel.isMetricAvailable` / `showTotalValue`, so no metric control and no "Tổng giá trị"
+table column —, leads, lead members, pipeline figures; the map opens on "Hợp đồng" — `mapModel.defaultMetric()`),
+account tabs, and old URLs (→ `/app`, members → their tasks). The account's Hoạt động tab leaves out `opportunity.*`
+lines without `sales` and `lead.*` lines without `targets` (the services keep them; the crm suite reads them).
+
+Deep links every screen may use (all handled by the target page):
+| Link | Opens |
+|---|---|
+| `accountTabPath(id, 'delivery', { cr })` · `{ filter: 'debt' \| 'untriaged' \| 'in_progress' \| 'done' \| 'declined' }` | Triển khai: that request's triage sheet · the filtered request list (scrolled into view when the page opens with a filter) |
+| `accountTabPath(id, 'expansion', { dept })` | Mở rộng: that department's sheet |
+| `accountTabPath(id, 'relationships', { contact })` | Quan hệ: that person's relationship sheet |
+| `/app/projects/requests?view=board\|timeline&flag=debt\|untriaged\|urgent&account=&mine=1&q=&cr=` | Dự án › Yêu cầu (`useRequestParams`) |
+| `matrixHref(ecoId?)` = `/app/map?view=matrix[&eco=<id>]` | Bản đồ & tập đoàn › Ma trận of a group (also the account header's "Tập đoàn …" chip and "Xem cả tập đoàn" under the group relations); an `eco` the viewer cannot open is replaced by the group shown, with a note |
+| `/portal/progress?cr=<id>` · `/portal/progress#yeu-cau` | client: the request sheet · the "Yêu cầu của anh/chị" section (`REQUEST_PARAM`, `REQUESTS_ANCHOR` in features/portal/requestModel.ts) |
+Notifications use the first and the last rows. Seams wired by the integrator: an overview debt / waiting row's "Xem
+triển khai" opens `delivery?filter=debt|untriaged`; a matrix cell → Triển khai (in use / rolling out) or Mở rộng, with
+`?dept=` when the cell holds one department's opportunity (`cellHref`); the triage sheet links back to the account.
+
+Care touch: `LogInteractionDialog({ care: true })` (only through `CareTouchButton`) reads "Ghi lần chăm sóc", logs the
+interaction, then saves the care plan's next action when it changed (`CareNextStep`): a next action due today or earlier
+starts empty (the touch closes it), a future one stays prefilled. So "Ghi lần chăm sóc" on an overdue client takes it
+off "Khách quá hạn chăm sóc" at once (the overview refetches on the data change). The dialog remembers the interaction
+it logged: when the plan save fails, a retry only saves the plan (never a second touch); a cleared action clears its owner.
+
+Words (the same everywhere in the UI, executives' Vietnamese — never "CR", "SLA", "whitespace", "hệ sinh thái"):
+Giải pháp đã triển khai (client: "Giải pháp New Era triển khai") · Yêu cầu (palette: "Yêu cầu thay đổi") · Nợ triển khai ·
+Chưa xử lý quá 7 ngày · Tiếp nhận N ngày, chưa hẹn ngày · Phòng ban đã phủ x/y · a department with an active solution "Đã có giải pháp" (a rolling-out
+solution is not "đang dùng") · Chăm sóc / Quá hạn chăm sóc · Quan hệ · Còn có thể bán thêm · Tạm dừng mở rộng (always
+`ExpansionBlockedChip`, danger) · tập đoàn · a deployment's value "Giá trị ước tính" (the contracts are on Thương mại) ·
+"Phụ trách: <tên>" / "Người phụ trách" rather than "AM <tên>" / "AM phụ trách" (account header). Statuses, categories and badges come from `care.ts` and
+`components/care/badges.tsx` only.

@@ -447,6 +447,83 @@ export function notifyQuoteEvent(kind: QuoteEventKind, quoteId: ID, actorId: ID,
   }
 }
 
+// ───────────────────────────── change-request events (SPEC-CARE §4) ─────────────────────────────
+
+/**
+ * submitted: a client sent a request → the account's AM · planned / rescheduled (the promised date moved) / done /
+ * declined → the client who asked · debt (a promise without owner / plan, or broken) / waiting (new for more than 7
+ * days) / undated (taken in more than 14 days ago, no date for the client) → the account's AM and the directors (daily
+ * sweep, once per state)
+ */
+export type RequestEventKind = 'submitted' | 'planned' | 'rescheduled' | 'done' | 'declined' | 'debt' | 'waiting' | 'undated';
+
+/** where a bell item / mail about a request opens: the account's Triển khai tab, or the portal's Tiến độ page */
+export function requestLinkFor(user: User, accountId: ID, crId: ID): string {
+  return user.org_type === 'client' ? `/portal/progress?cr=${encodeURIComponent(crId)}` : `/app/accounts/${accountId}/delivery?cr=${encodeURIComponent(crId)}`;
+}
+
+/** the client user behind a request: the requesting user, else the login of the requesting contact (same account, active) */
+function requesterOf(cr: { account_id: ID; requested_by_user_id: ID | null; requested_by_contact_id: ID | null }): ID | null {
+  const direct = cr.requested_by_user_id ? db.find('users', cr.requested_by_user_id) : undefined;
+  const viaContact = !direct && cr.requested_by_contact_id ? db.find('contacts', cr.requested_by_contact_id) : undefined;
+  const user = direct ?? (viaContact?.user_id ? db.find('users', viaContact.user_id) : undefined);
+  if (!user || user.org_type !== 'client' || user.account_id !== cr.account_id || user.status === 'disabled') return null;
+  return user.id;
+}
+
+/**
+ * Bell item + mail (1-mail/day policy) about a change request. `note`: the description (submitted), New Era's note to
+ * the client (planned / done) or the decline reason (declined). Called inside the caller's db.batch.
+ */
+export function notifyRequestEvent(
+  kind: RequestEventKind,
+  crId: ID,
+  actorId: ID | null,
+  extra: { note?: string | null; reason?: string; days?: number; dedupeKey?: string } = {},
+): void {
+  const cr = db.find('change_requests', crId);
+  const account = cr ? db.find('accounts', cr.account_id) : undefined;
+  if (!cr || !account) return;
+  const actor = actorId ? db.find('users', actorId) : undefined;
+  const requester = requesterOf(cr);
+  const recipients =
+    kind === 'submitted'
+      ? internalOwners(account.id)
+      : kind === 'debt' || kind === 'waiting' || kind === 'undated'
+        ? [...internalOwners(account.id), ...directorIds()]
+        : requester
+          ? [requester]
+          : [];
+  for (const userId of unique(recipients)) {
+    if (userId === actorId) continue;
+    const user = db.find('users', userId);
+    if (!user) continue;
+    const text = render(
+      `${TPL}.request.${kind}`,
+      {
+        account: account.name,
+        code: cr.code,
+        request: clip(cr.title, 140),
+        date: cr.promised_date ? fmtDate(cr.promised_date) : '',
+        actor: actor ? actor.full_name : t(`${TPL}.common.newEra`),
+        reason: extra.reason ?? '',
+        days: extra.days ?? 0,
+        ...addressingOf(user),
+      },
+      extra.note ?? undefined,
+    );
+    sendNotice(userId, {
+      kind: 'request',
+      title: text.title,
+      body: text.body,
+      link: requestLinkFor(user, account.id, cr.id),
+      accountId: account.id,
+      dedupeKey: extra.dedupeKey ?? coalesceKey(`cr:${kind}:${cr.id}`),
+      email: 'policy',
+    });
+  }
+}
+
 // ───────────────────────────── payment events ─────────────────────────────
 
 function paymentRecipients(kind: PaymentEventKind, accountId: ID): ID[] {

@@ -11,7 +11,7 @@ import { useViewer } from '@/hooks/useViewer';
 import { t } from '@/i18n';
 import { runSuite, type CheckRow, type SuiteId, type SuiteOutcome } from './selfTestRunners';
 
-const SUITES: SuiteId[] = ['domain', 'crm', 'rbac', 'sso', 'seed', 'api'];
+const SUITES: SuiteId[] = ['domain', 'crm', 'care', 'rbac', 'sso', 'seed', 'api'];
 
 type SuiteState = { status: 'idle' } | { status: 'running' } | { status: 'done'; outcome: SuiteOutcome };
 
@@ -139,6 +139,7 @@ export function SelfTestPage() {
     sso: { status: 'idle' },
     seed: { status: 'idle' },
     api: { status: 'idle' },
+    care: { status: 'idle' },
   });
   const anyRunning = SUITES.some((id) => states[id].status === 'running');
 

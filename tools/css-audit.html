@@ -338,14 +338,17 @@
         const tabs = (base, list) => list.map((x) => base + '/' + x);
         if (role === 'director' || role === 'am') {
           return [
-            '/app', '/app/accounts',
-            ...tabs(acc, ['overview', 'tasks', 'roadmap', 'sales', 'commercial', 'documents', 'contacts', 'activity']),
+            '/app', '/app/accounts', '/app/accounts?view=progress',
+            ...tabs(acc, ['overview', 'delivery', 'tasks', 'roadmap', 'expansion', 'relationships', 'sales', 'commercial', 'documents', 'contacts', 'activity']),
+            acc + '/delivery?filter=debt', acc + '/expansion?dept=marketing',
+            // deep-link overlays: a request's triage sheet, a person's relationship sheet
+            acc + '/delivery?cr=cr_coxanh_09', acc + '/relationships?contact=ct_coxanh_minh', '/app/projects/requests?cr=cr_coxanh_03',
             ...opt(ids.internalTask, acc + '/tasks?task=' + ids.internalTask),
             '/app/tasks', '/app/tasks?mine=1', ...opt(ids.clientTask, '/app/tasks?task=' + ids.clientTask),
             '/app/crm', ...tabs('/app/crm', ['pipeline', 'list', 'forecast', 'followups']), ...opt(ids.opp, '/app/crm/opportunities/' + ids.opp),
             '/app/targets', ...tabs('/app/targets', ['leads', 'segments', 'accounts', 'icp']), ...opt(ids.lead, '/app/targets/leads/' + ids.lead),
-            '/app/projects', ...tabs('/app/projects', ['portfolio', 'timeline', 'workload']),
-            '/app/map',
+            '/app/projects', ...tabs('/app/projects', ['portfolio', 'requests', 'timeline', 'workload']), '/app/projects/requests?view=timeline',
+            '/app/map', '/app/map?view=table', '/app/map?view=matrix',
             '/app/commercial', ...tabs('/app/commercial', ['quotes', 'contracts', 'receivables', 'prices']), ...opt(ids.quote, '/app/commercial/quotes/' + ids.quote),
             '/app/notifications', '/app/digest',
             '/app/settings', ...tabs('/app/settings', ['users', 'invites', 'templates', 'pricing', 'rules']),
@@ -356,19 +359,19 @@
         if (role === 'member') {
           return [
             '/app', '/app/tasks', ...opt(ids.internalTask, '/app/tasks?task=' + ids.internalTask),
-            ...tabs('/app/projects', ['portfolio', 'timeline', 'workload']),
-            '/app/accounts', ...tabs(acc, ['overview', 'tasks', 'roadmap', 'documents', 'contacts', 'activity']),
+            ...tabs('/app/projects', ['portfolio', 'requests', 'timeline', 'workload']),
+            '/app/accounts', ...tabs(acc, ['overview', 'delivery', 'tasks', 'roadmap', 'documents', 'relationships', 'activity']),
             '/app/notifications', '/app/digest', '/app/map',
           ];
         }
         if (role === 'client_owner') {
           return [
-            '/portal', '/portal/tasks', ...opt(ids.clientTask, '/portal/tasks/' + ids.clientTask), '/portal/progress',
+            '/portal', '/portal/tasks', ...opt(ids.clientTask, '/portal/tasks/' + ids.clientTask), '/portal/progress', '/portal/progress?cr=cr_coxanh_06',
             '/portal/commercial', ...opt(ids.portalQuote, '/portal/commercial/quotes/' + ids.portalQuote),
             '/portal/documents', '/portal/settings', '/portal/khong-co-trang-nay',
           ];
         }
-        return ['/portal', '/portal/tasks', '/portal/progress', '/portal/documents', '/portal/settings'];
+        return ['/portal', '/portal/tasks', '/portal/progress', '/portal/progress?cr=cr_coxanh_06', '/portal/documents', '/portal/settings'];
       }
 
       // ---------- the static file ----------

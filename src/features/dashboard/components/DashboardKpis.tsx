@@ -1,11 +1,13 @@
-// The 4 KPI tiles of SPEC §4.1 (DESIGN §4 KPI tile). Tiles 1, 2 and 4 filter the portfolio below (pressed = active).
-import { CalendarClock, CircleAlert, CircleCheck, FileSignature, OctagonX, ShieldAlert, TriangleAlert, Wallet } from 'lucide-react';
+// The 4 KPI tiles of the care overview (SPEC-CARE §6.2, DESIGN §4 KPI tile) — the four questions a director asks:
+// which clients need attention (health), where we owe delivery, which requests wait too long, which clients are
+// overdue for a touch. Every tile filters the portfolio below (pressed = active).
+import { CircleCheck, ClipboardX, Clock, HeartHandshake, Inbox, OctagonX, ShieldAlert, TriangleAlert } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { DirectorDashboard } from '@/services/contract';
 import { KpiCard } from '@/components/common/kpi-card';
 import { useMediaQuery } from '@/hooks/useMedia';
 import { t } from '@/i18n';
-import { formatMoneyCompact } from '@/lib/format';
+import type { CareKpiNumbers } from '../careModel';
 import type { StatusFilter } from '../portfolioModel';
 import { DotList } from './DotList';
 
@@ -43,17 +45,16 @@ function Label({ text }: { text: string }) {
 
 export interface DashboardKpisProps {
   kpis: DirectorDashboard['kpis'];
-  year: string;
+  care: CareKpiNumbers;
   active: StatusFilter | null;
   onFilter(filter: StatusFilter): void;
 }
 
-export function DashboardKpis({ kpis, year, active, onFilter }: DashboardKpisProps) {
+export function DashboardKpis({ kpis, care, active, onFilter }: DashboardKpisProps) {
   const roomy = useMediaQuery('(min-width: 640px)');
   const risk = kpis.accounts_at_risk;
   const atRisk = risk.blocked + risk.attention;
   const onTrack = Math.max(0, risk.active_total - atRisk);
-  const overdueTotal = kpis.overdue_tasks.client + kpis.overdue_tasks.internal;
   const riskTone = risk.blocked > 0 ? 'danger' : risk.attention > 0 ? 'warning' : 'success';
 
   const riskParts = [
@@ -69,10 +70,12 @@ export function DashboardKpis({ kpis, year, active, onFilter }: DashboardKpisPro
     ) : null,
   ].filter((p) => p !== null);
 
+  const careTone = care.careOverdue > 0 ? 'danger' : care.careDueSoon > 0 ? 'warning' : 'success';
+
   return (
     <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
       <KpiCard
-        label={<Label text={t('dashboard.kpi.risk.label')} />}
+        label={<Label text={t('carePortfolio.kpi.risk.label')} />}
         value={String(atRisk)}
         sub={
           risk.active_total === 0 ? (
@@ -101,51 +104,71 @@ export function DashboardKpis({ kpis, year, active, onFilter }: DashboardKpisPro
         active={active === 'at_risk'}
       />
       <KpiCard
-        label={<Label text={t('dashboard.kpi.overdue.label')} />}
-        value={String(overdueTotal)}
+        label={<Label text={t('carePortfolio.kpi.debt.label')} />}
+        value={String(care.debt)}
         sub={
-          overdueTotal > 0 ? (
-            <DotList
-              items={[
-                t('dashboard.kpi.overdue.client', { count: kpis.overdue_tasks.client }),
-                t('dashboard.kpi.overdue.internal', { count: kpis.overdue_tasks.internal }),
-              ]}
-            />
-          ) : (
-            t('dashboard.kpi.overdue.none')
-          )
-        }
-        tone={overdueTotal > 0 ? 'warning' : 'success'}
-        icon={CalendarClock}
-        onClick={() => onFilter('overdue_tasks')}
-        active={active === 'overdue_tasks'}
-      />
-      <KpiCard
-        label={<Label text={t('dashboard.kpi.contract.label', { year })} />}
-        value={formatMoneyCompact(kpis.contract_value_ytd)}
-        sub={
-          kpis.contract_count_ytd > 0
-            ? t('dashboard.kpi.contract.sub', { count: kpis.contract_count_ytd })
-            : t('dashboard.kpi.contract.subNone')
-        }
-        icon={FileSignature}
-      />
-      <KpiCard
-        label={<Label text={t('dashboard.kpi.receivable.label')} />}
-        value={formatMoneyCompact(kpis.receivable.total)}
-        sub={
-          kpis.receivable.overdue > 0 ? (
-            // wraps in the ~130px of a 4-up tile at 1024 (the amount itself never breaks)
-            <StatusPart icon={CircleAlert} tone="danger" wrap>
-              {t('dashboard.kpi.receivable.overdue', { amount: formatMoneyCompact(kpis.receivable.overdue) })}
+          care.debt > 0 ? (
+            <StatusPart icon={TriangleAlert} tone="danger" wrap>
+              {t('carePortfolio.kpi.debt.accounts', { count: care.debtAccounts })}
             </StatusPart>
           ) : (
-            t('dashboard.kpi.receivable.noOverdue')
+            <StatusPart icon={CircleCheck} tone="success" wrap>
+              {t('carePortfolio.kpi.debt.none')}
+            </StatusPart>
           )
         }
-        icon={Wallet}
-        onClick={() => onFilter('receivable')}
-        active={active === 'receivable'}
+        tone={care.debt > 0 ? 'danger' : 'success'}
+        icon={ClipboardX}
+        onClick={() => onFilter('debt')}
+        active={active === 'debt'}
+      />
+      <KpiCard
+        label={<Label text={t('carePortfolio.kpi.untriaged.label')} />}
+        value={String(care.untriaged)}
+        sub={
+          care.untriaged > 0 ? (
+            <StatusPart icon={Clock} tone="warning" wrap>
+              {t('carePortfolio.kpi.untriaged.accounts', { count: care.untriagedAccounts })}
+            </StatusPart>
+          ) : care.open > 0 ? (
+            t('carePortfolio.kpi.untriaged.open', { count: care.open })
+          ) : (
+            t('carePortfolio.kpi.untriaged.none')
+          )
+        }
+        tone={care.untriaged > 0 ? 'warning' : 'success'}
+        icon={Inbox}
+        onClick={() => onFilter('untriaged')}
+        active={active === 'untriaged'}
+      />
+      <KpiCard
+        label={<Label text={t('carePortfolio.kpi.care.label')} />}
+        value={String(care.careOverdue)}
+        sub={
+          care.total === 0 ? (
+            t('carePortfolio.kpi.care.none')
+          ) : care.careDueSoon > 0 ? (
+            <StatusPart icon={Clock} tone="warning" wrap>
+              {t('carePortfolio.kpi.care.dueSoon', { count: care.careDueSoon })}
+            </StatusPart>
+          ) : care.careOverdue === 0 ? (
+            <StatusPart icon={CircleCheck} tone="success" wrap>
+              {t('carePortfolio.kpi.care.allOk')}
+            </StatusPart>
+          ) : roomy ? undefined : (
+            // the progress caption carries the same words from 640px
+            t('carePortfolio.kpi.care.onTrack', { count: care.careOk, total: care.total })
+          )
+        }
+        progress={
+          care.total > 0 && roomy
+            ? { value: care.careOk, max: care.total, label: t('carePortfolio.kpi.care.onTrack', { count: care.careOk, total: care.total }) }
+            : undefined
+        }
+        tone={careTone}
+        icon={HeartHandshake}
+        onClick={() => onFilter('care_overdue')}
+        active={active === 'care_overdue'}
       />
     </div>
   );

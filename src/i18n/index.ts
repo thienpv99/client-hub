@@ -5,9 +5,15 @@
 import account from './vi/account';
 import activity from './vi/activity';
 import activityCommercial from './vi/activityCommercial';
+import activityCare from './vi/activityCare';
 import activityCrm from './vi/activityCrm';
 import activityNotify from './vi/activityNotify';
 import auth from './vi/auth';
+import care from './vi/care';
+import careAccount from './vi/careAccount';
+import carePm from './vi/carePm';
+import carePortal from './vi/carePortal';
+import carePortfolio from './vi/carePortfolio';
 import clientmap from './vi/clientmap';
 import commercial from './vi/commercial';
 import common from './vi/common';
@@ -34,8 +40,19 @@ type Dict = { [key: string]: string | Dict };
 const vi: Dict = {
   account,
   // activity.* is split by owner; top-level keys (task, quote, payment, escalation…) must not collide
-  activity: { ...(activity as Dict), ...(activityCommercial as Dict), ...(activityNotify as Dict), ...(activityCrm as Dict) },
+  activity: {
+    ...(activity as Dict),
+    ...(activityCommercial as Dict),
+    ...(activityNotify as Dict),
+    ...(activityCrm as Dict),
+    ...(activityCare as Dict),
+  },
   auth,
+  care,
+  careAccount,
+  carePm,
+  carePortal,
+  carePortfolio,
   clientmap,
   commercial,
   common,
@@ -44,7 +61,8 @@ const vi: Dict = {
   dashboard,
   dev,
   enums,
-  errors,
+  // errors.care.* live with the care labels (i18n/vi/care.ts → errors)
+  errors: { ...(errors as Dict), care: care.errors as Dict },
   layout,
   notify,
   notifyTemplates,

@@ -7,20 +7,25 @@ const account = {
   tabs: {
     label: 'Các mục của khách hàng',
     overview: 'Tổng quan',
+    delivery: 'Triển khai',
     tasks: 'Việc',
     roadmap: 'Lộ trình',
+    expansion: 'Mở rộng',
+    relationships: 'Quan hệ',
     sales: 'Bán hàng',
     commercial: 'Thương mại',
     documents: 'Tài liệu',
     contacts: 'Liên hệ',
-    activity: 'Nhật ký',
+    activity: 'Hoạt động',
     overdueCount: '{count} việc quá hạn',
+    debtCount: '{count} yêu cầu nợ triển khai',
   },
 
   header: {
     tier: 'Hạng khách hàng',
     stageTitle: 'Giai đoạn',
-    am: 'AM phụ trách',
+    /** plain words for executives (not "AM"): the New Era account manager */
+    am: 'Người phụ trách',
     contractValue: 'Giá trị hợp đồng',
     noContract: 'Chưa có hợp đồng',
     nextMilestone: 'Mốc tiếp theo',
@@ -33,9 +38,9 @@ const account = {
   },
 
   am: {
-    change: '{name} · Giao AM khác',
-    menuTitle: 'Giao AM phụ trách',
-    loading: 'Đang tải danh sách AM',
+    change: '{name} · Giao người khác phụ trách',
+    menuTitle: 'Giao người phụ trách',
+    loading: 'Đang tải danh sách người phụ trách',
     assigned: 'Đã giao {name} phụ trách {account}.',
   },
 
@@ -123,7 +128,7 @@ const account = {
       title: 'Người quyết định phía khách',
       all: 'Tất cả {count} liên hệ',
       empty: 'Chưa có người quyết định hay người duyệt nào.',
-      emptyHint: 'Thêm liên hệ và chọn vai trò “Người quyết định” hoặc “Người duyệt” trong tab Liên hệ.',
+      emptyHint: 'Thêm liên hệ và chọn vai trò “Người quyết định” hoặc “Người duyệt” trong tab Quan hệ.',
     },
     commercial: {
       title: 'Thương mại',

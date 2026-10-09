@@ -6,8 +6,9 @@ import { useId, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import type { LucideIcon } from 'lucide-react';
-import { ArrowRight, Check, CircleCheck, Flag, Hourglass, Newspaper } from 'lucide-react';
-import type { DigestSection, MilestoneView, TaskView, WeeklyDigest } from '@/services/contract';
+import { ArrowRight, CalendarClock, Check, CircleCheck, Clock, Flag, Hourglass, Inbox, Newspaper, TriangleAlert } from 'lucide-react';
+import type { DigestRequestLine, DigestSection, MilestoneView, TaskView, WeeklyDigest } from '@/services/contract';
+import { CareStatusBadge } from '@/components/care/badges';
 import { AccountLogo } from '@/components/common/account-logo';
 import { DueLabel } from '@/components/common/due-label';
 import { EmptyState } from '@/components/common/empty-state';
@@ -16,6 +17,7 @@ import { HealthBadge } from '@/components/common/health-badge';
 import { NewEraLogo } from '@/components/common/new-era-logo';
 import { statusLineText } from '@/components/common/status-band';
 import { TaskTypeIcon } from '@/components/common/task-type-icon';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/components/ui/cn';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -93,6 +95,9 @@ export function DigestView({ digest, className }: DigestViewProps) {
             waitingTitle={waitingTitle}
             waitingEmpty={waitingEmpty}
             showAssignee={!isClient && recipient.role !== 'member'}
+            requestsTitle={isClient ? t('notify.digest.requestsClient', { salutation }) : t('notify.digest.requestsInternal')}
+            requestsEmpty={isClient ? t('notify.digest.noneRequestsClient', { salutation }) : t('notify.digest.noneRequests')}
+            portalLinks={viewer?.org_type === 'client'}
           />
         ))
       )}
@@ -150,9 +155,13 @@ interface SectionProps {
   waitingTitle: string;
   waitingEmpty: string;
   showAssignee: boolean;
+  requestsTitle: string;
+  requestsEmpty: string;
+  /** the CURRENT viewer is a client: request rows open the portal's Tiến độ, else the account's Triển khai tab */
+  portalLinks: boolean;
 }
 
-function DigestSectionView({ section: s, statusSalutation, waitingTitle, waitingEmpty, showAssignee }: SectionProps) {
+function DigestSectionView({ section: s, statusSalutation, waitingTitle, waitingEmpty, showAssignee, requestsTitle, requestsEmpty, portalLinks }: SectionProps) {
   const headingId = `digest-acc-${s.account.id}`;
   return (
     <section aria-labelledby={headingId} className={cn('border-t border-border/60 py-6', PAD_X)}>
@@ -181,6 +190,7 @@ function DigestSectionView({ section: s, statusSalutation, waitingTitle, waiting
             ))}
           </ul>
         </Block>
+        <RequestsBlock section={s} title={requestsTitle} empty={requestsEmpty} portalLinks={portalLinks} />
       </div>
     </section>
   );
@@ -298,5 +308,101 @@ function MilestoneRow({ milestone: m }: { milestone: MilestoneView }) {
         <ForecastLabel milestone={m} className="mt-0.5" />
       </div>
     </li>
+  );
+}
+
+const FLAG_TONES = {
+  debt: { variant: 'danger', icon: TriangleAlert },
+  untriaged: { variant: 'warning', icon: Clock },
+  undated: { variant: 'warning', icon: CalendarClock },
+} as const;
+
+/**
+ * "Yêu cầu & chăm sóc" (SPEC-CARE): the care rhythm and next care action (director / AM), then the open requests with
+ * their promised date — and, for New Era, the flag that needs someone. Each row opens the request.
+ */
+function RequestsBlock({ section: s, title, empty, portalLinks }: { section: DigestSection; title: string; empty: string; portalLinks: boolean }) {
+  const [expanded, setExpanded] = useState(false);
+  const list = s.requests ?? [];
+  const b = s.care_brief ?? null;
+  const shown = expanded ? list : list.slice(0, VISIBLE_ITEMS);
+  const hidden = list.length - VISIBLE_ITEMS;
+  return (
+    <div>
+      <h4 className="flex items-center gap-2 text-caption font-medium">
+        <Inbox className="h-4 w-4 shrink-0" aria-hidden="true" />
+        <span>{title}</span>
+        <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-micro font-medium tabular text-muted-foreground">
+          {list.length}
+        </span>
+      </h4>
+      {b ? (
+        <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-table text-foreground">
+          <CareStatusBadge status={b.care_status} short={false} />
+          <span className="min-w-0 text-pretty text-muted-foreground">
+            {b.next_action && b.next_action_due
+              ? t('notify.digest.careNext', { action: b.next_action, date: formatDateShort(b.next_action_due) })
+              : t('notify.digest.careNoAction')}
+          </span>
+        </p>
+      ) : null}
+      <div className="mt-2">
+        {list.length === 0 ? (
+          <p className="text-table text-muted-foreground">{empty}</p>
+        ) : (
+          <>
+            <ul className="-mx-2 space-y-0.5">
+              {shown.map((r) => (
+                <li key={r.id}>
+                  <RequestRow request={r} href={portalLinks ? `/portal/progress?cr=${encodeURIComponent(r.id)}` : `/app/accounts/${s.account.id}/delivery?cr=${encodeURIComponent(r.id)}`} />
+                </li>
+              ))}
+            </ul>
+            {hidden > 0 ? (
+              <Button type="button" variant="ghost" size="sm" className="-ml-2 mt-1" aria-expanded={expanded} onClick={() => setExpanded((v) => !v)}>
+                {expanded ? t('notify.digest.less') : t('notify.digest.moreRequests', { count: hidden })}
+              </Button>
+            ) : null}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function RequestRow({ request: r, href }: { request: DigestRequestLine; href: string }) {
+  const tone = r.flag ? FLAG_TONES[r.flag] : null;
+  const FlagIcon = tone?.icon;
+  return (
+    <Link
+      to={href}
+      className="touch-tap flex min-h-tap w-full items-start gap-3 rounded-lg px-2 py-2 text-left transition-colors duration-150 ease-out-quart hover:bg-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary md:min-h-0"
+    >
+      <span className="mt-px inline-flex h-5 min-w-[2.75rem] shrink-0 items-center justify-center rounded-md bg-muted px-1.5 text-micro font-semibold tabular text-muted-foreground">
+        {r.code}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block break-words text-table font-medium text-foreground">{r.title}</span>
+        <span className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-micro text-muted-foreground">
+          <span>{r.status_label}</span>
+          {r.promised_date ? (
+            <span className={cn('whitespace-nowrap tabular', r.late && r.flag ? 'font-medium text-danger' : undefined)}>
+              <span aria-hidden="true" className="mr-1.5">
+                ·
+              </span>
+              {r.late && r.flag
+                ? t('notify.digest.requestDateLate', { date: formatDateShort(r.promised_date) })
+                : t('notify.digest.requestDate', { date: formatDateShort(r.promised_date) })}
+            </span>
+          ) : null}
+          {tone && FlagIcon && r.flag ? (
+            <Badge variant={tone.variant} size="sm">
+              <FlagIcon aria-hidden="true" />
+              {t(`notify.digest.requestFlag.${r.flag}`)}
+            </Badge>
+          ) : null}
+        </span>
+      </span>
+    </Link>
   );
 }

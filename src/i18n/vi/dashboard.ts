@@ -25,7 +25,7 @@ const dashboard = {
       allClear: 'Tất cả đúng kế hoạch',
       noActive: 'Chưa có khách hàng đang triển khai',
       /** progress caption: on-track share of the accounts in delivery */
-      onTrack: '{count}/{total} đúng kế hoạch',
+      onTrack: '{count}/{total} đang triển khai đúng hạn',
     },
     overdue: {
       label: 'Việc quá hạn',

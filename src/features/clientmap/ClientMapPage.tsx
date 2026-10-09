@@ -1,9 +1,11 @@
-// /app/map — "Bản đồ khách hàng" (director + AM). Each company (customer or target) is a bubble sized by its value on
-// one shared scale; lines join the companies of one ecosystem (business group) through the group's hub, sized on a
-// scale of its own (the subtitle and legend say so). The "Bảng" view is the accessible ranking.
-import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
+// /app/map — "Bản đồ & tập đoàn" (director + AM). Each company (customer or target) is a bubble sized by its value on
+// one shared scale; lines join the companies of one business group through the group's hub, sized on a scale of its
+// own (the subtitle and legend say so). The "Bảng" view is the accessible ranking; the "Ma trận" view (SPEC-CARE §6.6,
+// /app/map?view=matrix&eco=<ecosystemId>) shows what each company of a group uses and what is left to sell.
+import { useCallback, useLayoutEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Network } from 'lucide-react';
+import { isFeatureOn } from '@/config/features';
 import { api } from '@/services/api';
 import type { EcosystemView } from '@/services/crmContract';
 import { EmptyState } from '@/components/common/empty-state';
@@ -20,10 +22,13 @@ import { BubbleMap } from './BubbleMap';
 import { ClientTable } from './ClientTable';
 import { EcosystemDialog } from './EcosystemDialog';
 import { EcosystemSheet } from './EcosystemSheet';
+import { GroupMatrixView } from './GroupMatrixView';
 import { MapKpis, MapKpisSkeleton } from './MapKpis';
 import { MapToolbar, ViewSwitch } from './MapToolbar';
 import { isCompany, mapKpis, rankedRows } from './mapModel';
+import { groupOptions } from './matrixModel';
 import { useMapParams } from './useMapParams';
+import { useEntryView } from '@/components/crm/useEntryView';
 
 /**
  * The map fills the viewport below its top edge (the CSS fallback is calc(100dvh − 276px)), never shorter than
@@ -105,6 +110,15 @@ export function ClientMapPage() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [dialog, setDialog] = useState<{ open: boolean; eco: EcosystemView | null }>({ open: false, eco: null });
   const allEcos = useQuery(() => api.listEcosystems(), [viewer?.user.id], { enabled: dialog.open });
+  const matrixView = params.view === 'matrix';
+  // the groups the viewer can open in the matrix = the groups of the accounts they care for (an AM: her own)
+  // (also the map's group panel and the group sheet: their "Xem ma trận" shows only for these)
+  const care = useQuery(() => api.getCarePortfolio(), [viewer?.user.id]);
+  const groups = useMemo(() => (care.data ? groupOptions(care.data) : undefined), [care.data]);
+  const matrixGroups = useMemo(() => new Set((groups ?? []).map((g) => g.eco.id)), [groups]);
+  // the unit cards rise in only when the page was opened on the matrix (a view switch just shows them)
+  const matrixEntry = useEntryView(params.view) && matrixView;
+  const leadsOn = isFeatureOn('targets');
 
   const map = query.data;
   // measured again once the first data (KPI strip) is in
@@ -114,20 +128,30 @@ export function ClientMapPage() {
   const kpis = useMemo(() => (map ? mapKpis(map) : null), [map]);
   const rows = useMemo(() => (map ? rankedRows(map) : []), [map]);
   const hasCompanies = Boolean(map?.nodes.some(isCompany));
-  const filtered = params.amId !== null || !params.showLeads;
+  const filtered = params.amId !== null || (leadsOn && !params.showLeads);
 
   const selectEco = useCallback((id: string | null) => update({ eco: id }), [update]);
   const editEco = useCallback((eco: EcosystemView | null) => setDialog({ open: true, eco }), []);
+  // keeps the selected group across views (and rewrites the ?group=<id> link form as ?eco=)
+  const onView = useCallback((v: typeof params.view) => update({ view: v, eco: params.eco }), [update, params.eco]);
 
   const header = (
     <PageHeader
       title={t('clientmap.page.title')}
-      description={t('clientmap.page.description')}
+      description={
+        params.view === 'matrix'
+          ? t('clientmap.page.descriptionMatrix')
+          : params.view === 'table'
+            ? t('clientmap.page.descriptionTable')
+            : leadsOn
+              ? t('clientmap.page.description')
+              : t('clientmap.page.descriptionCare')
+      }
       actions={
         // phones: both live in the compact toolbar
         phone ? undefined : (
           <>
-            <ViewSwitch view={params.view} onView={(v) => update({ view: v })} />
+            <ViewSwitch view={params.view} onView={onView} />
             <Button variant="secondary" onClick={() => setSheetOpen(true)}>
               <Network aria-hidden="true" />
               {desktop ? t('clientmap.controls.ecosystems') : t('clientmap.controls.ecosystemsShort')}
@@ -145,7 +169,21 @@ export function ClientMapPage() {
   ) : null;
 
   let content: ReactNode;
-  if (query.error && !map) {
+  if (matrixView) {
+    content = (
+      <GroupMatrixView
+        groups={groups}
+        groupsLoading={care.loading}
+        groupsError={care.error}
+        onRetryGroups={care.refetch}
+        selectedId={params.eco}
+        onSelect={(id) => update({ eco: id })}
+        onShowOnMap={(id) => update({ view: 'map', eco: id })}
+        isDirector={isDirector}
+        stagger={matrixEntry}
+      />
+    );
+  } else if (query.error && !map) {
     content = (
       <div className="rounded-xl border border-border/70 bg-card shadow-card">
         <ErrorState error={query.error} onRetry={query.refetch} />
@@ -157,10 +195,16 @@ export function ClientMapPage() {
         <EmptyState
           icon={Network}
           title={filtered ? t('clientmap.map.emptyFilteredTitle') : t('clientmap.map.emptyTitle')}
-          description={filtered ? t('clientmap.map.emptyFilteredDescription') : t('clientmap.map.emptyDescription')}
+          description={
+            filtered
+              ? leadsOn
+                ? t('clientmap.map.emptyFilteredDescription')
+                : t('clientmap.map.emptyFilteredDescriptionCare')
+              : t('clientmap.map.emptyDescription')
+          }
           action={
             filtered ? (
-              <Button variant="soft" onClick={() => update({ amId: null, showLeads: true })}>
+              <Button variant="soft" onClick={() => update({ amId: null, showLeads: leadsOn })}>
                 {t('clientmap.map.clearFilters')}
               </Button>
             ) : undefined
@@ -182,7 +226,15 @@ export function ClientMapPage() {
         style={fillHeight ? { height: fillHeight } : undefined}
       >
         {map ? (
-          <BubbleMap map={map} showLeads={params.showLeads} selectedEco={params.eco} onSelectEco={selectEco} onEditEco={editEco} />
+          <BubbleMap
+            map={map}
+            showLeads={params.showLeads}
+            selectedEco={params.eco}
+            onSelectEco={selectEco}
+            onEditEco={editEco}
+            canShowMatrix={(eco) => matrixGroups.has(eco.id)}
+            onShowMatrix={(eco) => update({ view: 'matrix', eco: eco.id })}
+          />
         ) : (
           <MapSkeleton />
         )}
@@ -194,26 +246,48 @@ export function ClientMapPage() {
     // same rhythm as every list page: header, then (section gap) the toolbar row grouped with its content
     <div className="space-y-6 md:space-y-8">
       {header}
-      <div className="space-y-4">
-        <MapToolbar
-          metric={params.metric}
-          onMetric={(m) => update({ metric: m })}
-          showLeads={params.showLeads}
-          onShowLeads={(v) => update({ showLeads: v })}
-          ams={ams}
-          amId={params.amId}
-          onAm={(id) => update({ amId: id, eco: null })}
-          view={params.view}
-          onView={(v) => update({ view: v })}
-          refreshing={query.refreshing}
-          compact={phone}
-          onEcosystems={() => setSheetOpen(true)}
-        />
-        {/* below 1280 (phones, iPad) the map — the focal point — comes first, the figures right under it */}
-        {kpisFirst ? kpiStrip : null}
-        {content}
-        {kpisFirst ? null : kpiStrip}
-      </div>
+      {matrixView ? (
+        <div className="space-y-4">
+          {/* the size / targets / AM filters do not apply to the matrix; phones keep the view switch one tap away */}
+          {phone ? (
+            <div className="flex items-center gap-2">
+              <ViewSwitch view={params.view} onView={onView} full />
+              <Button
+                variant="secondary"
+                size="icon"
+                onClick={() => setSheetOpen(true)}
+                aria-label={t('clientmap.controls.ecosystems')}
+                title={t('clientmap.controls.ecosystems')}
+                className="shrink-0"
+              >
+                <Network aria-hidden="true" />
+              </Button>
+            </div>
+          ) : null}
+          {content}
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <MapToolbar
+            metric={params.metric}
+            onMetric={(m) => update({ metric: m })}
+            showLeads={params.showLeads}
+            onShowLeads={(v) => update({ showLeads: v })}
+            ams={ams}
+            amId={params.amId}
+            onAm={(id) => update({ amId: id, eco: null })}
+            view={params.view}
+            onView={onView}
+            refreshing={query.refreshing}
+            compact={phone}
+            onEcosystems={() => setSheetOpen(true)}
+          />
+          {/* below 1280 (phones, iPad) the map — the focal point — comes first, the figures right under it */}
+          {kpisFirst ? kpiStrip : null}
+          {content}
+          {kpisFirst ? null : kpiStrip}
+        </div>
+      )}
 
       <EcosystemSheet
         open={sheetOpen}
@@ -223,6 +297,11 @@ export function ClientMapPage() {
         onShowOnMap={(eco) => {
           setSheetOpen(false);
           update({ view: 'map', eco: eco.id });
+        }}
+        canShowMatrix={(eco) => matrixGroups.has(eco.id)}
+        onShowMatrix={(eco) => {
+          setSheetOpen(false);
+          update({ view: 'matrix', eco: eco.id });
         }}
       />
       <EcosystemDialog

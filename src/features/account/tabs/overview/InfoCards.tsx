@@ -24,7 +24,7 @@ export function DecisionMakersCard({ account, className }: { account: AccountDet
       title={t('account.overview.people.title')}
       flush
       footer={
-        <TabLink accountId={account.id} tab="contacts">
+        <TabLink accountId={account.id} tab="relationships">
           {t('account.overview.people.all', { count: account.contacts.length })}
         </TabLink>
       }

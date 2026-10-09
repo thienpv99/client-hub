@@ -7,6 +7,7 @@ import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useSta
 import type { KeyboardEvent, MouseEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { ClientMap, EcosystemView } from '@/services/crmContract';
+import { isFeatureOn } from '@/config/features';
 import { useBreakpoint, useMediaQuery } from '@/hooks/useMedia';
 import { t } from '@/i18n';
 import { BubbleDefs, BubbleNode, type BubbleHandlers } from './BubbleNode';
@@ -28,6 +29,9 @@ export interface BubbleMapProps {
   selectedEco: string | null;
   onSelectEco(id: string | null): void;
   onEditEco(eco: EcosystemView): void;
+  /** the group's matrix (SPEC-CARE §6.6); omitted for groups the viewer cannot open there */
+  onShowMatrix?(eco: EcosystemView): void;
+  canShowMatrix?(eco: EcosystemView): boolean;
 }
 
 /** ecosystem panel width from md (px) */
@@ -43,7 +47,7 @@ function gridStep(k: number): number {
   return s;
 }
 
-export function BubbleMap({ map, showLeads, selectedEco, onSelectEco, onEditEco }: BubbleMapProps) {
+export function BubbleMap({ map, showLeads, selectedEco, onSelectEco, onEditEco, onShowMatrix, canShowMatrix }: BubbleMapProps) {
   const navigate = useNavigate();
   const phone = useBreakpoint() === 'mobile';
   const reduced = useMediaQuery('(prefers-reduced-motion: reduce)');
@@ -296,7 +300,8 @@ export function BubbleMap({ map, showLeads, selectedEco, onSelectEco, onEditEco 
   const tipSim = tipNode ? sim?.byId.get(tipNode.id) : undefined;
   const panelEco = selectedEco ? ecos.get(selectedEco) : undefined;
   const showPanel = Boolean(panelEco) && !(phone && tipNode);
-  const summary = t('clientmap.map.label', {
+  // without the targets module there are no leads to announce
+  const summary = t(isFeatureOn('targets') ? 'clientmap.map.label' : 'clientmap.map.labelCare', {
     accounts: map.totals.accounts,
     leads: map.totals.leads,
     ecosystems: map.totals.ecosystems,
@@ -380,6 +385,7 @@ export function BubbleMap({ map, showLeads, selectedEco, onSelectEco, onEditEco 
             className={phone ? 'max-h-[52%]' : 'w-[340px]'}
             onEdit={() => onEditEco(panelEco)}
             onClose={() => onSelectEco(null)}
+            onShowMatrix={onShowMatrix && canShowMatrix?.(panelEco) ? () => onShowMatrix(panelEco) : undefined}
           />
         ) : null}
 

@@ -11,6 +11,8 @@ const projects = {
   tabs: {
     label: 'Cách xem dự án',
     portfolio: 'Danh mục',
+    /** change requests of every client (SPEC-CARE §6.5; copy of the tab in carePm.ts) */
+    requests: 'Yêu cầu',
     timeline: 'Dòng thời gian',
     workload: 'Tải việc',
   },

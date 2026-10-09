@@ -27,6 +27,7 @@ import type {
   User,
 } from '@/domain/types';
 import type { AccountProfile, Ecosystem, IcpProfile, Interaction, Lead, Opportunity, Segment } from '@/domain/crmTypes';
+import type { AccountDepartment, CarePlan, ChangeRequest, Deployment, RelationLink, Stakeholder } from '@/domain/careTypes';
 import { todayISO } from '@/domain/clock';
 import { buildSeed, SEED_VERSION } from '@/data/seed';
 
@@ -58,6 +59,13 @@ export interface DbData {
   segments: Segment[];
   icp_profiles: IcpProfile[];
   ecosystems: Ecosystem[];
+  // client care refocus (SPEC-CARE §2) — deployments + CRs reach clients only through client-safe views
+  deployments: Deployment[];
+  account_departments: AccountDepartment[];
+  stakeholders: Stakeholder[];
+  relation_links: RelationLink[];
+  change_requests: ChangeRequest[];
+  care_plans: CarePlan[];
   settings: Settings;
   meta: DbMeta;
 }
@@ -92,10 +100,30 @@ export const TABLES: TableName[] = [
   'segments',
   'icp_profiles',
   'ecosystems',
+  'deployments',
+  'account_departments',
+  'stakeholders',
+  'relation_links',
+  'change_requests',
+  'care_plans',
 ];
 
 /** Tables added after the first release: tolerated when missing in stored/seeded data (filled with []). */
-const OPTIONAL_TABLES: TableName[] = ['leads', 'account_profiles', 'opportunities', 'interactions', 'segments', 'icp_profiles', 'ecosystems'];
+const OPTIONAL_TABLES: TableName[] = [
+  'leads',
+  'account_profiles',
+  'opportunities',
+  'interactions',
+  'segments',
+  'icp_profiles',
+  'ecosystems',
+  'deployments',
+  'account_departments',
+  'stakeholders',
+  'relation_links',
+  'change_requests',
+  'care_plans',
+];
 
 function withAllTables(d: DbData): DbData {
   for (const t of OPTIONAL_TABLES) if (!Array.isArray(d[t])) (d as unknown as Record<string, unknown[]>)[t] = [];

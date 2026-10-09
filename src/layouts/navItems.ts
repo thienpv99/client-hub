@@ -17,8 +17,13 @@ import {
   Settings,
 } from 'lucide-react';
 import type { Role } from '@/services/contract';
+import { isFeatureOn, type FeatureFlag } from '@/config/features';
 
-/** Sidebar sections of the internal app (DESIGN §3): Điều hành · Khách hàng · Vận hành · Hệ thống. */
+/**
+ * Sidebar sections of the internal app (DESIGN §3, SPEC-CARE §6.1): Điều hành: Tổng quan · Khách hàng: Khách hàng,
+ * Bản đồ & tập đoàn, Dự án · Vận hành: Việc, Thương mại · Hệ thống. Bán hàng and Khách hàng mục tiêu come back when
+ * their feature flags are switched on.
+ */
 export type NavGroupId = 'overview' | 'customers' | 'operations' | 'system';
 
 export const NAV_GROUPS: NavGroupId[] = ['overview', 'customers', 'operations', 'system'];
@@ -36,12 +41,14 @@ export interface NavItem {
   roles?: Role[];
   /** internal sidebar section */
   group?: NavGroupId;
+  /** shown only while this feature flag is on (config/features.ts — SPEC-CARE §1) */
+  feature?: FeatureFlag;
 }
 
 export const INTERNAL_NAV: NavItem[] = [
   { id: 'dashboard', to: '/app', labelKey: 'layout.nav.internal.dashboard', shortLabelKey: 'layout.nav.short.dashboard', icon: LayoutDashboard, end: true, roles: ['director', 'am'], group: 'overview' },
-  { id: 'crm', to: '/app/crm', labelKey: 'layout.nav.internal.crm', shortLabelKey: 'layout.nav.short.crm', icon: Handshake, roles: ['director', 'am'], group: 'customers' },
-  { id: 'targets', to: '/app/targets', labelKey: 'layout.nav.internal.targets', shortLabelKey: 'layout.nav.short.targets', icon: Crosshair, roles: ['director', 'am'], group: 'customers' },
+  { id: 'crm', to: '/app/crm', labelKey: 'layout.nav.internal.crm', shortLabelKey: 'layout.nav.short.crm', icon: Handshake, roles: ['director', 'am'], group: 'customers', feature: 'sales' },
+  { id: 'targets', to: '/app/targets', labelKey: 'layout.nav.internal.targets', shortLabelKey: 'layout.nav.short.targets', icon: Crosshair, roles: ['director', 'am'], group: 'customers', feature: 'targets' },
   { id: 'accounts', to: '/app/accounts', labelKey: 'layout.nav.internal.accounts', shortLabelKey: 'layout.nav.short.accounts', icon: Building2, group: 'customers' },
   { id: 'map', to: '/app/map', labelKey: 'layout.nav.internal.map', shortLabelKey: 'layout.nav.short.map', icon: Orbit, roles: ['director', 'am'], group: 'customers' },
   { id: 'projects', to: '/app/projects', labelKey: 'layout.nav.internal.projects', shortLabelKey: 'layout.nav.short.projects', icon: FolderKanban, group: 'customers' },
@@ -59,8 +66,11 @@ export const CLIENT_NAV: NavItem[] = [
   { id: 'documents', to: '/portal/documents', labelKey: 'layout.nav.client.documents', icon: FolderOpen },
 ];
 
+/** Items this role may see, without the ones whose feature flag is off. */
 export function navFor(items: NavItem[], role: Role | null | undefined): NavItem[] {
-  return items.filter((item) => !item.roles || (role ? item.roles.includes(role) : false));
+  return items.filter(
+    (item) => (!item.feature || isFeatureOn(item.feature)) && (!item.roles || (role ? item.roles.includes(role) : false)),
+  );
 }
 
 export interface NavSection {

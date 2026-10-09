@@ -1,10 +1,12 @@
 // Account detail (SPEC §4.2): /app/accounts/:accountId/:tab? — sticky header + URL-synced tabs.
 // The browser tab title ("Cỏ Xanh Retail · Client Hub") comes from InternalLayout (breadcrumb leaf).
 import { useLayoutEffect, useRef } from 'react';
-import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
+import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
 import type { AccountDetail, ApiErrorCode } from '@/services/contract';
+import type { AccountCareView } from '@/services/careContract';
 import { api } from '@/services/api';
-import { useQuery } from '@/hooks/useQuery';
+import { useAccountCare } from '@/hooks/useAccountCare';
+import { useQuery, type QueryResult } from '@/hooks/useQuery';
 import { useViewer } from '@/hooks/useViewer';
 import { t } from '@/i18n';
 import { Button } from '@/components/ui/button';
@@ -18,13 +20,16 @@ import { RoadmapTab } from '@/features/roadmap/RoadmapTab';
 import { AccountCommercialTab } from '@/features/commercial/AccountCommercialTab';
 import { AccountSalesTab } from '@/features/crm/AccountSalesTab';
 import { accountAccess } from './accountAccess';
-import { ACCOUNT_TABS, accountTabPath, isAccountTab } from './accountTabs';
+import type { AccountAccess } from './accountAccess';
+import { ACCOUNT_TABS, LEGACY_ACCOUNT_TABS, accountTabPath, isAccountTab } from './accountTabs';
 import type { AccountTab } from './accountTabs';
 import { AccountHeader, keepTabsInView } from './AccountHeader';
 import { ActivityTab } from './tabs/ActivityTab';
-import { ContactsTab } from './tabs/ContactsTab';
+import { DeliveryTab } from './tabs/DeliveryTab';
 import { DocumentsTab } from './tabs/DocumentsTab';
+import { ExpansionTab } from './tabs/ExpansionTab';
 import { OverviewTab } from './tabs/OverviewTab';
+import { RelationshipsTab } from './tabs/RelationshipsTab';
 
 function errorCode(error: unknown): ApiErrorCode | null {
   const code: unknown = error && typeof error === 'object' ? (error as { code?: unknown }).code : undefined;
@@ -95,34 +100,60 @@ function AccountErrorState({ error, onRetry }: { error: unknown; onRetry: () => 
   );
 }
 
-function TabBody({ tab, account }: { tab: AccountTab; account: AccountDetail }) {
+interface TabBodyProps {
+  tab: AccountTab;
+  account: AccountDetail;
+  access: AccountAccess;
+  /** getAccountCare — one query for the page, shared by the care tabs (refetches after every mutation) */
+  care: QueryResult<AccountCareView>;
+}
+
+function TabBody({ tab, account, access, care }: TabBodyProps) {
   switch (tab) {
     case 'overview':
-      return <OverviewTab account={account} />;
+      return <OverviewTab account={account} care={care} />;
+    case 'delivery':
+      return <DeliveryTab account={account} access={access} care={care} />;
     case 'tasks':
       return <AccountTasksTab account={account} />;
     case 'roadmap':
       return <RoadmapTab account={account} />;
+    case 'expansion':
+      return <ExpansionTab account={account} access={access} care={care} />;
+    case 'relationships':
+      return <RelationshipsTab account={account} access={access} care={care} />;
     case 'sales':
       return <AccountSalesTab account={account} />;
     case 'commercial':
       return <AccountCommercialTab account={account} />;
     case 'documents':
       return <DocumentsTab account={account} />;
-    case 'contacts':
-      return <ContactsTab account={account} />;
     case 'activity':
       return <ActivityTab account={account} />;
   }
+}
+
+/** which tabs this viewer gets (the api refuses the data of the others anyway) */
+function visibleTabs(access: AccountAccess): AccountTab[] {
+  return ACCOUNT_TABS.filter((tab) => {
+    if (tab === 'commercial') return access.commercial;
+    if (tab === 'sales') return access.sales;
+    // the expansion map is director / AM data (members get no departments, SPEC-CARE §5)
+    if (tab === 'expansion') return access.care;
+    return true;
+  });
 }
 
 export function AccountDetailPage() {
   const params = useParams<{ accountId: string; tab?: string }>();
   const accountId = params.accountId ?? '';
   const navigate = useNavigate();
+  const location = useLocation();
   const viewer = useViewer();
   const query = useQuery(() => api.getAccount(accountId), [accountId], { enabled: accountId !== '' });
   const account = query.data;
+  // internal viewers only (view-as is a client session and never reaches /app); the tabs show its own loading state
+  const care = useAccountCare(accountId, { enabled: accountId !== '' && !!viewer && viewer.org_type === 'internal' && !viewer.read_only });
   // a tab switch while scrolled down keeps the tab bar where it is — measured AFTER the new tab committed (the phone
   // header changes height with compactFacts; the panel's min height keeps the anchor reachable while it loads)
   const keepTabs = useRef(false);
@@ -138,8 +169,13 @@ export function AccountDetailPage() {
   if (!account) return <AccountPageSkeleton />;
 
   const access = accountAccess(viewer, account);
-  const tabs = ACCOUNT_TABS.filter((tab) => (tab !== 'commercial' || access.commercial) && (tab !== 'sales' || access.sales));
+  const tabs = visibleTabs(access);
   const requested = params.tab;
+  // old paths keep working ("Liên hệ" → "Quan hệ"), with their query string
+  const legacy = requested !== undefined ? LEGACY_ACCOUNT_TABS[requested] : undefined;
+  if (legacy) {
+    return <Navigate to={`${accountTabPath(account.id, legacy)}${location.search}`} replace />;
+  }
   if (requested !== undefined && (!isAccountTab(requested) || !tabs.includes(requested))) {
     return <Navigate to={accountTabPath(account.id)} replace />;
   }
@@ -151,9 +187,19 @@ export function AccountDetailPage() {
     navigate(accountTabPath(account.id, value));
   }
 
-  // "Việc" carries the overdue count (both sides, blocked tasks excluded — same rule as the counters)
+  // "Việc" carries the overdue count (both sides, blocked tasks excluded — same rule as the counters); "Triển khai"
+  // carries the delivery-debt count (requests promised without owner / plan, or past their date)
   const overdue = account.counts.overdue_client + account.counts.overdue_internal;
-  // tab list: 4px between tabs up to xl, so all eight fit at 1024 beside the open sidebar (they scroll below that)
+  const debt = care.data?.requests.debt ?? 0;
+  const dangerCount = (tab: AccountTab): { count: number; label: string } | null => {
+    if (tab === 'tasks' && overdue > 0) return { count: overdue, label: t('account.tabs.overdueCount', { count: overdue }) };
+    if (tab === 'delivery' && debt > 0) return { count: debt, label: t('account.tabs.debtCount', { count: debt }) };
+    return null;
+  };
+  // a member's "Quan hệ" holds the contact list only (no relationship map, SPEC-CARE §5): it keeps its plain name
+  const tabLabel = (tab: AccountTab): string =>
+    tab === 'relationships' && !access.care ? t('account.tabs.contacts') : t(`account.tabs.${tab}`);
+  // tab list: 4px between tabs up to xl, so all nine fit at 1024 beside the open sidebar (they scroll below that)
 
   return (
     <Tabs value={current} onValueChange={selectTab} activationMode="manual">
@@ -161,30 +207,32 @@ export function AccountDetailPage() {
         account={account}
         access={access}
         compactFacts={current !== 'overview'}
+        group={care.data?.account.ecosystem ?? null}
         tabs={
           <TabsList
             variant="underline"
             aria-label={t('account.tabs.label')}
             className="-mx-4 w-auto max-w-none px-4 md:-mx-6 md:gap-1 md:px-6 xl:-mx-8 xl:gap-2 xl:px-8"
           >
-            {tabs.map((tab) =>
-              tab === 'tasks' && overdue > 0 ? (
+            {tabs.map((tab) => {
+              const flagged = dangerCount(tab);
+              return flagged ? (
                 <TabsTrigger
                   key={tab}
                   value={tab}
-                  count={overdue}
+                  count={flagged.count}
                   countTone="danger"
-                  countLabel={t('account.tabs.overdueCount', { count: overdue })}
-                  title={t('account.tabs.overdueCount', { count: overdue })}
+                  countLabel={flagged.label}
+                  title={flagged.label}
                 >
-                  {t(`account.tabs.${tab}`)}
+                  {tabLabel(tab)}
                 </TabsTrigger>
               ) : (
                 <TabsTrigger key={tab} value={tab}>
-                  {t(`account.tabs.${tab}`)}
+                  {tabLabel(tab)}
                 </TabsTrigger>
-              ),
-            )}
+              );
+            })}
           </TabsList>
         }
       />
@@ -192,7 +240,7 @@ export function AccountDetailPage() {
         // min height = the viewport under the sticky rows (112px = AccountHeader STICK_TOP): a tab that first shows a
         // short loading state never makes the page too short to keep the tab bar pinned on a switch
         <TabsContent key={tab} value={tab} className="mt-6 min-h-[calc(100dvh-112px)] focus-visible:ring-offset-background md:mt-8">
-          <TabBody tab={tab} account={account} />
+          <TabBody tab={tab} account={account} access={access} care={care} />
         </TabsContent>
       ))}
     </Tabs>

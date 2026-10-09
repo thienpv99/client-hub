@@ -7,8 +7,8 @@
 // (health, AM, value). Sticky rows never change height, so nothing below them jumps while scrolling.
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode, RefObject } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Eye, Pencil } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Eye, Network, Pencil } from 'lucide-react';
 import type { AccountDetail } from '@/services/contract';
 import { api } from '@/services/api';
 import { useAction } from '@/hooks/useAction';
@@ -25,6 +25,7 @@ import { enumLabel } from '@/components/common/labels';
 import { Money } from '@/components/common/money';
 import { UserAvatar } from '@/components/common/user-avatar';
 import { shortPersonName } from '@/features/dashboard/portfolioModel';
+import { matrixHref } from '@/features/clientmap/matrixModel';
 import type { AccountAccess } from './accountAccess';
 import { AmMenu } from './AmMenu';
 import { HealthOverrideDialog } from './HealthOverrideDialog';
@@ -220,9 +221,11 @@ export interface AccountHeaderProps {
    * starts above the fold; the overview tab keeps them. From sm they always show.
    */
   compactFacts?: boolean;
+  /** the business group (director / AM: from the care view) — a chip to the group's matrix */
+  group?: { id: string; name: string; short_name: string } | null;
 }
 
-export function AccountHeader({ account, access, tabs, compactFacts = false }: AccountHeaderProps) {
+export function AccountHeader({ account, access, tabs, compactFacts = false, group = null }: AccountHeaderProps) {
   const badgesRef = useRef<HTMLDivElement>(null);
   const pinned = useScrolledUnder(badgesRef, STICK_TOP);
   // no wrapping element: a sticky row only sticks inside its parent, so both bands are children of the page root
@@ -257,6 +260,18 @@ export function AccountHeader({ account, access, tabs, compactFacts = false }: A
           <HealthControl account={account} canEdit={access.manage} />
           <Badge title={t('account.header.tier')}>{enumLabel('tier', account.tier)}</Badge>
           <Badge title={t('account.header.stageTitle')}>{enumLabel('stage', account.stage)}</Badge>
+          {/* the group this client belongs to → what the whole group uses and could still buy (the matrix) */}
+          {group ? (
+            <Link
+              to={matrixHref(group.id)}
+              aria-label={t('careAccount.header.groupLabel', { name: group.name })}
+              title={t('careAccount.header.groupLabel', { name: group.name })}
+              className="touch-tap inline-flex h-6 items-center gap-1 whitespace-nowrap rounded-full bg-card px-2.5 text-micro font-medium text-foreground ring-1 ring-inset ring-border-strong/80 transition-colors duration-150 hover:bg-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              <Network className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+              {t('careAccount.header.group', { name: group.short_name || group.name })}
+            </Link>
+          ) : null}
           {/* phones: the industry would take a line of its own above the fold — the facts matter more */}
           {account.industry ? <span className="hidden text-caption sm:inline">{account.industry}</span> : null}
         </div>

@@ -6,6 +6,7 @@ import type { AccountGraph } from '@/domain/graph';
 import type { SweepResult, ZaloReminder } from './contract';
 import { dateOf, nowISO, todayISO } from '@/domain/clock';
 import { addDays, diffDays, startOfWeek, weekday } from '@/domain/dates';
+import { daysSinceReceived, daysSinceTriaged, deliveryDebtReason, isUndated, isUntriaged } from '@/domain/care';
 import { capitalize, t } from '@/i18n';
 import { db } from './db';
 import { primaryOwnerOf } from './context';
@@ -35,6 +36,7 @@ import {
   internalTaskLink,
   mailTaskIds,
   notifyPaymentEvent,
+  notifyRequestEvent,
   openDue,
   sendNotice,
   taskContext,
@@ -263,6 +265,30 @@ function sweepInternalOverdue(open: OpenTask[], today: ISODate, result: SweepRes
   }
 }
 
+// ───────────────────────────── (4b) change requests (SPEC-CARE §3) ─────────────────────────────
+
+/**
+ * A broken or unbacked promise to a client (delivery debt), a request left 'new' for more than 7 days and one taken in
+ * more than 14 days ago with still no date for the client are told to
+ * the account's AM and the directors — once per state (the key changes when the reason or the promised date does),
+ * so nobody has to open the dashboard to learn that a promise slipped.
+ */
+function sweepRequests(today: ISODate): void {
+  for (const cr of db.rows('change_requests')) {
+    const reason = deliveryDebtReason(cr, today);
+    if (reason) {
+      notifyRequestEvent('debt', cr.id, null, {
+        reason: t(`care.debtReasonInline.${reason}`),
+        dedupeKey: `crdebt:${cr.id}:${reason}:${cr.promised_date ?? ''}`,
+      });
+    } else if (isUntriaged(cr, today)) {
+      notifyRequestEvent('waiting', cr.id, null, { days: daysSinceReceived(cr, today), dedupeKey: `crwait:${cr.id}` });
+    } else if (isUndated(cr, today)) {
+      notifyRequestEvent('undated', cr.id, null, { days: daysSinceTriaged(cr, today), dedupeKey: `crundated:${cr.id}` });
+    }
+  }
+}
+
 // ───────────────────────────── (5) the day's one mail ─────────────────────────────
 
 const SUMMARIZED = 'summarized';
@@ -446,6 +472,7 @@ export function runSweep(force: boolean): SweepResult {
         const open = openTasks().filter((o) => existing.has(o.task.id));
         sweepClientTasks(open, today, result);
         sweepInternalOverdue(open, today, result);
+        sweepRequests(today);
       });
       invalidateViewCache();
       sendDailyMail(today);

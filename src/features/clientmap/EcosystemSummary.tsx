@@ -1,8 +1,10 @@
 // One ecosystem: name, description, value figures, member chips and the cross-sell sentence. Used by the
-// ecosystem sheet and by the panel that opens on the map when a hub bubble is selected (EcosystemPanel).
+// ecosystem sheet and by the panel that opens on the map when a hub bubble is selected (EcosystemPanel). Without the
+// `targets` feature (SPEC-CARE §1) target companies are left out: no lead chips, no lead-based cross-sell line.
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { Lightbulb, Network, Pencil, X } from 'lucide-react';
+import { Grid3x3, Lightbulb, Network, Pencil, X } from 'lucide-react';
+import { isFeatureOn } from '@/config/features';
 import type { EcosystemView } from '@/services/crmContract';
 import { SMALL } from '@/components/common/cx';
 import { Button } from '@/components/ui/button';
@@ -28,7 +30,8 @@ export interface EcosystemSummaryProps {
 
 export function EcosystemSummary({ eco, compact = false, brief = false, actions, titleId, className }: EcosystemSummaryProps) {
   const limit = brief ? 4 : compact ? 6 : 24;
-  const members = [...eco.members].sort((a, b) => (a.kind === b.kind ? a.name.localeCompare(b.name, 'vi') : a.kind === 'account' ? -1 : 1));
+  const leadsOn = isFeatureOn('targets');
+  const members = eco.members.filter((m) => leadsOn || m.kind !== 'lead').sort((a, b) => (a.kind === b.kind ? a.name.localeCompare(b.name, 'vi') : a.kind === 'account' ? -1 : 1));
   const shown = members.slice(0, limit);
   const more = members.length - shown.length;
 
@@ -43,7 +46,7 @@ export function EcosystemSummary({ eco, compact = false, brief = false, actions,
             {eco.name}
           </h3>
           <p className="text-caption">
-            {[eco.short_name, eco.industry, t('clientmap.map.companies', { count: eco.account_count + eco.lead_count })]
+            {[eco.short_name, eco.industry, t('clientmap.map.companies', { count: eco.account_count + (leadsOn ? eco.lead_count : 0) })]
               .filter(Boolean)
               .join(' · ')}
           </p>
@@ -61,10 +64,14 @@ export function EcosystemSummary({ eco, compact = false, brief = false, actions,
           <dt className="text-caption">{t('clientmap.eco.contract')}</dt>
           <dd className="mt-0.5 text-title font-semibold tracking-tightish tabular text-ink">{formatMoneyCompact(eco.contract_value)}</dd>
         </div>
-        <div className="min-w-0 pl-4">
-          <dt className="text-caption">{t('clientmap.eco.potential')}</dt>
-          <dd className="mt-0.5 text-title font-semibold tracking-tightish tabular text-ink">{formatMoneyCompact(eco.potential_value)}</dd>
-        </div>
+        {/* "tiềm năng" = open deals + target budgets: a sales figure, hidden with the sales module (SPEC-CARE §1);
+            the room to sell of a group is the matrix's own estimate */}
+        {isFeatureOn('sales') ? (
+          <div className="min-w-0 pl-4">
+            <dt className="text-caption">{t('clientmap.eco.potential')}</dt>
+            <dd className="mt-0.5 text-title font-semibold tracking-tightish tabular text-ink">{formatMoneyCompact(eco.potential_value)}</dd>
+          </div>
+        ) : null}
       </dl>
 
       <div>
@@ -97,12 +104,14 @@ export function EcosystemSummary({ eco, compact = false, brief = false, actions,
         )}
       </div>
 
-      <p className="flex items-start gap-2 rounded-lg bg-subtle p-3 text-table text-foreground ring-1 ring-inset ring-border/60">
-        <Lightbulb className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
-        <span>
-          {eco.lead_count > 0 ? t('clientmap.eco.crossSell', { count: eco.lead_count }) : t('clientmap.eco.crossSellNone')}
-        </span>
-      </p>
+      {leadsOn ? (
+        <p className="flex items-start gap-2 rounded-lg bg-subtle p-3 text-table text-foreground ring-1 ring-inset ring-border/60">
+          <Lightbulb className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+          <span>
+            {eco.lead_count > 0 ? t('clientmap.eco.crossSell', { count: eco.lead_count }) : t('clientmap.eco.crossSellNone')}
+          </span>
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -114,11 +123,13 @@ export interface EcosystemPanelProps {
   titleId: string;
   onEdit(): void;
   onClose(): void;
+  /** opens the group's matrix (only for groups the viewer can open there) */
+  onShowMatrix?(): void;
   className?: string;
 }
 
 /** the panel that opens on the map when a hub bubble is selected */
-export function EcosystemPanel({ eco, docked, titleId, onEdit, onClose, className }: EcosystemPanelProps) {
+export function EcosystemPanel({ eco, docked, titleId, onEdit, onClose, onShowMatrix, className }: EcosystemPanelProps) {
   return (
     <section
       aria-labelledby={titleId}
@@ -144,6 +155,12 @@ export function EcosystemPanel({ eco, docked, titleId, onEdit, onClose, classNam
           </>
         }
       />
+      {onShowMatrix ? (
+        <Button variant="soft" size="sm" onClick={onShowMatrix} className="mt-4" aria-label={t('clientmap.eco.showMatrixLabel', { name: eco.name })}>
+          <Grid3x3 aria-hidden="true" />
+          {t('clientmap.eco.showMatrix')}
+        </Button>
+      ) : null}
     </section>
   );
 }

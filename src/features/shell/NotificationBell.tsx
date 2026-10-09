@@ -15,6 +15,7 @@ import {
   Forward,
   Info,
   MessageSquare,
+  MessageSquarePlus,
   Newspaper,
   Receipt,
   Settings,
@@ -51,6 +52,7 @@ const KIND_ICON: Record<NotificationKind, LucideIcon> = {
   delegated: Forward,
   digest: Newspaper,
   system: Info,
+  request: MessageSquarePlus,
 };
 
 export interface NotificationBellProps {

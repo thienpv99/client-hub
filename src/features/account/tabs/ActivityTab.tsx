@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { ArrowUpRight, History, Lock } from 'lucide-react';
 import type { ActivityAction } from '@/domain/types';
+import { isFeatureOn } from '@/config/features';
 import type { AccountDetail, ActivityView } from '@/services/contract';
 import { api } from '@/services/api';
 import { dateOf, todayISO } from '@/domain/clock';
@@ -27,11 +28,14 @@ import { CHIP_TOUCH } from '../styles';
 
 const LIMIT = 300;
 
-type Category = 'all' | 'approvals' | 'tasks' | 'commercial' | 'system';
+type Category = 'all' | 'approvals' | 'tasks' | 'care' | 'commercial' | 'system';
 
-function categoryOf(action: ActivityAction): 'tasks' | 'commercial' | 'system' {
-  // CRM (§13: deals, leads, touchpoints — director / AM only) belongs with the commercial history
-  const commercial = ['quote.', 'contract.', 'payment.', 'opportunity.', 'lead.', 'interaction.'];
+function categoryOf(action: ActivityAction): 'tasks' | 'care' | 'commercial' | 'system' {
+  // client care (SPEC-CARE): solutions, departments, relationships, care plan, requests and care touches (interactions)
+  const care = ['deployment.', 'department.', 'stakeholder.', 'relation.', 'care_plan.', 'change_request.', 'interaction.'];
+  if (care.some((prefix) => action.startsWith(prefix))) return 'care';
+  // CRM (§13: deals, leads — director / AM only) belongs with the commercial history
+  const commercial = ['quote.', 'contract.', 'payment.', 'opportunity.', 'lead.'];
   if (commercial.some((prefix) => action.startsWith(prefix))) return 'commercial';
   if (
     action.startsWith('task.') ||
@@ -43,6 +47,11 @@ function categoryOf(action: ActivityAction): 'tasks' | 'commercial' | 'system' {
     return 'tasks';
   }
   return 'system';
+}
+
+/** lines of a module switched off (SPEC-CARE §1): deals without `sales`, target companies without `targets` */
+function hiddenByFlags(action: ActivityAction): boolean {
+  return (!isFeatureOn('sales') && action.startsWith('opportunity.')) || (!isFeatureOn('targets') && action.startsWith('lead.'));
 }
 
 /** the task an entry is about, when it can still be opened */
@@ -134,13 +143,17 @@ export interface ActivityTabProps {
 
 export function ActivityTab({ account }: ActivityTabProps) {
   const access = useAccountAccess(account);
-  const all = useQuery(() => api.listActivities({ accountId: account.id, limit: LIMIT }), [account.id]);
-  const approvals = useQuery(() => api.listActivities({ accountId: account.id, approvalsOnly: true, limit: LIMIT }), [account.id]);
+  const allQ = useQuery(() => api.listActivities({ accountId: account.id, limit: LIMIT }), [account.id]);
+  const approvalsQ = useQuery(() => api.listActivities({ accountId: account.id, approvalsOnly: true, limit: LIMIT }), [account.id]);
   const [category, setCategory] = useState<Category>('all');
+  // with sales / targets switched off (SPEC-CARE §1) the deal and lead history stays out of the feed: those screens
+  // cannot be opened, and "cơ hội" now means a department's opportunity to sell more
+  const all = { ...allQ, data: useMemo(() => allQ.data?.filter((x) => !hiddenByFlags(x.action)), [allQ.data]) };
+  const approvals = { ...approvalsQ, data: useMemo(() => approvalsQ.data?.filter((x) => !hiddenByFlags(x.action)), [approvalsQ.data]) };
 
   const counts = useMemo(() => {
     const list = all.data ?? [];
-    const by = { tasks: 0, commercial: 0, system: 0 };
+    const by = { tasks: 0, care: 0, commercial: 0, system: 0 };
     for (const item of list) by[categoryOf(item.action)] += 1;
     return { all: list.length, approvals: approvals.data?.length, ...by };
   }, [all.data, approvals.data]);
@@ -168,6 +181,7 @@ export function ActivityTab({ account }: ActivityTabProps) {
     { value: 'approvals', label: t('account.activity.filters.approvals'), count: counts.approvals },
     { value: 'tasks', label: t('account.activity.filters.tasks'), count: all.data ? counts.tasks : undefined },
   ];
+  if (counts.care > 0) options.push({ value: 'care', label: t('careAccount.activityFilter'), count: counts.care });
   if (access.commercial) {
     options.push({ value: 'commercial', label: t('account.activity.filters.commercial'), count: all.data ? counts.commercial : undefined });
   }

@@ -14,7 +14,12 @@ export function activitySentence(item: ActivityView): string {
   const actor = actorName(item);
   const key = `activity.${item.action}`;
   if (hasKey(key)) {
-    const sentence = t(key, { ...item.params, actor });
+    // request codes ("YC-09") never break at their hyphen: a non-breaking hyphen (U+2011) in the sentence
+    const params =
+      item.action.startsWith('change_request.') && typeof item.params.code === 'string'
+        ? { ...item.params, code: item.params.code.replace(/-/g, '‑') }
+        : item.params;
+    const sentence = t(key, { ...params, actor });
     if (!/\{\w+\}/.test(sentence)) return sentence;
   }
   return t('components.activity.generic', { actor });

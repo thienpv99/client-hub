@@ -22,6 +22,7 @@ import { addressName } from '@/domain/naming';
 import { paymentOverdueDays } from '@/domain/payments';
 import { compareClientTasks, dueInfo } from '@/domain/taskRules';
 import { normalizeText } from '@/lib/utils';
+import { t } from '@/i18n';
 import { canAccessCommercial, cashflowForYear, overduePayments, quotesPendingApproval, quoteSummary } from '@/services/commercialViews';
 import { noAccess, requireViewer, toUserRef } from '@/services/context';
 import { crmSearchEntries, isCrmViewer } from '@/services/crmViews';
@@ -718,7 +719,8 @@ export const readsApi: Pick<
             id: c.id,
             title: c.full_name,
             subtitle: [c.title, a ? a.name : ''].filter(Boolean).join(' · '),
-            href: `/app/accounts/${c.account_id}/contacts`,
+            // the "Quan hệ" tab, opened on that person (the old /contacts path only bounced there without the person)
+            href: `/app/accounts/${c.account_id}/relationships?contact=${encodeURIComponent(c.id)}`,
           },
           `${c.full_name} ${c.email}`,
           3,
@@ -726,7 +728,45 @@ export const readsApi: Pick<
       }
     }
 
-    // CRM (director / AM only): opportunities they may see, leads they own + the team pool
+    if (!client) {
+      // client care (SPEC-CARE): a request by its code ("YC-03") or words, and a deployed solution by its name — the
+      // internal viewer's own accounts only (members included: they read requests and solutions too)
+      for (const cr of db.rows('change_requests')) {
+        if (!ids.has(cr.account_id)) continue;
+        const a = db.find('accounts', cr.account_id);
+        add(
+          {
+            type: 'request',
+            id: cr.id,
+            title: cr.title,
+            subtitle: [cr.code, a ? a.name : '', t(`care.crStatus.${cr.status}`)].filter(Boolean).join(' · '),
+            href: `/app/accounts/${cr.account_id}/delivery?cr=${encodeURIComponent(cr.id)}`,
+          },
+          `${cr.code} ${cr.title}`,
+          2,
+          cr.status === 'done' || cr.status === 'declined' ? 2 : 1,
+        );
+      }
+      for (const d of db.rows('deployments')) {
+        if (!ids.has(d.account_id)) continue;
+        const a = db.find('accounts', d.account_id);
+        add(
+          {
+            type: 'deployment',
+            id: d.id,
+            title: d.name,
+            subtitle: [t(`care.category.${d.category}`), a ? a.name : '', t(`care.deploymentStatus.${d.status}`)].filter(Boolean).join(' · '),
+            href: `/app/accounts/${d.account_id}/delivery`,
+          },
+          d.name,
+          3,
+          d.status === 'retired' ? 2 : 1,
+        );
+      }
+    }
+
+    // CRM (director / AM only): opportunities they may see, leads they own + the team pool. Kept while the sales /
+    // targets modules are switched off (the crm suite reads them); the command palette leaves them out.
     for (const e of crmSearchEntries(v)) add(e.result, e.text, e.order);
 
     return scored

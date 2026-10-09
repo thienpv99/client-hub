@@ -234,6 +234,49 @@ const notifyTemplates = {
       },
     },
   },
+  /** change requests ("yêu cầu", SPEC-CARE §4): new client request → AM; planned / done / declined → the client who asked */
+  request: {
+    submitted: {
+      title: '{account} gửi yêu cầu mới {code}',
+      body: '{actor} gửi yêu cầu “{request}” qua Client Hub. New Era cần tiếp nhận trong 7 ngày.{note}',
+      note: ' Mô tả: “{note}”',
+    },
+    planned: {
+      title: 'Yêu cầu {code} đã lên kế hoạch',
+      body: 'New Era đã lên kế hoạch cho yêu cầu “{request}”, dự kiến xong ngày {date}.{note}',
+      note: ' Lời nhắn của New Era: “{note}”',
+    },
+    /** the promised date of a planned / in-progress request moved → the client who asked */
+    rescheduled: {
+      title: 'Yêu cầu {code} đổi ngày dự kiến xong',
+      body: 'Yêu cầu “{request}” nay dự kiến xong ngày {date}.{note}',
+      note: ' Lời nhắn của New Era: “{note}”',
+    },
+    /** daily sweep → the account's AM and the directors, once per state */
+    debt: {
+      title: '{account}: yêu cầu {code} đang nợ triển khai',
+      body: 'Yêu cầu “{request}” đã hẹn khách ngày {date} nhưng {reason}. Cần xử lý trước khi mở rộng sang phòng ban mới.',
+    },
+    waiting: {
+      title: '{account}: yêu cầu {code} chưa xử lý {days} ngày',
+      body: 'Yêu cầu “{request}” đã chờ New Era tiếp nhận {days} ngày. Cần tiếp nhận và hẹn ngày với khách.',
+    },
+    /** taken in more than 14 days ago, still no date told to the client (daily sweep, once) */
+    undated: {
+      title: '{account}: yêu cầu {code} đã tiếp nhận {days} ngày, chưa hẹn ngày với khách',
+      body: 'Yêu cầu “{request}” đã được tiếp nhận {days} ngày nhưng khách vẫn chưa biết khi nào xong. Cần hẹn ngày và lên kế hoạch.',
+    },
+    done: {
+      title: 'Yêu cầu {code} đã hoàn thành',
+      body: 'New Era đã hoàn thành yêu cầu “{request}”. Cảm ơn {pronoun} đã góp ý.{note}',
+      note: ' Lời nhắn của New Era: “{note}”',
+    },
+    declined: {
+      title: 'Yêu cầu {code} chưa thực hiện được',
+      body: 'New Era chưa thể thực hiện yêu cầu “{request}”.{note}',
+      note: ' Lý do: “{note}”',
+    },
+  },
   summary: {
     subject: 'Tóm tắt {count} cập nhật mới',
     intro: 'Để {pronoun} không nhận quá nhiều email, các cập nhật dưới đây được gom lại:',
@@ -260,6 +303,21 @@ const notifyTemplates = {
     milestone: '  • {name}: kế hoạch {planned} → dự báo {forecast}',
     milestoneOnPlan: '  • {name}: {planned}',
     noMilestone: 'Không có mốc nào trong 3 tuần tới.',
+    /** "Yêu cầu & chăm sóc" (SPEC-CARE): the care rhythm for New Era, the open requests for both sides */
+    careLine: 'Chăm sóc: {status}.',
+    careNext: 'Chăm sóc: {status} · việc tiếp theo “{action}”, hạn {due}.',
+    requestsInternal: 'Yêu cầu đang mở: {count}',
+    requestsClient: 'Yêu cầu của {pronoun} đang xử lý: {count}',
+    requestsFlags: ' ({parts})',
+    flagDebt: '{count} nợ triển khai',
+    flagUntriaged: '{count} chưa xử lý quá 7 ngày',
+    flagUndated: '{count} chưa hẹn ngày với khách',
+    requestItem: '  • {code} · {title} – {status}{date}',
+    requestDate: ', dự kiến xong {date}',
+    requestDateLate: ', đã qua ngày hẹn {date}',
+    requestsMore: '  • … và {count} yêu cầu khác',
+    noRequests: 'Không có yêu cầu nào đang mở.',
+    noRequestsClient: 'Không có yêu cầu nào của {pronoun} đang xử lý.',
     empty: 'Tuần này chưa có khách hàng nào để tổng hợp.',
     open: 'Xem bản tin đầy đủ: {url}',
     status: {

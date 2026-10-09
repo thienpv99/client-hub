@@ -1,6 +1,6 @@
 // Client home (SPEC §5.1, DESIGN §5 "Client home"): greeting → status hero → "Việc cần anh xử lý" (the focal block)
-// first; progress, New Era work, updates and the AM summary in a right column from lg (iPad landscape / desktop),
-// below the tasks on phones and iPad portrait.
+// first; progress, requests to New Era, New Era work, updates and the AM summary in a right column from lg (iPad
+// landscape / desktop), below the tasks on phones and iPad portrait.
 import { todayISO } from '@/domain/clock';
 import { t } from '@/i18n';
 import { formatDate, formatWeekday } from '@/lib/format';
@@ -15,6 +15,7 @@ import { usePortalProject } from '@/hooks/usePortalProject';
 import { useQuery } from '@/hooks/useQuery';
 import { useViewer } from '@/hooks/useViewer';
 import { HomeProgressCard } from './HomeProgressCard';
+import { HomeRequestsCard } from './HomeRequestsCard';
 import { DelegatedCard, MyTasksSection, NewEraCard, SummaryCard, UpdatesCard, WaitingCard } from './HomeSections';
 import { bandMilestone, colleaguesWaiting } from './homeModel';
 import type { Salute } from './portalText';
@@ -155,6 +156,8 @@ export function PortalHomePage() {
   const waiting =
     home.waiting_new_era.length > 0 ? <WaitingCard tasks={home.waiting_new_era} showProject={showProject} salute={salute} /> : null;
   const progress = <HomeProgressCard progress={home.progress} />;
+  // SPEC-CARE §6.7: what New Era is still handling of the company's requests (+ "Gửi yêu cầu mới")
+  const requests = <HomeRequestsCard projectId={projectId} salute={salute} today={today} readOnly={!!viewer?.read_only} />;
   const newEra = (
     <NewEraCard
       tasks={home.new_era_working}
@@ -193,6 +196,7 @@ export function PortalHomePage() {
           </div>
           <div className="flex min-w-0 flex-col gap-6">
             {progress}
+            {requests}
             {newEra}
             {updates}
             {summary}
@@ -203,6 +207,7 @@ export function PortalHomePage() {
         <div className="flex flex-col gap-5 md:gap-6">
           {myTasks}
           {progress}
+          {requests}
           {delegated}
           {waiting}
           {newEra}

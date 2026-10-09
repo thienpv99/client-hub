@@ -2,7 +2,9 @@
 // Built for a RECIPIENT viewer (not necessarily the current one), so every view is filtered as they would see it.
 
 import type { Account, Health, ID, ISODate, ISODateTime, Stage, Task, User } from '@/domain/types';
-import type { DigestSection, StatusLine, TaskView, UserRef, Viewer, WeeklyDigest } from './contract';
+import type { DigestCareBrief, DigestRequestLine, DigestSection, StatusLine, TaskView, UserRef, Viewer, WeeklyDigest } from './contract';
+import { compareCrs, isDeliveryDebt, isOpenCr, isUndated, isUntriaged } from '@/domain/care';
+import { accountCrs, careStatusFor, crRollupFor } from './careData';
 import { atTime, dateOf, nowISO, todayISO } from '@/domain/clock';
 import { addDays, startOfWeek } from '@/domain/dates';
 import { compareClientTasks } from '@/domain/taskRules';
@@ -98,6 +100,50 @@ function compareByDue(a: TaskView, b: TaskView): number {
   return a.due_date.localeCompare(b.due_date) || a.title.localeCompare(b.title, 'vi');
 }
 
+/**
+ * The account's open change requests as the recipient reads them: a client sees their company's own requests in client
+ * wording (never New Era's internal proposals, never a flag), a late promise first, then the promised date; New Era
+ * sees every open request in the list order of the app (debt → waiting → undated …) with its flag.
+ */
+function requestLines(account: Account, rv: Viewer, today: ISODate): DigestRequestLine[] {
+  const isClient = rv.org_type === 'client';
+  const open = accountCrs(account.id).filter((cr) => isOpenCr(cr.status) && (!isClient || cr.source !== 'internal'));
+  const late = (d: ISODate | null): boolean => !!d && d < today;
+  const sorted = isClient
+    ? open.sort(
+        (a, b) =>
+          Number(late(b.promised_date)) - Number(late(a.promised_date)) ||
+          (a.promised_date ?? '9999').localeCompare(b.promised_date ?? '9999') ||
+          a.received_at.localeCompare(b.received_at),
+      )
+    : open.sort((a, b) => compareCrs(a, b, today));
+  return sorted.map((cr) => ({
+    id: cr.id,
+    code: cr.code,
+    title: cr.title,
+    status_label: t(isClient ? `care.crStatusClient.${cr.status}` : `care.crStatus.${cr.status}`),
+    promised_date: cr.promised_date,
+    late: late(cr.promised_date),
+    flag: isClient ? null : isDeliveryDebt(cr, today) ? 'debt' : isUntriaged(cr, today) ? 'untriaged' : isUndated(cr, today) ? 'undated' : null,
+  }));
+}
+
+/** the director's / AM's care figures of the account (members and clients get none: SPEC-CARE §5) */
+function careBrief(account: Account, rv: Viewer, today: ISODate): DigestCareBrief | null {
+  if (rv.org_type !== 'internal' || (rv.role !== 'director' && rv.role !== 'am')) return null;
+  const rollup = crRollupFor(account.id, today);
+  const care = careStatusFor(account, today);
+  return {
+    debt: rollup.debt,
+    untriaged: rollup.untriaged,
+    undated: rollup.undated,
+    care_status: care.status,
+    care_status_label: t(`care.careStatus.${care.status}`),
+    next_action: care.plan.next_action,
+    next_action_due: care.plan.next_action_due,
+  };
+}
+
 function sectionFor(account: Account, rv: Viewer, today: ISODate): DigestSection {
   const isClient = rv.org_type === 'client';
   const graph = graphForAccount(account.id);
@@ -137,6 +183,8 @@ function sectionFor(account: Account, rv: Viewer, today: ISODate): DigestSection
     done_last_week: doneLastWeek,
     waiting_on_you: waiting,
     upcoming_milestones: upcoming,
+    requests: requestLines(account, rv, today),
+    care_brief: careBrief(account, rv, today),
   };
 }
 
@@ -257,6 +305,43 @@ export function digestEmailText(digest: WeeklyDigest, user: User, link: string):
         lines.push(t(key, { name: m.name, planned: fmtDay(m.planned_date), forecast: fmtDay(m.forecast_date) }));
       }
     }
+    lines.push(...requestEmailLines(s, isClient, pronoun));
   }
   return composeEmailBody(user, lines.join('\n'), link, `${TPL}.digest.open`);
+}
+
+/** "Yêu cầu & chăm sóc" of one section: the care rhythm (director / AM), the open requests and the first few of them */
+function requestEmailLines(s: DigestSection, isClient: boolean, pronoun: string): string[] {
+  const out: string[] = [];
+  const b = s.care_brief;
+  if (b) {
+    out.push(
+      b.next_action && b.next_action_due
+        ? t(`${TPL}.digest.careNext`, { status: b.care_status_label, action: b.next_action, due: fmtDay(b.next_action_due) })
+        : t(`${TPL}.digest.careLine`, { status: b.care_status_label }),
+    );
+  }
+  if (s.requests.length === 0) {
+    out.push(t(isClient ? `${TPL}.digest.noRequestsClient` : `${TPL}.digest.noRequests`, { pronoun }));
+    return out;
+  }
+  const flags = b
+    ? [
+        b.debt > 0 ? t(`${TPL}.digest.flagDebt`, { count: b.debt }) : '',
+        b.untriaged > 0 ? t(`${TPL}.digest.flagUntriaged`, { count: b.untriaged }) : '',
+        b.undated > 0 ? t(`${TPL}.digest.flagUndated`, { count: b.undated }) : '',
+      ].filter(Boolean)
+    : [];
+  out.push(
+    t(isClient ? `${TPL}.digest.requestsClient` : `${TPL}.digest.requestsInternal`, { count: s.requests.length, pronoun }) +
+      (flags.length > 0 ? t(`${TPL}.digest.requestsFlags`, { parts: flags.join(', ') }) : ''),
+  );
+  for (const r of s.requests.slice(0, EMAIL_ITEMS)) {
+    const date = r.promised_date
+      ? t(!isClient && r.late ? `${TPL}.digest.requestDateLate` : `${TPL}.digest.requestDate`, { date: fmtDay(r.promised_date) })
+      : '';
+    out.push(t(`${TPL}.digest.requestItem`, { code: r.code, title: r.title, status: r.status_label, date }));
+  }
+  if (s.requests.length > EMAIL_ITEMS) out.push(t(`${TPL}.digest.requestsMore`, { count: s.requests.length - EMAIL_ITEMS }));
+  return out;
 }

@@ -53,8 +53,8 @@ export function buildMayTrang(c: SeedCtx): Partial<Bundle> {
 
   const contacts = [
     makeContact({ id: 'ct_maytrang_binh', account_id: ACC, full_name: 'Đoàn Quốc Bình', salutation: 'anh', title: 'Tổng giám đốc', decision_role: 'decision_maker', email: 'binh.doan@maytrang.vn', phone: '0907 318 552', user_id: BINH, last_interaction_at: c.at(-10, '15:00'), last_interaction_note: 'Họp rà soát vận hành lần 1; anh hài lòng với tỷ lệ giao đúng hẹn.' }),
-    makeContact({ id: 'ct_maytrang_hanh', account_id: ACC, full_name: 'Châu Mỹ Hạnh', salutation: 'chị', title: 'Giám đốc vận hành', decision_role: 'ops_contact', email: 'hanh.chau@maytrang.vn', phone: '0919 604 273', user_id: HANH, last_interaction_at: c.at(-2, '09:50'), last_interaction_note: 'Đã gửi danh sách cửa hàng đối tác trên sàn.' }),
-    makeContact({ id: 'ct_maytrang_ngan', account_id: ACC, full_name: 'Kiều Thị Ngân', salutation: 'chị', title: 'Kế toán trưởng', decision_role: 'approver', email: 'ngan.kieu@maytrang.vn', phone: '0938 117 064', last_interaction_at: c.at(-3, '10:00'), last_interaction_note: 'Xác nhận đã chuyển khoản đợt 3 hợp đồng hỗ trợ.' }),
+    makeContact({ id: 'ct_maytrang_hanh', account_id: ACC, full_name: 'Châu Mỹ Hạnh', salutation: 'chị', title: 'Giám đốc vận hành', decision_role: 'ops_contact', email: 'hanh.chau@maytrang.vn', phone: '0919 604 273', user_id: HANH, last_interaction_at: c.at(-5, '10:00'), last_interaction_note: 'Trao đổi cấu hình hạ tầng mùa cao điểm; chị Hạnh dự kiến số đơn tăng gấp 3 dịp cuối năm.' }),
+    makeContact({ id: 'ct_maytrang_ngan', account_id: ACC, full_name: 'Kiều Thị Ngân', salutation: 'chị', title: 'Kế toán trưởng', decision_role: 'approver', email: 'ngan.kieu@maytrang.vn', phone: '0938 117 064', last_interaction_at: c.at(-3, '10:00'), last_interaction_note: 'Gọi chị Ngân đối soát khoản thanh toán đợt 3 hợp đồng hỗ trợ.' }),
   ];
 
   const projects = [

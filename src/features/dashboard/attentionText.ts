@@ -49,19 +49,23 @@ export function attentionMeta(item: AttentionItem): string {
 const ACCOUNT_MARK = '\u0001';
 
 /**
- * The sentence split around the account name so the UI can set it in medium weight:
+ * Any sentence with an {account} placeholder, split around the account name so the UI can set it in semibold:
  * ['', 'Cỏ Xanh Retail', ': Go-live đang chờ khách …'] — odd indexes are the account.
  */
+export function sentenceParts(key: string, params: TParams, account: string): string[] {
+  const marked = t(key, { ...params, account: ACCOUNT_MARK });
+  const parts: string[] = [];
+  marked.split(ACCOUNT_MARK).forEach((p, i) => {
+    if (i > 0) parts.push(account);
+    parts.push(p);
+  });
+  return parts;
+}
+
+/** the sentence of a classic attention item, split around the account name (see sentenceParts) */
 export function attentionSentenceParts(item: AttentionItem): { parts: string[]; account: string; text: string } {
   const params = attentionParams(item);
   const account = String(params.account ?? item.account.name);
   const key = sentenceKey(item);
-  const marked = t(key, { ...params, account: ACCOUNT_MARK });
-  const pieces = marked.split(ACCOUNT_MARK);
-  const parts: string[] = [];
-  pieces.forEach((p, i) => {
-    if (i > 0) parts.push(account);
-    parts.push(p);
-  });
-  return { parts, account, text: t(key, params) };
+  return { parts: sentenceParts(key, params, account), account, text: t(key, params) };
 }

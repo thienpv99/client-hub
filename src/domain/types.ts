@@ -422,7 +422,28 @@ export type ActivityAction =
   | 'icp.updated'
   /** director / AM created or edited a business group (name, members) of the client map: target 'settings' (id = the
    *  ecosystem), account null — director feeds only */
-  | 'ecosystem.saved';
+  | 'ecosystem.saved'
+  // Client care refocus (SPEC-CARE §4; sentences in i18n/vi/activityCare.ts). Internal, except the client-facing
+  // change-request events (created from a client request, triaged, status changed), which are 'shared'.
+  | 'deployment.created'
+  | 'deployment.updated'
+  | 'deployment.deleted'
+  | 'department.updated'
+  /** the director expanded into a new department although delivery debt was not 0 (params: reason, count) */
+  | 'department.gate_overridden'
+  | 'stakeholder.updated'
+  | 'relation.saved'
+  | 'relation.deleted'
+  | 'care_plan.updated'
+  /** a client sent a request from the portal (shared) */
+  | 'change_request.submitted'
+  /** New Era logged a request heard at a meeting / by email / chat (shared unless source 'internal') */
+  | 'change_request.created'
+  | 'change_request.triaged'
+  | 'change_request.status_changed'
+  /** the promised date of a planned / in-progress request moved (shared, params: date — the client is told) */
+  | 'change_request.rescheduled'
+  | 'change_request.updated';
 
 export type ActivityTargetType =
   | 'task'
@@ -439,7 +460,14 @@ export type ActivityTargetType =
   | 'settings'
   | 'opportunity'
   | 'lead'
-  | 'interaction';
+  | 'interaction'
+  // client care refocus
+  | 'deployment'
+  | 'department'
+  | 'stakeholder'
+  | 'relation'
+  | 'care_plan'
+  | 'change_request';
 
 export interface Activity {
   id: ID;
@@ -468,7 +496,9 @@ export type NotificationKind =
   | 'payment'
   | 'delegated'
   | 'digest'
-  | 'system';
+  | 'system'
+  /** change requests ("yêu cầu"): a new client request for the AM, planned / done / declined for the client */
+  | 'request';
 
 export interface AppNotification {
   id: ID;

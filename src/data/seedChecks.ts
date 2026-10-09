@@ -14,21 +14,29 @@ import { DEMO_PASSWORD } from './seed/people';
 import { CRM_TABLE_KEYS } from './seed/crmFieldKeys';
 import { checkCrm } from './seed/crmChecks';
 import { ORIGINAL_ACCOUNT_IDS } from './seed/crmAccounts';
+import { CARE_TABLE_KEYS } from './seed/careFieldKeys';
+import { checkCare } from './seed/careChecks';
 
 type Seed = Omit<DbData, 'meta'>;
 type AnyRow = Record<string, unknown> & { id?: string };
 
 /** the six original demo accounts; the CRM prospects (converted leads) are checked by checkCrm */
 const ACCOUNT_IDS = ORIGINAL_ACCOUNT_IDS;
-/** reference field lists of every table, core + CRM extension */
-const SHAPES: Partial<Record<TableName, Record<string, true>>> = { ...TABLE_KEYS, ...CRM_TABLE_KEYS };
-/** CRM activity actions (lead.*, opportunity.*, interaction.*, ecosystem.*) do not count towards the per-account activity mix */
-const isCrmAction = (action: string): boolean => /^(lead|opportunity|interaction|ecosystem)\./.test(action);
+/** reference field lists of every table, core + CRM extension + client care refocus */
+const SHAPES: Partial<Record<TableName, Record<string, true>>> = { ...TABLE_KEYS, ...CRM_TABLE_KEYS, ...CARE_TABLE_KEYS };
+/**
+ * CRM activity actions (lead.*, opportunity.*, interaction.*, ecosystem.*) and the care lines (change_request.*,
+ * deployment.*, department.*, stakeholder.*, relation.*, care_plan.*) do not count towards the per-account activity mix
+ */
+const isCrmAction = (action: string): boolean =>
+  /^(lead|opportunity|interaction|ecosystem|change_request|deployment|department|stakeholder|relation|care_plan)\./.test(action);
 const PARAM_NAMES = new Set([
   'task', 'milestone', 'quote', 'version', 'amount', 'reason', 'note', 'to', 'file', 'project', 'days', 'date',
   // CRM activity params (i18n/vi/activityCrm.ts)
   'account', 'opportunity', 'from', 'stage', 'stage_label', 'lead', 'status', 'status_label', 'subject', 'kind', 'kind_label', 'fields',
   'ecosystem', 'count',
+  // care activity params (i18n/vi/activityCare.ts); project_id scopes a line to the portal's project selector
+  'code', 'request', 'project_id', 'deployment', 'category_label', 'department_label', 'name',
 ]);
 const PHONE = /^0\d{3} \d{3} \d{3}$/;
 
@@ -184,6 +192,8 @@ function runChecks(data: Seed, today: ISODate): string[] {
     task: tasks, milestone: milestones, project: projects, quote: quotes, contract: contracts, payment: payments, file: files, account: accounts,
     contact: index(data.contacts), user: users, comment: comments,
     opportunity: index(data.opportunities ?? []), lead: index(data.leads ?? []), interaction: index(data.interactions ?? []),
+    deployment: index(data.deployments ?? []), department: index(data.account_departments ?? []), stakeholder: index(data.stakeholders ?? []),
+    relation: index(data.relation_links ?? []), care_plan: index(data.care_plans ?? []), change_request: index(data.change_requests ?? []),
   };
   for (const a of data.activities) {
     const w = `activities/${a.id}`;
@@ -237,7 +247,8 @@ function runChecks(data: Seed, today: ISODate): string[] {
     // prospects (converted leads: no users, projects or tasks) → checkCrm
     if (!ACCOUNT_IDS.includes(a.id)) continue;
     const contacts = data.contacts.filter((c) => c.account_id === a.id);
-    expect(contacts.length >= 2 && contacts.length <= 4, `${w}: 2–4 contacts`);
+    // 2–4 contacts with a role in the delivery + the care seed's extra people (SPEC-CARE §7: CFO, IT head…)
+    expect(contacts.length >= 2 && contacts.length <= 8, `${w}: 2–8 contacts`);
     for (const c of contacts) {
       const u = c.user_id ? users.get(c.user_id) : undefined;
       if (u) expect(u.role === (c.decision_role === 'decision_maker' ? 'client_owner' : 'client_member'), `${w}: contact ${c.id} role mismatch`);
@@ -393,5 +404,8 @@ function runChecks(data: Seed, today: ISODate): string[] {
 
   // ── 11. CRM / targeting extension (ARCHITECTURE §13)
   errors.push(...checkCrm(data, today));
+
+  // ── 12. client care refocus (SPEC-CARE §7)
+  errors.push(...checkCare(data, today));
   return errors;
 }

@@ -10,12 +10,14 @@
 import type { Role } from '@/domain/types';
 import { ApiError, type Api } from '@/services/contract';
 import type { CrmApi } from '@/services/crmContract';
+import type { CareApi } from '@/services/careContract';
 import { nowISO } from '@/domain/clock';
 import { sleep } from '@/lib/utils';
 import { getViewer, onViewerChange } from '@/services/context';
 import { db } from '@/services/db';
 import { sanitizeOutgoing } from '@/services/sanitize';
 import { accountsApi } from '@/services/api/accounts';
+import { careApi } from '@/services/api/care';
 import { clientMapApi } from '@/services/api/clientMap';
 import { commercialApi } from '@/services/api/commercial';
 import { crmApi } from '@/services/api/crm';
@@ -45,6 +47,18 @@ declare global {
 }
 
 const NET_LOG_LIMIT = 300;
+let netLogLimit = NET_LOG_LIMIT;
+
+/**
+ * Self tests that scan every client payload of a long run (rbac: hundreds of calls) raise the cap of
+ * window.__CH_NET__ meanwhile, so early payloads are not evicted before the scan. Returns the previous cap.
+ */
+export function setNetLogLimit(limit: number): number {
+  const prev = netLogLimit;
+  netLogLimit = Math.max(NET_LOG_LIMIT, Math.round(limit));
+  return prev;
+}
+
 const SYNC_METHODS: ReadonlySet<string> = new Set<keyof Api>(['getViewer', 'onViewerChange', 'onDataChange', 'listDemoLogins']);
 
 const LATENCY_KEY = 'clienthub.latency';
@@ -142,7 +156,7 @@ function record(entry: NetLogEntry): void {
   if (!Array.isArray(window.__CH_NET__)) window.__CH_NET__ = [];
   const log = window.__CH_NET__;
   log.push(entry);
-  if (log.length > NET_LOG_LIMIT) log.splice(0, log.length - NET_LOG_LIMIT);
+  if (log.length > netLogLimit) log.splice(0, log.length - netLogLimit);
 }
 
 type AnyFn = (...args: unknown[]) => unknown;
@@ -195,6 +209,7 @@ const modules: Record<string, object> = {
   crmApi,
   projectsApi,
   clientMapApi,
+  careApi,
 };
 
 /** dev guard: every Api method must come from exactly one module */
@@ -209,8 +224,11 @@ function checkModules(): void {
   }
 }
 
-/** the core contract (contract.ts) + the CRM / targeting / project-portfolio extension (crmContract.ts) */
-export type FullApi = Api & CrmApi;
+/**
+ * the core contract (contract.ts) + the CRM / targeting / project-portfolio extension (crmContract.ts) + the client
+ * care refocus (careContract.ts)
+ */
+export type FullApi = Api & CrmApi & CareApi;
 
 const impl: FullApi = {
   getViewer,
@@ -228,6 +246,7 @@ const impl: FullApi = {
   ...crmApi,
   ...projectsApi,
   ...clientMapApi,
+  ...careApi,
 };
 
 function buildApi(source: FullApi): FullApi {
@@ -240,4 +259,4 @@ function buildApi(source: FullApi): FullApi {
   return out as unknown as FullApi;
 }
 
-export const api: Api & CrmApi = buildApi(impl);
+export const api: FullApi = buildApi(impl);

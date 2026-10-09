@@ -55,15 +55,16 @@ card padding `p-4 md:p-5` (dense lists `px-4 py-3`). Content max width `max-w-pa
     "Client Hub" caption; then a search button styled as an input (`h-9 rounded-lg border bg-subtle text-caption`,
     "Tìm nhanh…" + `Kbd` Ctrl K).
   - Nav grouped with micro section labels (`text-micro font-medium uppercase-free text-caption px-3 mt-5 mb-1`):
-    **Điều hành**: Tổng quan · **Khách hàng**: Bán hàng, Khách hàng mục tiêu, Khách hàng, Dự án ·
-    **Vận hành**: Việc, Thương mại · **Hệ thống**: Thông báo, Cài đặt.
+    **Điều hành**: Tổng quan · **Khách hàng**: Khách hàng, Bản đồ & tập đoàn, Dự án ·
+    **Vận hành**: Việc, Thương mại · **Hệ thống**: Thông báo, Cài đặt. (Bán hàng and Khách hàng mục tiêu lead the
+    Khách hàng group again only when their feature flags are switched on — `src/config/features.ts`, SPEC-CARE §1.)
   - Item: `h-9 px-3 rounded-lg gap-3 text-table font-medium text-muted-foreground hover:bg-muted hover:text-foreground`;
     active `bg-primary-soft text-primary` + icon `text-primary`; icons 18px stroke 1.75; optional right count badge
     (`ml-auto text-micro tabular rounded-full bg-muted px-1.5`, danger variant for overdue counts).
   - Bottom: user card (avatar 32, name, role caption) opening the user menu.
 - **Rail (768–1023)** `w-[72px]`: icon buttons 44×44 with SHORT labels underneath (`text-[11px] leading-3`, one line,
-  truncate) using `layout.nav.short.*` keys (Tổng quan, Bán hàng, Mục tiêu, Khách hàng, Dự án, Việc, Thương mại,
-  Thông báo, Cài đặt) — never wrap to 2–3 lines; tooltip with the full name.
+  truncate) using `layout.nav.short.*` keys (Tổng quan, Khách hàng, Bản đồ, Dự án, Việc, Thương mại, Thông báo,
+  Cài đặt; Bán hàng / Mục tiêu when their flags are on) — never wrap to 2–3 lines; tooltip with the full name.
 - **Top bar** `h-14 bg-background/80 backdrop-blur border-b sticky top-0 z-30`, quiet at rest: the hairline
   (`border-border/70`) appears only once the page scrolls. Left = breadcrumbs (`text-table text-muted-foreground`,
   current page `text-foreground font-medium`); phones: "‹ section" on child pages, else the page title. A section

@@ -2,6 +2,7 @@
 // pointer). Phones: docked to the bottom of the canvas with an "Mở" button (first tap shows it, second tap opens).
 import { useLayoutEffect, useRef, useState } from 'react';
 import { ArrowRight, MousePointerClick, Network } from 'lucide-react';
+import { isFeatureOn } from '@/config/features';
 import type { ClientMapNode, EcosystemView } from '@/services/crmContract';
 import { AccountLogo } from '@/components/common/account-logo';
 import { HealthBadge } from '@/components/common/health-badge';
@@ -43,7 +44,9 @@ function Facts({ node, eco }: { node: ClientMapNode; eco: EcosystemView | undefi
     return (
       <dl className={grid}>
         <Fact label={t('clientmap.tooltip.contract')} value={formatMoneyCompact(eco?.contract_value ?? node.contract_value)} strong />
-        <Fact label={t('clientmap.tooltip.potential')} value={formatMoneyCompact(eco?.potential_value ?? node.pipeline_value)} strong />
+        {isFeatureOn('sales') ? (
+          <Fact label={t('clientmap.tooltip.potential')} value={formatMoneyCompact(eco?.potential_value ?? node.pipeline_value)} strong />
+        ) : null}
       </dl>
     );
   }
@@ -52,6 +55,15 @@ function Facts({ node, eco }: { node: ClientMapNode; eco: EcosystemView | undefi
       <dl className={grid}>
         <Fact label={t('clientmap.tooltip.budget')} value={formatMoneyCompact(pipelineOf(node))} strong />
         <Fact label={t('clientmap.tooltip.status')} value={node.lead_status ? t(`crm.enums.leadStatus.${node.lead_status}`) : '—'} />
+        <Fact label={t('clientmap.tooltip.owner')} value={ownerName(node)} />
+      </dl>
+    );
+  }
+  // without the sales module (SPEC-CARE §1) a customer shows its contract and its AM only
+  if (!isFeatureOn('sales')) {
+    return (
+      <dl className={grid}>
+        <Fact label={t('clientmap.tooltip.contract')} value={formatMoneyCompact(node.contract_value)} strong />
         <Fact label={t('clientmap.tooltip.owner')} value={ownerName(node)} />
       </dl>
     );
@@ -106,7 +118,7 @@ export function MapTooltip({ id, node, eco, anchor, canvas, docked, touch, onOpe
         {node.fit_grade ? <Badge>{t('clientmap.tooltip.fitValue', { grade: node.fit_grade })}</Badge> : null}
       </>
     ) : hub && eco ? (
-      <Badge variant="primary">{t('clientmap.map.companies', { count: eco.account_count + eco.lead_count })}</Badge>
+      <Badge variant="primary">{t('clientmap.map.companies', { count: eco.account_count + (isFeatureOn('targets') ? eco.lead_count : 0) })}</Badge>
     ) : null;
 
   return (

@@ -212,6 +212,7 @@ const enums = {
     delegated: 'Giao việc',
     digest: 'Bản tin tuần',
     system: 'Hệ thống',
+    request: 'Yêu cầu',
   },
   emailStatus: {
     sent: 'Đã gửi',
@@ -231,6 +232,12 @@ const enums = {
     user: 'Người dùng',
     comment: 'Bình luận',
     settings: 'Cài đặt',
+    deployment: 'Giải pháp',
+    department: 'Phòng ban',
+    stakeholder: 'Người liên hệ',
+    relation: 'Mối quan hệ',
+    care_plan: 'Kế hoạch chăm sóc',
+    change_request: 'Yêu cầu',
   },
   searchResultType: {
     page: 'Trang',

@@ -1,6 +1,8 @@
 // "Ghi nhận tương tác": kind, when, subject, summary, outcome, what it is about (account / lead / opportunity /
 // contact — prefilled from `defaults`) and the next follow-up date → api.logInteraction.
-import { useEffect, useId, useMemo, useState } from 'react';
+// Care mode (`care`, CareTouchButton): "Ghi lần chăm sóc" wording and the account's next care action, saved to the
+// care plan with the touch (api.saveCarePlan) — logging the planned touch clears "Quá hạn chăm sóc".
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Building2, Crosshair, Handshake } from 'lucide-react';
 import type { InteractionKind, InteractionOutcome } from '@/domain/crmTypes';
@@ -8,6 +10,7 @@ import type { InteractionInput, InteractionView } from '@/services/crmContract';
 import { api } from '@/services/api';
 import { atTime, nowISO, todayISO } from '@/domain/clock';
 import { isOpenLead, isOpenStage } from '@/domain/crm';
+import { isFeatureOn } from '@/config/features';
 import { useAction } from '@/hooks/useAction';
 import { useDelayedFlag } from '@/hooks/useMotion';
 import { useQuery } from '@/hooks/useQuery';
@@ -22,6 +25,8 @@ import { NativeSelect } from '@/components/ui/native-select';
 import { Textarea } from '@/components/ui/textarea';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { SMALL } from '@/components/common/cx';
+import { CareNextStep, careDraftChanged, careDraftError, carePlanDraft } from '@/components/care/CareNextStep';
+import type { CareNextDraft } from '@/components/care/CareNextStep';
 import { INTERACTION_ICONS, INTERACTION_KINDS, INTERACTION_OUTCOMES, interactionKindLabel, outcomeLabel } from './crmLabels';
 import { DateField, QuickDates } from './fields';
 
@@ -31,6 +36,11 @@ export interface LogInteractionDialogProps {
   /** prefilled values (account_id, lead_id, opportunity_id, contact_id, kind, subject…) */
   defaults?: Partial<InteractionInput>;
   onLogged?: (interaction: InteractionView) => void;
+  /**
+   * care touch (CareTouchButton, SPEC-CARE §6): care wording ("Ghi lần chăm sóc") and the account's next care action
+   * (components/care/CareNextStep), saved to its care plan with the touch
+   */
+  care?: boolean;
 }
 
 interface FormState {
@@ -74,13 +84,18 @@ function LinkedChip({ icon: Icon, label, value }: { icon: typeof Building2; labe
   );
 }
 
-export function LogInteractionDialog({ open, onOpenChange, defaults, onLogged }: LogInteractionDialogProps) {
+export function LogInteractionDialog({ open, onOpenChange, defaults, onLogged, care = false }: LogInteractionDialogProps) {
   const uid = useId();
   const { run, pending, pendingVisible } = useAction();
   const [form, setForm] = useState<FormState>(() => initialState(defaults));
   const [touched, setTouched] = useState(false);
-  const leadId = defaults?.lead_id ?? '';
-  const fixedOppId = defaults?.opportunity_id ?? '';
+  const [next, setNext] = useState<CareNextDraft | null>(null);
+  /** the interaction this opening already logged (a failed care-plan save is retried without logging it again) */
+  const loggedRef = useRef<InteractionView | null>(null);
+  // sales hidden (SPEC-CARE §1): a care touch logs no opportunity, lead or follow-up date
+  const salesOn = isFeatureOn('sales');
+  const leadId = salesOn ? defaults?.lead_id ?? '' : '';
+  const fixedOppId = salesOn ? defaults?.opportunity_id ?? '' : '';
   const fixedAccountId = defaults?.account_id ?? '';
 
   // reset every time the dialog opens (new defaults, fresh "now")
@@ -89,6 +104,8 @@ export function LogInteractionDialog({ open, onOpenChange, defaults, onLogged }:
     if (open) {
       setForm(initialState(defaults));
       setTouched(false);
+      setNext(null);
+      loggedRef.current = null;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, defaultsKey]);
@@ -104,9 +121,17 @@ export function LogInteractionDialog({ open, onOpenChange, defaults, onLogged }:
   const needAccounts = open && fixedOppId === '' && (leadId === '' || fixedAccountId !== '');
   const accountsQ = useQuery(() => api.listAccounts(), [], { enabled: needAccounts });
   const oppsQ = useQuery(() => api.listOpportunities({ accountId, openOnly: true }), [accountId], {
-    enabled: open && accountId !== '' && fixedOppId === '',
+    enabled: salesOn && open && accountId !== '' && fixedOppId === '',
   });
   const contactsQ = useQuery(() => api.listContacts(accountId), [accountId], { enabled: open && accountId !== '' });
+  // care touch: the account's care plan (director / AM — the only viewers of CareTouchButton)
+  const careQ = useQuery(() => api.getAccountCare(accountId), [accountId], { enabled: care && open && accountId !== '' });
+  const plan = care ? careQ.data?.care?.plan ?? null : null;
+  const today = todayISO();
+  // the draft starts from the plan once per opening (a refetch while typing keeps what was typed)
+  useEffect(() => {
+    if (open && plan && next === null) setNext(carePlanDraft(plan, today));
+  }, [open, plan, next, today]);
   // "Đang tải…" placeholders only when a list takes a beat (DESIGN §8.2); logic keeps the immediate `loading`
   const accountsLoadingVisible = useDelayedFlag(accountsQ.loading);
   const contactsLoadingVisible = useDelayedFlag(contactsQ.loading);
@@ -120,14 +145,15 @@ export function LogInteractionDialog({ open, onOpenChange, defaults, onLogged }:
   const subjectError = touched && form.subject.trim() === '' ? t('crm.log.subjectRequired') : null;
   const linkError = touched && !accountId && !leadId ? t('crm.log.linkRequired') : null;
   const contextLoading = accountLocked && lockedAccountId === '';
-  const today = todayISO();
   const occurredAt = atTime(form.date || today, form.time || '09:00');
   // a touchpoint already happened: a time later today is refused by the service too
   const inFuture = new Date(occurredAt).getTime() > new Date(nowISO()).getTime() + 60_000;
   const timeError = inFuture ? t('crm.log.futureTime') : null;
   // the follow-up date is kept on an open lead or an open deal only (the follow-up list reads nothing else)
-  const oppId = fixedOppId || form.opportunityId;
-  const followUpTarget = fixedOppId
+  const oppId = salesOn ? fixedOppId || form.opportunityId : '';
+  const followUpTarget = !salesOn
+    ? false
+    : fixedOppId
     ? !!oppQ.data && isOpenStage(oppQ.data.stage)
     : oppId !== '' || (!!leadQ.data && isOpenLead(leadQ.data.status));
 
@@ -135,6 +161,7 @@ export function LogInteractionDialog({ open, onOpenChange, defaults, onLogged }:
     e.preventDefault();
     setTouched(true);
     if (contextLoading || inFuture || form.subject.trim() === '' || (!accountId && !leadId)) return;
+    if (next && careDraftError(next)) return;
     const input: InteractionInput = {
       kind: form.kind,
       occurred_at: occurredAt,
@@ -147,7 +174,23 @@ export function LogInteractionDialog({ open, onOpenChange, defaults, onLogged }:
       contact_id: form.contactId || null,
       next_follow_up_date: followUpTarget ? form.followUp || null : null,
     };
-    const result = await run(() => api.logInteraction(input), { success: 'crm.log.toast' });
+    // a care touch also moves the care plan on (the planned action is done / the next one is set); a cleared action
+    // takes its owner with it
+    const planInput =
+      plan && next && careDraftChanged(plan, next)
+        ? { next_action: next.action.trim() || null, next_action_due: next.due || null, ...(next.action.trim() ? {} : { next_action_owner_id: null }) }
+        : null;
+    const result = await run(
+      async () => {
+        // two calls: when the plan fails to save after the touch was logged, a retry only saves the plan — the same
+        // touch is never logged twice
+        const logged = loggedRef.current ?? (await api.logInteraction(input));
+        loggedRef.current = logged;
+        if (planInput && accountId) await api.saveCarePlan(accountId, planInput);
+        return logged;
+      },
+      { success: care ? 'care.kit.touch.toast' : 'crm.log.toast' },
+    );
     if (result) {
       onLogged?.(result);
       onOpenChange(false);
@@ -171,8 +214,8 @@ export function LogInteractionDialog({ open, onOpenChange, defaults, onLogged }:
     <Dialog open={open} onOpenChange={(next) => (!pending ? onOpenChange(next) : undefined)}>
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>{t('crm.log.title')}</DialogTitle>
-          <DialogDescription>{t('crm.log.description')}</DialogDescription>
+          <DialogTitle>{t(care ? 'care.kit.touch.title' : 'crm.log.title')}</DialogTitle>
+          <DialogDescription>{t(care ? 'care.kit.touch.description' : 'crm.log.description')}</DialogDescription>
         </DialogHeader>
         <form onSubmit={(e) => void submit(e)} className="space-y-5" noValidate>
           <div className="space-y-2">
@@ -266,7 +309,7 @@ export function LogInteractionDialog({ open, onOpenChange, defaults, onLogged }:
             ) : null}
             {fixedOppId ? (
               <LinkedChip icon={Handshake} label={t('crm.log.opportunity')} value={oppQ.data?.name ?? t('common.loading')} />
-            ) : accountId && (oppsQ.data?.length ?? 0) > 0 ? (
+            ) : salesOn && accountId && (oppsQ.data?.length ?? 0) > 0 ? (
               <FormField label={t('crm.log.opportunity')} htmlFor={ids.opp}>
                 <NativeSelect id={ids.opp} value={form.opportunityId} placeholder={t('crm.log.none')} onChange={(e) => set('opportunityId', e.target.value)}>
                   {(oppsQ.data ?? []).map((o) => (
@@ -307,16 +350,18 @@ export function LogInteractionDialog({ open, onOpenChange, defaults, onLogged }:
               />
               <QuickDates today={today} onPick={(d) => set('followUp', d)} className="-mt-3" />
             </>
-          ) : accountId && !leadId && !fixedOppId && (oppsQ.data?.length ?? 0) > 0 ? (
+          ) : salesOn && accountId && !leadId && !fixedOppId && (oppsQ.data?.length ?? 0) > 0 ? (
             <p className="text-caption">{t('crm.log.followUpNeedsDeal')}</p>
           ) : null}
+
+          {plan && next ? <CareNextStep plan={plan} draft={next} onChange={setNext} today={today} showError={touched} /> : null}
 
           <DialogFooter>
             <Button type="button" variant="secondary" onClick={() => !pending && onOpenChange(false)} disabled={pendingVisible}>
               {t('common.cancel')}
             </Button>
             <Button type="submit" loading={pending} spinnerOverlay disabled={contextLoading}>
-              {t('crm.log.submit')}
+              {t(care ? 'care.kit.touch.submit' : 'crm.log.submit')}
             </Button>
           </DialogFooter>
         </form>

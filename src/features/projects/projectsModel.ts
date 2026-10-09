@@ -6,7 +6,8 @@ import { normalizeText } from '@/lib/utils';
 
 // ───────────── tabs ─────────────
 
-export const PROJECT_TABS = ['portfolio', 'timeline', 'workload'] as const;
+/** "Yêu cầu" (SPEC-CARE §6.5) sits next to the portfolio: client requests are part of caring for signed accounts */
+export const PROJECT_TABS = ['portfolio', 'requests', 'timeline', 'workload'] as const;
 export type ProjectTab = (typeof PROJECT_TABS)[number];
 
 export function isProjectTab(v: string | null | undefined): v is ProjectTab {

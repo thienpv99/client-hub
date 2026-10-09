@@ -1,4 +1,5 @@
 // Pure helpers of the client map: bubble radii, labels, search, KPI figures and table rows.
+import { isFeatureOn } from '@/config/features';
 import type { ClientMap, ClientMapMetric, ClientMapNode, EcosystemView } from '@/services/crmContract';
 import { t } from '@/i18n';
 import { formatMoneyCompact } from '@/lib/format';
@@ -8,6 +9,27 @@ export const METRICS: ClientMapMetric[] = ['total', 'contract_value', 'pipeline'
 
 export function isMetric(v: unknown): v is ClientMapMetric {
   return typeof v === 'string' && (METRICS as string[]).includes(v);
+}
+
+/**
+ * the bubble size the map opens with: "Tổng giá trị" (contracts + weighted deals) while the sales module is on;
+ * signed contracts only when it is off (SPEC-CARE §1) — a prospect must not look like a big client
+ */
+export function defaultMetric(): ClientMapMetric {
+  return isFeatureOn('sales') ? 'total' : 'contract_value';
+}
+
+/**
+ * metrics on offer: "Cơ hội" (pipeline) and "Tổng giá trị" (contracts + weighted pipeline) only while the sales module
+ * is on — without it a prospect with no contract would still look worth billions (review QA-CARE-F6)
+ */
+export function isMetricAvailable(m: ClientMapMetric): boolean {
+  return m === 'contract_value' || isFeatureOn('sales');
+}
+
+/** the "Tổng giá trị" money column / figure (it carries the weighted pipeline): sales module only */
+export function showTotalValue(): boolean {
+  return isFeatureOn('sales');
 }
 
 /**
@@ -147,7 +169,7 @@ export function ecosystemsById(map: Pick<ClientMap, 'ecosystems'>): Map<string, 
 }
 
 export function memberCount(eco: EcosystemView | undefined, fallback: string): string {
-  return eco ? String(eco.account_count + eco.lead_count) : fallback;
+  return eco ? String(eco.account_count + (isFeatureOn('targets') ? eco.lead_count : 0)) : fallback;
 }
 
 export function nodeAriaLabel(n: ClientMapNode, eco: EcosystemView | undefined): string {
@@ -191,6 +213,8 @@ export interface MapKpiData {
   pipeline: number;
   companies: number;
   accounts: number;
+  /** customers whose health is blocked or needs attention */
+  accountsAtRisk: number;
   leads: number;
   ecosystems: number;
   /** companies that belong to an ecosystem shown on the map */
@@ -216,6 +240,7 @@ export function mapKpis(map: ClientMap): MapKpiData {
     pipeline: companies.reduce((sum, n) => sum + pipelineOf(n), 0),
     companies: companies.length,
     accounts: map.totals.accounts,
+    accountsAtRisk: companies.filter((n) => n.kind === 'account' && (n.health === 'blocked' || n.health === 'attention')).length,
     leads: map.totals.leads,
     ecosystems: map.totals.ecosystems,
     ecoMembers: companies.filter((n) => hubOf.has(n.id)).length,

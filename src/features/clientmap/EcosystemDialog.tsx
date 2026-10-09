@@ -1,8 +1,9 @@
-// "Tạo / sửa hệ sinh thái": name, short name (shown on the hub bubble), industry, description and the member
+// "Tạo / sửa tập đoàn": name, short name (shown on the hub bubble), industry, description and the member
 // companies (customers + target companies). A company belongs to one ecosystem at a time.
 import { useEffect, useId, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Search } from 'lucide-react';
+import { isFeatureOn } from '@/config/features';
 import { api } from '@/services/api';
 import type { EcosystemView } from '@/services/crmContract';
 import { AccountLogo } from '@/components/common/account-logo';
@@ -115,11 +116,13 @@ export function EcosystemDialog({ open, onOpenChange, eco, ecosystems, onSaved }
         ? t('clientmap.dialog.errors.shortNameLong', { max: SHORT_NAME_MAX })
         : null;
 
+  const leadsOn = isFeatureOn('targets');
   const q = normalizeText(query.trim());
   const visible = (options.data ?? []).filter((o) => !q || normalizeText(`${o.name} ${o.sub}`).includes(q));
   const groups: { kind: 'account' | 'lead'; title: string; items: Option[] }[] = [
     { kind: 'account', title: t('clientmap.dialog.accounts'), items: visible.filter((o) => o.kind === 'account') },
-    { kind: 'lead', title: t('clientmap.dialog.leads'), items: visible.filter((o) => o.kind === 'lead') },
+    // without the targets module (SPEC-CARE §1) target companies are not offered; a group's existing ones are kept
+    ...(leadsOn ? [{ kind: 'lead' as const, title: t('clientmap.dialog.leads'), items: visible.filter((o) => o.kind === 'lead') }] : []),
   ];
 
   const toggle = (key: string, on: boolean) =>
@@ -205,7 +208,7 @@ export function EcosystemDialog({ open, onOpenChange, eco, ecosystems, onSaved }
                   {t('clientmap.dialog.selected', { count: selected.size })}
                 </span>
               </div>
-              <p className="text-caption">{t('clientmap.dialog.membersHint')}</p>
+              <p className="text-caption">{leadsOn ? t('clientmap.dialog.membersHint') : t('clientmap.dialog.membersHintCare')}</p>
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
                 <Input

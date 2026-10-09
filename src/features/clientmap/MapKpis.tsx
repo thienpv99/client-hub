@@ -2,6 +2,7 @@
 // hairline-separated cells (the map is the focal block, so the figures stay compact: text-title, not text-kpi).
 import type { LucideIcon } from 'lucide-react';
 import { Building2, Crown, Network, Wallet } from 'lucide-react';
+import { isFeatureOn } from '@/config/features';
 import type { ClientMapMetric } from '@/services/crmContract';
 import { CountUp } from '@/components/common/count-up';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -70,7 +71,15 @@ export function MapKpis({ kpis, metric, showLeads }: { kpis: MapKpiData; metric:
         icon={Building2}
         label={t('clientmap.kpi.accounts')}
         value={String(kpis.accounts)}
-        sub={showLeads ? t('clientmap.kpi.accountsSub', { count: kpis.leads }) : t('clientmap.kpi.accountsSubHidden')}
+        sub={
+          !isFeatureOn('targets')
+            ? kpis.accountsAtRisk > 0
+              ? t('clientmap.kpi.accountsAtRisk', { count: kpis.accountsAtRisk })
+              : t('clientmap.kpi.accountsAllWell')
+            : showLeads
+              ? t('clientmap.kpi.accountsSub', { count: kpis.leads })
+              : t('clientmap.kpi.accountsSubHidden')
+        }
       />
       <Cell
         i={2}

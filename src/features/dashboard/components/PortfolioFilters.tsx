@@ -1,7 +1,7 @@
-// Quick chips (Đang bị chặn · Chờ khách · Quá hạn thu) with counts + "Theo AM" menu, and the result line
-// ("6 khách hàng" / "2/6 khách hàng · Có việc quá hạn" + "Bỏ lọc").
-import { ChevronDown, X } from 'lucide-react';
-import type { AccountSummary } from '@/services/contract';
+// Quick chips (Nợ triển khai · Quá hạn chăm sóc · Đang bị chặn · Chờ khách · Quá hạn thu) with counts + "Theo AM"
+// menu, the result line ("6 khách hàng" / "2/6 khách hàng · Có việc quá hạn" + "Bỏ lọc") and the view switch
+// Chăm sóc · Tiến độ. Care chips need the care rows (director / AM), money chips the commercial figures.
+import { ChevronDown, Flag, HeartHandshake, X } from 'lucide-react';
 import { ChipFilter, type ChipOption } from '@/components/common/chip-filter';
 import { SMALL } from '@/components/common/cx';
 import { Button } from '@/components/ui/button';
@@ -15,16 +15,23 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { t } from '@/i18n';
 import {
   amOptions,
   applyCriteria,
   CHIP_FILTERS,
+  chipLabel,
+  filterLabel,
   isChipFilter,
   matchesStatus,
+  needsCare,
   needsMoney,
   shortPersonName,
   type ChipFilterValue,
+  type PortfolioAccount,
+  type PortfolioCaps,
+  type PortfolioView,
   type StatusFilter,
 } from '../portfolioModel';
 
@@ -42,12 +49,12 @@ const chipLook = (active: boolean) =>
 
 export interface PortfolioFiltersProps {
   /** every account the viewer can see (before filtering) */
-  accounts: AccountSummary[];
+  accounts: PortfolioAccount[];
   status: StatusFilter | null;
   amId: string | null;
   /** search text, only for the counts */
   query?: string;
-  showMoney: boolean;
+  caps: PortfolioCaps;
   onStatusChange(status: StatusFilter | null): void;
   onAmChange(amId: string | null): void;
   className?: string;
@@ -58,7 +65,7 @@ export function PortfolioFilters({
   status,
   amId,
   query = '',
-  showMoney,
+  caps,
   onStatusChange,
   onAmChange,
   className,
@@ -66,9 +73,9 @@ export function PortfolioFilters({
   // faceted counts: chips count within the chosen AM (+ search); AMs count within the chosen status (+ search)
   const inAm = applyCriteria(accounts, { status: null, amId, query });
   const inStatus = applyCriteria(accounts, { status, amId: null, query });
-  const chips: ChipOption<ChipFilterValue>[] = CHIP_FILTERS.filter((f) => showMoney || !needsMoney(f)).map((f) => ({
+  const chips: ChipOption<ChipFilterValue>[] = CHIP_FILTERS.filter((f) => (caps.money || !needsMoney(f)) && (caps.care || !needsCare(f))).map((f) => ({
     value: f,
-    label: t(`dashboard.portfolio.chips.${f}`),
+    label: chipLabel(f),
     count: inAm.filter((a) => matchesStatus(a, f)).length,
   }));
   const ams = amOptions(accounts, inStatus);
@@ -136,7 +143,7 @@ export function ResultLine({
   const parts = [
     filtered ? t('dashboard.portfolio.result', { shown, total }) : t('dashboard.portfolio.count', { count: total }),
   ];
-  if (status && !isChipFilter(status)) parts.push(t(`dashboard.portfolio.filters.${status}`));
+  if (status && !isChipFilter(status)) parts.push(filterLabel(status));
   return (
     <div className={cn('flex min-h-8 flex-wrap items-center gap-x-2 gap-y-1', className)}>
       <p className="text-caption" aria-live="polite">
@@ -152,8 +159,41 @@ export function ResultLine({
   );
 }
 
-/** The status filter in force for this viewer (money filters are ignored for viewers without money data). */
-export function effectiveStatus(status: StatusFilter | null, showMoney: boolean): StatusFilter | null {
-  if (!status) return null;
-  return !showMoney && needsMoney(status) ? null : status;
+/**
+ * "Chăm sóc" · "Tiến độ" — a segmented switch (the indicator glides, DESIGN §8.3). `compactOnPhone`: icons only below
+ * sm (the words stay for screen readers and in the tooltip), so it fits beside the sort on a phone row.
+ */
+export function PortfolioViewSwitch({
+  view,
+  onView,
+  compactOnPhone = false,
+  className,
+}: {
+  view: PortfolioView;
+  onView(view: PortfolioView): void;
+  compactOnPhone?: boolean;
+  className?: string;
+}) {
+  const word = compactOnPhone ? 'sr-only sm:not-sr-only' : undefined;
+  return (
+    <ToggleGroup
+      type="single"
+      variant="segmented"
+      value={view}
+      onValueChange={(v) => {
+        if (v === 'care' || v === 'progress') onView(v);
+      }}
+      aria-label={t('carePortfolio.portfolio.views.label')}
+      className={className}
+    >
+      <ToggleGroupItem value="care" className={cn('min-w-0', compactOnPhone ? 'px-3 max-sm:min-w-11 max-sm:px-2.5' : 'px-3')} title={t('carePortfolio.portfolio.views.care')}>
+        <HeartHandshake aria-hidden="true" />
+        <span className={word}>{t('carePortfolio.portfolio.views.care')}</span>
+      </ToggleGroupItem>
+      <ToggleGroupItem value="progress" className={cn('min-w-0', compactOnPhone ? 'px-3 max-sm:min-w-11 max-sm:px-2.5' : 'px-3')} title={t('carePortfolio.portfolio.views.progress')}>
+        <Flag aria-hidden="true" />
+        <span className={word}>{t('carePortfolio.portfolio.views.progress')}</span>
+      </ToggleGroupItem>
+    </ToggleGroup>
+  );
 }

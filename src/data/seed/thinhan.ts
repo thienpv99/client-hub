@@ -52,7 +52,7 @@ export function buildThinhAn(c: SeedCtx): Partial<Bundle> {
 
   const contacts = [
     makeContact({ id: 'ct_thinhan_long', account_id: ACC, full_name: 'Vũ Thành Long', salutation: 'anh', title: 'Phó Tổng giám đốc', decision_role: 'decision_maker', email: 'long.vu@thinhanbank.vn', phone: '0904 552 318', user_id: LONG, last_interaction_at: c.at(-3, '15:00'), last_interaction_note: 'Trao đổi về báo giá giai đoạn 2; anh muốn bổ sung đào tạo cho chi nhánh.' }),
-    makeContact({ id: 'ct_thinhan_mai', account_id: ACC, full_name: 'Đinh Ngọc Mai', salutation: 'chị', title: 'Giám đốc khối Công nghệ thông tin', decision_role: 'approver', email: 'mai.dinh@thinhanbank.vn', phone: '0912 870 455', user_id: MAI, last_interaction_at: c.at(-2, '17:20'), last_interaction_note: 'Đã gửi tài liệu API core banking bản 3.2.' }),
+    makeContact({ id: 'ct_thinhan_mai', account_id: ACC, full_name: 'Đinh Ngọc Mai', salutation: 'chị', title: 'Giám đốc khối Công nghệ thông tin', decision_role: 'approver', email: 'mai.dinh@thinhanbank.vn', phone: '0912 870 455', user_id: MAI, last_interaction_at: c.at(-9, '14:00'), last_interaction_note: 'Họp với chị Mai thống nhất danh mục tài liệu API core banking cần cho giai đoạn tích hợp.' }),
     makeContact({ id: 'ct_thinhan_bao', account_id: ACC, full_name: 'Trịnh Quốc Bảo', salutation: 'anh', title: 'Trưởng phòng Pháp chế', decision_role: 'ops_contact', email: 'bao.trinh@thinhanbank.vn', phone: '0983 214 660', last_interaction_at: c.at(-49, '11:00'), last_interaction_note: 'Hoàn tất rà soát thỏa thuận bảo mật.' }),
   ];
 

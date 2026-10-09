@@ -139,6 +139,8 @@ const portal = {
   progress: {
     title: 'Tiến độ',
     description: 'Các mốc của dự án: ngày kế hoạch, ngày dự báo và lý do nếu lùi.',
+    /** SPEC-CARE §6.7: the page also lists the company's requests and the solutions in use */
+    descriptionCare: 'Các mốc dự án, yêu cầu {company} đã gửi New Era và những giải pháp đang dùng.',
     milestonesLabel: 'Các mốc của dự án {name}',
     milestonesDone: 'Đã xong {done}/{total} mốc',
     pct: '{pct}%',

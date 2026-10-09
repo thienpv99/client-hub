@@ -4,11 +4,12 @@
 import type { Settings, TemplateMilestone } from '@/domain/types';
 import type { RowOf, TableName } from '@/services/db';
 import type { CrmTable } from './crmFieldKeys';
+import type { CareTable } from './careFieldKeys';
 
 type Keys<T> = Record<keyof T, true>;
 
-/** core tables; the CRM tables have their own list in crmFieldKeys.ts (CRM_TABLE_KEYS) */
-export const TABLE_KEYS: { [T in Exclude<TableName, CrmTable>]: Keys<RowOf<T>> } = {
+/** core tables; the CRM and care tables have their own lists (crmFieldKeys.ts, careFieldKeys.ts) */
+export const TABLE_KEYS: { [T in Exclude<TableName, CrmTable | CareTable>]: Keys<RowOf<T>> } = {
   users: { id: true, full_name: true, email: true, phone: true, org_type: true, account_id: true, role: true, can_view_cost: true, title: true, salutation: true, avatar_url: true, notification_pref: true, onboarded_at: true, invited_at: true, invited_by: true, last_login_at: true, status: true, password: true, auth_provider: true, deleted_at: true },
   accounts: { id: true, name: true, short_name: true, logo_url: true, brand_color: true, industry: true, tier: true, stage: true, am_id: true, health_override: true, health_override_reason: true, health_override_by: true, health_override_at: true, exec_summary: true, exec_summary_updated_at: true, email_domain: true, internal_notes: true, created_at: true, updated_at: true, deleted_at: true },
   contacts: { id: true, account_id: true, full_name: true, salutation: true, title: true, decision_role: true, email: true, phone: true, user_id: true, last_interaction_at: true, last_interaction_note: true, deleted_at: true },

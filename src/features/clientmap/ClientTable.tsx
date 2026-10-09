@@ -1,9 +1,10 @@
 // "Bảng" view — the accessible alternative of the map: companies ranked by the chosen metric, or grouped by
-// ecosystem with subtotal rows. A table from xl (1280), cards below.
+// ecosystem with subtotal rows. A table from xl (1280), cards below. Feature flags (SPEC-CARE §1): without "targets"
 import { Fragment } from 'react';
 import type { MouseEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Network } from 'lucide-react';
+import { isFeatureOn } from '@/config/features';
 import type { ClientMapMetric } from '@/services/crmContract';
 import { AccountLogo } from '@/components/common/account-logo';
 import { SMALL } from '@/components/common/cx';
@@ -14,7 +15,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { t } from '@/i18n';
 import { formatMoneyCompact } from '@/lib/format';
 import { cn } from '@/components/ui/cn';
-import { groupedRows, ownerName, type RankedRow, type RowGroup } from './mapModel';
+import { groupedRows, ownerName, showTotalValue, type RankedRow, type RowGroup } from './mapModel';
 
 export type TableMode = 'rank' | 'group';
 
@@ -112,6 +113,10 @@ function GroupHeading({ g }: { g: RowGroup }) {
 
 function DesktopTable({ rows, metric, mode }: Omit<ClientTableProps, 'onMode'>) {
   const navigate = useNavigate();
+  const showKind = isFeatureOn('targets');
+  const showPipeline = isFeatureOn('sales');
+  // "Tổng giá trị" carries the weighted pipeline: no column without the sales module (review QA-CARE-F6)
+  const showTotal = showTotalValue();
   const strong = METRIC_COLUMN[metric];
   const num = (key: 'contract' | 'pipeline' | 'total') => cn('text-right tabular', key === strong ? 'font-semibold text-ink' : 'text-muted-foreground');
   const head = (key: 'contract' | 'pipeline' | 'total') => cn('text-right', key === strong && 'text-foreground');
@@ -127,15 +132,17 @@ function DesktopTable({ rows, metric, mode }: Omit<ClientTableProps, 'onMode'>) 
       <TableCell className="min-w-[16rem]">
         <Company row={r} />
       </TableCell>
-      <TableCell>
-        <KindTag row={r} />
-      </TableCell>
+      {showKind ? (
+        <TableCell>
+          <KindTag row={r} />
+        </TableCell>
+      ) : null}
       <TableCell>
         <HealthCell row={r} />
       </TableCell>
       <TableCell className={num('contract')}>{formatMoneyCompact(r.contract)}</TableCell>
-      <TableCell className={num('pipeline')}>{formatMoneyCompact(r.pipeline)}</TableCell>
-      <TableCell className={num('total')}>{formatMoneyCompact(r.total)}</TableCell>
+      {showPipeline ? <TableCell className={num('pipeline')}>{formatMoneyCompact(r.pipeline)}</TableCell> : null}
+      {showTotal ? <TableCell className={num('total')}>{formatMoneyCompact(r.total)}</TableCell> : null}
       <TableCell className="pr-5 text-muted-foreground">{ownerName(r.node)}</TableCell>
     </TableRow>
   );
@@ -146,11 +153,11 @@ function DesktopTable({ rows, metric, mode }: Omit<ClientTableProps, 'onMode'>) 
         <TableRow className="hover:bg-transparent">
           <TableHead className="pl-5">{t('clientmap.table.columns.rank')}</TableHead>
           <TableHead>{t('clientmap.table.columns.company')}</TableHead>
-          <TableHead>{t('clientmap.table.columns.kind')}</TableHead>
+          {showKind ? <TableHead>{t('clientmap.table.columns.kind')}</TableHead> : null}
           <TableHead>{t('clientmap.table.columns.health')}</TableHead>
           <TableHead className={head('contract')}>{t('clientmap.table.columns.contract')}</TableHead>
-          <TableHead className={head('pipeline')}>{t('clientmap.table.columns.pipeline')}</TableHead>
-          <TableHead className={head('total')}>{t('clientmap.table.columns.total')}</TableHead>
+          {showPipeline ? <TableHead className={head('pipeline')}>{t('clientmap.table.columns.pipeline')}</TableHead> : null}
+          {showTotal ? <TableHead className={head('total')}>{t('clientmap.table.columns.total')}</TableHead> : null}
           <TableHead className="pr-5">{t('clientmap.table.columns.owner')}</TableHead>
         </TableRow>
       </TableHeader>
@@ -160,12 +167,12 @@ function DesktopTable({ rows, metric, mode }: Omit<ClientTableProps, 'onMode'>) 
           : groupedRows(rows).map((g) => (
               <Fragment key={g.key || 'none'}>
                 <TableRow className="bg-subtle hover:bg-subtle">
-                  <TableCell colSpan={4} className="pl-5">
+                  <TableCell colSpan={showKind ? 4 : 3} className="pl-5">
                     <GroupHeading g={g} />
                   </TableCell>
                   <TableCell className={num('contract')}>{formatMoneyCompact(g.contract)}</TableCell>
-                  <TableCell className={num('pipeline')}>{formatMoneyCompact(g.pipeline)}</TableCell>
-                  <TableCell className={num('total')}>{formatMoneyCompact(g.total)}</TableCell>
+                  {showPipeline ? <TableCell className={num('pipeline')}>{formatMoneyCompact(g.pipeline)}</TableCell> : null}
+                  {showTotal ? <TableCell className={num('total')}>{formatMoneyCompact(g.total)}</TableCell> : null}
                   <TableCell className="pr-5" />
                 </TableRow>
                 {g.rows.map(body)}
@@ -199,13 +206,13 @@ function RowCard({ row, metric }: { row: RankedRow; metric: ClientMapMetric }) {
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2 pl-10">
-        <KindTag row={row} />
+        {isFeatureOn('targets') ? <KindTag row={row} /> : null}
         <HealthCell row={row} />
       </div>
-      <dl className="grid grid-cols-3 gap-3 pl-10">
+      <dl className={cn('grid gap-3 pl-10', isFeatureOn('sales') ? 'grid-cols-3' : 'grid-cols-2')}>
         <Money label={t('clientmap.table.columns.contract')} value={row.contract} strong={strong === 'contract'} />
-        <Money label={t('clientmap.table.columns.pipeline')} value={row.pipeline} strong={strong === 'pipeline'} />
-        <Money label={t('clientmap.table.columns.total')} value={row.total} strong={strong === 'total'} />
+        {isFeatureOn('sales') ? <Money label={t('clientmap.table.columns.pipeline')} value={row.pipeline} strong={strong === 'pipeline'} /> : null}
+        {showTotalValue() ? <Money label={t('clientmap.table.columns.total')} value={row.total} strong={strong === 'total'} /> : null}
       </dl>
       <p className="pl-10 text-caption">
         {t('clientmap.table.columns.owner')}: <span className="text-muted-foreground">{ownerName(row.node)}</span>

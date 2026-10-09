@@ -11,6 +11,7 @@
 import type { ID, Role } from '@/domain/types';
 import { ApiError, CLIENT_SETTINGS_KEYS, type Api } from '@/services/contract';
 import type { CrmApi } from '@/services/crmContract';
+import type { CareApi } from '@/services/careContract';
 import { api } from '@/services/api';
 import { getSession, setSession } from '@/services/context';
 import { db } from '@/services/db';
@@ -20,7 +21,7 @@ import { runScenarioChecks } from '@/dev/scenarioChecks';
 /** 'not_found': a CRM read with a placeholder id while the CRM tables are still empty */
 type Expect = 'ok' | 'forbidden' | 'not_found';
 
-type ApiMethod = keyof Api | keyof CrmApi;
+type ApiMethod = keyof Api | keyof CrmApi | keyof CareApi;
 
 interface Probe {
   method: ApiMethod;
@@ -84,6 +85,16 @@ export const CRM_READ_METHODS: readonly (keyof CrmApi)[] = [
   'getWorkload',
   'getClientMap',
   'listEcosystems',
+];
+
+/** Every read method of CareApi (director / AM: all internal reads; members: account care + requests; clients: portal reads). */
+export const CARE_READ_METHODS: readonly (keyof CareApi)[] = [
+  'getCarePortfolio',
+  'getAccountCare',
+  'listChangeRequests',
+  'listMyRequests',
+  'listClientDeployments',
+  'getGroupMatrix',
 ];
 
 const ROLES: readonly Role[] = ['director', 'am', 'member', 'client_owner', 'client_member'];
@@ -283,6 +294,67 @@ async function crmProbes(role: Role, fx: Fixtures, accountId: ID): Promise<Probe
       expect: yes(crm),
       run: () => api.listEcosystems(),
       check: isObjArray('listEcosystems', ['short_name', 'account_count', 'lead_count', 'contract_value', 'potential_value', 'members']),
+    },
+  ];
+}
+
+/** care reads (SPEC-CARE §4): internal portfolio / matrix for director & AM, account care + requests for members too,
+ *  the portal reads for clients only */
+function careProbes(role: Role, accountId: ID): Probe[] {
+  const manager = role === 'director' || role === 'am';
+  const client = role === 'client_owner' || role === 'client_member';
+  const yes = (cond: boolean): Expect => (cond ? 'ok' : 'forbidden');
+  return [
+    {
+      method: 'getCarePortfolio',
+      label: 'getCarePortfolio()',
+      expect: yes(manager),
+      run: () => api.getCarePortfolio(),
+      check: isObjArray('getCarePortfolio', ['deployments', 'departments', 'requests', 'care', 'decision_maker']),
+    },
+    { method: 'getCarePortfolio', label: 'getCarePortfolio(debt)', expect: yes(manager), run: () => api.getCarePortfolio({ flag: 'debt' }), check: isArray('getCarePortfolio') },
+    {
+      method: 'getAccountCare',
+      label: `getAccountCare(${accountId})`,
+      expect: yes(!client),
+      run: () => api.getAccountCare(accountId),
+      check: (x) => {
+        const v = obj(x);
+        assert(Array.isArray(v.deployments) && typeof obj(v.requests).open === 'number', 'deployments + roll-up');
+        assert((v.departments === null) === !manager && (v.care === null) === !manager, 'expansion / care for director & AM only');
+      },
+    },
+    {
+      method: 'listChangeRequests',
+      label: 'listChangeRequests(account)',
+      expect: yes(!client),
+      run: () => api.listChangeRequests({ accountId }),
+      check: isObjArray('listChangeRequests', ['code', 'flags', 'status_label', 'can']),
+    },
+    { method: 'listChangeRequests', label: 'listChangeRequests(untriaged)', expect: yes(!client), run: () => api.listChangeRequests({ flag: 'untriaged' }), check: isArray('listChangeRequests') },
+    {
+      method: 'listMyRequests',
+      label: 'listMyRequests()',
+      expect: yes(client),
+      run: () => api.listMyRequests(),
+      check: isObjArray('listMyRequests', ['code', 'status_label', 'promised_date', 'mine']),
+    },
+    {
+      method: 'listClientDeployments',
+      label: 'listClientDeployments()',
+      expect: yes(client),
+      run: () => api.listClientDeployments(),
+      check: isObjArray('listClientDeployments', ['name', 'category_label', 'status_label', 'departments']),
+    },
+    {
+      method: 'getGroupMatrix',
+      label: 'getGroupMatrix(eco_coxanh)',
+      expect: yes(manager),
+      run: () => api.getGroupMatrix('eco_coxanh'),
+      check: (x) => {
+        const m = obj(x);
+        assert(Array.isArray(m.units) && Array.isArray(m.relations) && Array.isArray(m.categories), 'matrix shape');
+      },
     },
   ];
 }
@@ -517,6 +589,7 @@ async function probesFor(role: Role, fx: Fixtures): Promise<Probe[]> {
     });
   }
   probes.push(...(await crmProbes(role, fx, accountId)));
+  probes.push(...careProbes(role, accountId));
   if (role === 'director') {
     // the real cycle check (form semantics: the lists are the task's full new edge sets): the approval keeps blocking
     // “Lập trình phần Đặt hàng” and would also wait for it → cycle
@@ -593,6 +666,10 @@ async function runApiSmokeSuite(): Promise<TestResult[]> {
     });
     suite.test('every read method of CrmApi was called', () => {
       const missing = CRM_READ_METHODS.filter((m) => !probed.has(m));
+      assert(missing.length === 0, `not probed: ${missing.join(', ')}`);
+    });
+    suite.test('every read method of CareApi was called', () => {
+      const missing = CARE_READ_METHODS.filter((m) => !probed.has(m));
       assert(missing.length === 0, `not probed: ${missing.join(', ')}`);
     });
   } catch (err) {

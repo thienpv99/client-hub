@@ -9,6 +9,7 @@ import {
   Forward,
   Info,
   MessageSquare,
+  MessageSquarePlus,
   Newspaper,
   Receipt,
   TriangleAlert,
@@ -32,6 +33,7 @@ export const KIND_ICON: Record<NotificationKind, LucideIcon> = {
   delegated: Forward,
   digest: Newspaper,
   system: Info,
+  request: MessageSquarePlus,
 };
 
 /** most actionable first (filter chips follow this order) */
@@ -44,6 +46,7 @@ export const KIND_ORDER: NotificationKind[] = [
   'quote',
   'payment',
   'delegated',
+  'request',
   'task_update',
   'comment',
   'digest',

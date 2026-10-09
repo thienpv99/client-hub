@@ -56,8 +56,8 @@ export function buildThienTruong(c: SeedCtx): Partial<Bundle> {
 
   const contacts = [
     makeContact({ id: 'ct_thientruong_hung', account_id: ACC, full_name: 'Ngô Văn Hùng', salutation: 'anh', title: 'Tổng giám đốc', decision_role: 'decision_maker', email: 'hung.ngo@thientruong.com.vn', phone: '0913 247 680', user_id: HUNG, last_interaction_at: c.at(-6, '10:00'), last_interaction_note: 'Báo cáo tiến độ lập trình; anh đề nghị ưu tiên kết nối máy CNC.' }),
-    makeContact({ id: 'ct_thientruong_thao', account_id: ACC, full_name: 'Lê Phương Thảo', salutation: 'chị', title: 'Kế toán trưởng', decision_role: 'approver', email: 'thao.le@thientruong.com.vn', phone: '0989 316 520', user_id: THAO, last_interaction_at: c.at(-4, '15:30'), last_interaction_note: 'Chị báo đã trình Tổng giám đốc ký ủy nhiệm chi đợt 2.' }),
-    makeContact({ id: 'ct_thientruong_son', account_id: ACC, full_name: 'Bùi Trường Sơn', salutation: 'anh', title: 'Giám đốc nhà máy', decision_role: 'ops_contact', email: 'son.bui@thientruong.com.vn', phone: '0936 508 271', user_id: SON, last_interaction_at: c.at(-1, '16:00'), last_interaction_note: 'Đã gửi định mức nguyên vật liệu.' }),
+    makeContact({ id: 'ct_thientruong_thao', account_id: ACC, full_name: 'Lê Phương Thảo', salutation: 'chị', title: 'Kế toán trưởng', decision_role: 'approver', email: 'thao.le@thientruong.com.vn', phone: '0989 316 520', user_id: THAO, last_interaction_at: c.at(-4, '15:30'), last_interaction_note: 'Gọi chị Thảo hỏi lịch thanh toán đợt 2; chị cho biết đã trình Tổng giám đốc ký ủy nhiệm chi.' }),
+    makeContact({ id: 'ct_thientruong_son', account_id: ACC, full_name: 'Bùi Trường Sơn', salutation: 'anh', title: 'Giám đốc nhà máy', decision_role: 'ops_contact', email: 'son.bui@thientruong.com.vn', phone: '0936 508 271', user_id: SON, last_interaction_at: c.at(-5, '16:30'), last_interaction_note: 'Gọi hỏi định mức nguyên vật liệu; anh hẹn gửi trong tuần.' }),
   ];
 
   const projects = [makeProject(P, ACC, 'Hệ thống quản lý sản xuất (MES)', 'TT-MES', c.d(-175), c.d(95))];

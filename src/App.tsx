@@ -1,5 +1,5 @@
 // Routes (ARCHITECTURE §12). Owner G1.
-import { BrowserRouter, HashRouter, MemoryRouter, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, HashRouter, MemoryRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Toaster } from '@/components/ui/sonner';
 import { PortalProjectProvider } from '@/hooks/usePortalProject';
@@ -33,6 +33,11 @@ import { OpportunityPage } from '@/features/crm/OpportunityPage';
 import { TargetsPage } from '@/features/targets/TargetsPage';
 import { ProjectsPage } from '@/features/projects/ProjectsPage';
 import { ClientMapPage } from '@/features/clientmap/ClientMapPage';
+import { isFeatureOn } from '@/config/features';
+
+/** read once: the flags are build-time switches (config/features.ts) */
+const SALES_ON = isFeatureOn('sales');
+const TARGETS_ON = isFeatureOn('targets');
 
 // The single-file demo (tools/build-standalone.html) opens from file:// where only hash URLs work.
 // Pages injected through an iframe srcdoc (some file previewers) live at about:srcdoc, where URLs and pushState
@@ -97,38 +102,52 @@ export function App() {
                 </RequireRole>
               }
             />
-            <Route
-              path="crm/opportunities/:opportunityId"
-              element={
-                <RequireRole roles={['director', 'am']} fallback={MEMBER_HOME}>
-                  <OpportunityPage />
-                </RequireRole>
-              }
-            />
-            <Route
-              path="crm/:tab?"
-              element={
-                <RequireRole roles={['director', 'am']} fallback={MEMBER_HOME}>
-                  <CrmPage />
-                </RequireRole>
-              }
-            />
-            <Route
-              path="targets/leads/:leadId"
-              element={
-                <RequireRole roles={['director', 'am']} fallback={MEMBER_HOME}>
-                  <TargetsPage />
-                </RequireRole>
-              }
-            />
-            <Route
-              path="targets/:tab?"
-              element={
-                <RequireRole roles={['director', 'am']} fallback={MEMBER_HOME}>
-                  <TargetsPage />
-                </RequireRole>
-              }
-            />
+            {/* SPEC-CARE §1: sales and prospecting are hidden for now — every /app/crm* and /app/targets* link (old
+                bookmarks, notifications) lands on the overview; the pages come back when their flag is switched on */}
+            {SALES_ON ? (
+              <>
+                <Route
+                  path="crm/opportunities/:opportunityId"
+                  element={
+                    <RequireRole roles={['director', 'am']} fallback={MEMBER_HOME}>
+                      <OpportunityPage />
+                    </RequireRole>
+                  }
+                />
+                <Route
+                  path="crm/:tab?"
+                  element={
+                    <RequireRole roles={['director', 'am']} fallback={MEMBER_HOME}>
+                      <CrmPage />
+                    </RequireRole>
+                  }
+                />
+              </>
+            ) : (
+              <Route path="crm/*" element={<Navigate to="/app" replace />} />
+            )}
+            {TARGETS_ON ? (
+              <>
+                <Route
+                  path="targets/leads/:leadId"
+                  element={
+                    <RequireRole roles={['director', 'am']} fallback={MEMBER_HOME}>
+                      <TargetsPage />
+                    </RequireRole>
+                  }
+                />
+                <Route
+                  path="targets/:tab?"
+                  element={
+                    <RequireRole roles={['director', 'am']} fallback={MEMBER_HOME}>
+                      <TargetsPage />
+                    </RequireRole>
+                  }
+                />
+              </>
+            ) : (
+              <Route path="targets/*" element={<Navigate to="/app" replace />} />
+            )}
             <Route
               path="commercial/quotes/new"
               element={

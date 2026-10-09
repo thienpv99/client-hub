@@ -1,5 +1,6 @@
-// "Quản lý hệ sinh thái": every ecosystem the viewer can see, with its value, members and cross-sell count.
-import { MapPin, Network, Pencil, Plus } from 'lucide-react';
+// "Quản lý tập đoàn": every business group the viewer can see, with its value, members and cross-sell count, and the
+// way into the group's matrix (SPEC-CARE §6.6: what each company uses, what is left to sell).
+import { Grid3x3, MapPin, Network, Pencil, Plus } from 'lucide-react';
 import { api } from '@/services/api';
 import type { EcosystemView } from '@/services/crmContract';
 import { EmptyState } from '@/components/common/empty-state';
@@ -18,9 +19,13 @@ export interface EcosystemSheetProps {
   onEdit(eco: EcosystemView): void;
   /** closes the sheet and selects the ecosystem on the map */
   onShowOnMap(eco: EcosystemView): void;
+  /** the viewer may open this group's matrix (it holds an account they care for) */
+  canShowMatrix?(eco: EcosystemView): boolean;
+  /** closes the sheet and opens the group's matrix */
+  onShowMatrix?(eco: EcosystemView): void;
 }
 
-export function EcosystemSheet({ open, onOpenChange, onCreate, onEdit, onShowOnMap }: EcosystemSheetProps) {
+export function EcosystemSheet({ open, onOpenChange, onCreate, onEdit, onShowOnMap, canShowMatrix, onShowMatrix }: EcosystemSheetProps) {
   const q = useQuery(() => api.listEcosystems(), [], { enabled: open });
   const list = [...(q.data ?? [])].sort((a, b) => b.contract_value + b.potential_value - (a.contract_value + a.potential_value));
 
@@ -77,16 +82,23 @@ export function EcosystemSheet({ open, onOpenChange, onCreate, onEdit, onShowOnM
                       </Button>
                     }
                   />
-                  <Button
-                    variant="soft"
-                    size="sm"
-                    onClick={() => onShowOnMap(eco)}
-                    aria-label={t('clientmap.eco.showOnMapLabel', { name: eco.name })}
-                    className="mt-4"
-                  >
-                    <MapPin aria-hidden="true" />
-                    {t('clientmap.eco.showOnMap')}
-                  </Button>
+                  <div className="mt-4 flex flex-wrap items-center gap-2">
+                    {onShowMatrix && canShowMatrix?.(eco) ? (
+                      <Button variant="soft" size="sm" onClick={() => onShowMatrix(eco)} aria-label={t('clientmap.eco.showMatrixLabel', { name: eco.name })}>
+                        <Grid3x3 aria-hidden="true" />
+                        {t('clientmap.eco.showMatrix')}
+                      </Button>
+                    ) : null}
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => onShowOnMap(eco)}
+                      aria-label={t('clientmap.eco.showOnMapLabel', { name: eco.name })}
+                    >
+                      <MapPin aria-hidden="true" />
+                      {t('clientmap.eco.showOnMap')}
+                    </Button>
+                  </div>
                 </li>
               ))}
             </ul>

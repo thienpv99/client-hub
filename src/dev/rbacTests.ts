@@ -7,7 +7,7 @@
 import type { ID } from '@/domain/types';
 import { nowISO, setNow, todayISO } from '@/domain/clock';
 import { addDays } from '@/domain/dates';
-import { api } from '@/services/api';
+import { api, setNetLogLimit } from '@/services/api';
 import { clientMapApi } from '@/services/api/clientMap';
 import { crmApi } from '@/services/api/crm';
 import { projectsApi } from '@/services/api/projects';
@@ -17,6 +17,7 @@ import { getSession, setSession } from '@/services/context';
 import { db, TABLES, type DbData } from '@/services/db';
 import { CLIENT_FORBIDDEN_KEYS, COST_KEYS, CRM_ACTION_PREFIXES, isClientForbiddenKey, sanitizeOutgoing } from '@/services/sanitize';
 import { AssertionError, assert, assertEqual, createSuite, type TestResult } from '@/dev/testkit';
+import { careRbac } from '@/dev/careRbac';
 
 const CX = 'acc_coxanh';
 const MINH = 'u_client_minh';
@@ -659,6 +660,8 @@ async function runRbacSuite(): Promise<TestResult[]> {
   const suite = createSuite('rbac');
   const savedSession = getSession();
   const snap = db.dump();
+  // the closing network-log scan must see every client payload of this run, not the last 300 calls
+  const prevNetLimit = setNetLogLimit(50_000);
   try {
     suite.test('sanitizeOutgoing strips client-forbidden keys and internal elements', () => {
       const raw = {
@@ -1142,6 +1145,12 @@ async function runRbacSuite(): Promise<TestResult[]> {
     // ── CRM extension: clients / view-as / members refused, AM scope, no CRM data outside director & AM
     await crmRbac(suite);
 
+    // ── client care refocus (SPEC-CARE §5): every CareApi method × role, client-safe fields, members without care data.
+    // Starts from the seeded data: the CRM checks above move Cỏ Xanh between test groups, and the care checks read
+    // group membership (relation scope, group matrix).
+    restoreSnapshot(snap);
+    await careRbac(suite);
+
     // ── nothing a client received was unsanitized
     suite.test('network log · client payloads carry no forbidden keys', () => {
       const log = typeof window !== 'undefined' && Array.isArray(window.__CH_NET__) ? window.__CH_NET__ : [];
@@ -1171,6 +1180,7 @@ async function runRbacSuite(): Promise<TestResult[]> {
       console.error('[rbacTests] restore failed', err);
     }
     setSession(savedSession);
+    setNetLogLimit(prevNetLimit);
   }
   return suite.results;
 }
