@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <title>PDF preview</title>
+    <style>
+      body { margin: 0; background: #e9edf3; font: 13px system-ui, sans-serif; }
+      #info { padding: 8px 12px; }
+      canvas { display: block; margin: 12px auto; background: #fff; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2); }
+    </style>
+  </head>
+  <body>
+    <div id="info">Đang tải…</div>
+    <div id="pages"></div>
+    <script type="module">
+      // Renders a PDF with pdf.js so its pages can be reviewed as images (used by tools/guide/review-pdf.ps1).
+      // ?file=/docs/ClientHub-HuongDan.pdf&scale=1.2&from=1&to=999  → window.__PDF__ = { pages, rendered: [dataURL…] }
+      import * as pdfjs from 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs';
+      pdfjs.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs';
+      const qs = new URLSearchParams(location.search);
+      const file = qs.get('file') || '/docs/ClientHub-HuongDan.pdf';
+      const scale = Number(qs.get('scale') || '1.2');
+      const from = Number(qs.get('from') || '1');
+      try {
+        const doc = await pdfjs.getDocument({ url: file + '?v=' + Date.now() }).promise;
+        const to = Math.min(doc.numPages, Number(qs.get('to') || '9999'));
+        const rendered = [];
+        for (let i = from; i <= to; i++) {
+          const page = await doc.getPage(i);
+          const vp = page.getViewport({ scale });
+          const c = document.createElement('canvas');
+          c.width = Math.ceil(vp.width);
+          c.height = Math.ceil(vp.height);
+          document.getElementById('pages').append(c);
+          await page.render({ canvasContext: c.getContext('2d'), viewport: vp }).promise;
+          rendered.push(c.toDataURL('image/jpeg', 0.85));
+        }
+        document.getElementById('info').textContent = file + ' — ' + doc.numPages + ' trang';
+        window.__PDF__ = { pages: doc.numPages, from, rendered };
+      } catch (e) {
+        document.getElementById('info').textContent = 'Lỗi: ' + e;
+        window.__PDF__ = { error: String(e) };
+      }
+    </script>
+  </body>
+</html>

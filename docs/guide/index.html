@@ -1,0 +1,635 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Hướng dẫn sử dụng Client Hub · New Era</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <!--
+      Usage guide (printed to PDF by tools/guide/build-pdf.ps1).
+      - Chapters live in sections/*.html (listed in SECTIONS below) and are injected in order.
+      - <figure class="shot" data-shot="ID"> is filled from shots/manifest.json: the screenshot plus numbered callouts.
+        Optional data-caption="…"; data-size="phone" for 390px phone shots (shown in a frame, two per row inside .phones).
+      - <ol class="legend"> right after a figure explains the numbers (1, 2, 3 …) drawn on it.
+      - window.__GUIDE_READY__ becomes true when every section, image and font has loaded.
+    -->
+    <style>
+      :root {
+        --ink: #0b1220;
+        --text: #1f2937;
+        --muted: #475569;
+        --caption: #5e6e84;
+        --line: #e5e9f0;
+        --soft: #f6f8fc;
+        --primary: #1d4ed8;
+        --primary-soft: #eef3ff;
+        --primary-border: #c7d7fe;
+        --mark: #e8590c;
+        --note: #fffbeb;
+        --note-border: #fde68a;
+        --ok: #15803d;
+        --ok-soft: #ecfdf3;
+      }
+      @page {
+        size: A4;
+        margin: 16mm 15mm 18mm 15mm;
+      }
+      @page cover {
+        margin: 0;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      body {
+        margin: 0;
+        font-family: 'Be Vietnam Pro', 'Segoe UI', system-ui, sans-serif;
+        font-size: 10.5pt;
+        line-height: 1.6;
+        color: var(--text);
+        background: #fff;
+      }
+      @media screen {
+        body {
+          background: #e9edf3;
+        }
+        .doc {
+          max-width: 210mm;
+          margin: 24px auto;
+          background: #fff;
+          padding: 16mm 15mm;
+          box-shadow: 0 10px 40px -12px rgba(15, 23, 42, 0.25);
+        }
+        .cover {
+          margin: -16mm -15mm 16mm;
+        }
+      }
+
+      /* ---------- cover ---------- */
+      .cover {
+        page: cover;
+        height: 297mm;
+        position: relative;
+        overflow: hidden;
+        background: linear-gradient(160deg, #0b1220 0%, #12234f 55%, #1d4ed8 140%);
+        color: #fff;
+        padding: 30mm 22mm;
+        display: flex;
+        flex-direction: column;
+        break-after: page;
+      }
+      .cover .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 600;
+        font-size: 13pt;
+        letter-spacing: -0.01em;
+      }
+      .cover .brand .logo {
+        width: 34px;
+        height: 34px;
+        border-radius: 9px;
+        background: #1d4ed8;
+        display: grid;
+        place-items: center;
+        font-weight: 700;
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+      }
+      .cover .brand .sep {
+        width: 1px;
+        height: 18px;
+        background: rgba(255, 255, 255, 0.3);
+      }
+      .cover .brand .product {
+        font-weight: 500;
+        color: rgba(255, 255, 255, 0.75);
+      }
+      .cover h1 {
+        margin: auto 0 6mm;
+        font-size: 34pt;
+        line-height: 1.12;
+        letter-spacing: -0.025em;
+        font-weight: 700;
+        max-width: 150mm;
+      }
+      .cover .lead {
+        font-size: 13pt;
+        line-height: 1.55;
+        color: rgba(255, 255, 255, 0.82);
+        max-width: 140mm;
+        margin: 0 0 14mm;
+      }
+      .cover .meta {
+        display: flex;
+        gap: 14mm;
+        font-size: 9.5pt;
+        color: rgba(255, 255, 255, 0.7);
+        border-top: 1px solid rgba(255, 255, 255, 0.18);
+        padding-top: 6mm;
+      }
+      .cover .meta b {
+        display: block;
+        color: #fff;
+        font-weight: 600;
+        font-size: 10.5pt;
+      }
+      .cover .glow {
+        position: absolute;
+        right: -60mm;
+        top: -40mm;
+        width: 170mm;
+        height: 170mm;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(96, 140, 245, 0.45), transparent 65%);
+      }
+
+      /* ---------- headings & text ---------- */
+      h2,
+      h3,
+      h4 {
+        color: var(--ink);
+        letter-spacing: -0.015em;
+        line-height: 1.3;
+      }
+      .chapter {
+        break-before: page;
+      }
+      .chapter > h2 {
+        font-size: 20pt;
+        margin: 0 0 2mm;
+        font-weight: 700;
+      }
+      .chapter > h2 .num {
+        color: var(--primary);
+        margin-right: 8px;
+      }
+      .chapter > .intro {
+        font-size: 11pt;
+        color: var(--muted);
+        margin: 0 0 7mm;
+        padding-bottom: 5mm;
+        border-bottom: 1px solid var(--line);
+      }
+      h3 {
+        font-size: 13.5pt;
+        margin: 8mm 0 2mm;
+        font-weight: 650;
+        break-after: avoid;
+      }
+      h4 {
+        font-size: 11pt;
+        margin: 5mm 0 1.5mm;
+        font-weight: 600;
+        break-after: avoid;
+      }
+      p {
+        margin: 0 0 3mm;
+      }
+      a {
+        color: var(--primary);
+        text-decoration: none;
+      }
+      b,
+      strong {
+        color: var(--ink);
+        font-weight: 600;
+      }
+      .ui {
+        /* a label exactly as it appears in the app */
+        display: inline-block;
+        padding: 0 6px;
+        border-radius: 5px;
+        background: var(--primary-soft);
+        border: 1px solid var(--primary-border);
+        color: var(--primary);
+        font-weight: 600;
+        font-size: 0.92em;
+        line-height: 1.5;
+        white-space: nowrap;
+      }
+      kbd {
+        font-family: inherit;
+        font-size: 0.85em;
+        padding: 0 5px;
+        border: 1px solid #cbd5e1;
+        border-bottom-width: 2px;
+        border-radius: 4px;
+        background: #f8fafc;
+      }
+      code {
+        font-family: Consolas, 'Cascadia Mono', monospace;
+        font-size: 0.9em;
+        background: var(--soft);
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        padding: 0 4px;
+      }
+
+      /* ---------- steps ---------- */
+      ol.steps {
+        list-style: none;
+        counter-reset: step;
+        padding: 0;
+        margin: 2mm 0 4mm;
+      }
+      ol.steps > li {
+        counter-increment: step;
+        position: relative;
+        padding-left: 9mm;
+        margin: 0 0 2.5mm;
+      }
+      ol.steps > li::before {
+        content: counter(step);
+        position: absolute;
+        left: 0;
+        top: 0.15em;
+        width: 6mm;
+        height: 6mm;
+        border-radius: 50%;
+        background: var(--ink);
+        color: #fff;
+        font-size: 8.5pt;
+        font-weight: 600;
+        display: grid;
+        place-items: center;
+        line-height: 1;
+      }
+      ul {
+        padding-left: 5mm;
+        margin: 0 0 3mm;
+      }
+      li {
+        margin: 0 0 1.2mm;
+      }
+
+      /* ---------- callout boxes ---------- */
+      .tip,
+      .note,
+      .warn {
+        border-radius: 8px;
+        padding: 3mm 4mm;
+        margin: 3mm 0 4mm;
+        font-size: 10pt;
+        break-inside: avoid;
+        border: 1px solid;
+      }
+      .tip {
+        background: var(--primary-soft);
+        border-color: var(--primary-border);
+      }
+      .note {
+        background: var(--note);
+        border-color: var(--note-border);
+      }
+      .warn {
+        background: #fef2f2;
+        border-color: #fecaca;
+      }
+      .tip::before,
+      .note::before,
+      .warn::before {
+        font-weight: 700;
+        margin-right: 6px;
+        color: var(--ink);
+      }
+      .tip::before {
+        content: 'Mẹo';
+        color: var(--primary);
+      }
+      .note::before {
+        content: 'Lưu ý';
+        color: #92400e;
+      }
+      .warn::before {
+        content: 'Quan trọng';
+        color: #b91c1c;
+      }
+
+      /* ---------- screenshots ---------- */
+      figure.shot {
+        margin: 3mm 0 2mm;
+        break-inside: avoid;
+      }
+      figure.shot .frame {
+        position: relative;
+        border-radius: 8px;
+        overflow: hidden;
+        border: 1px solid #d5dce6;
+        box-shadow: 0 6px 18px -8px rgba(15, 23, 42, 0.25);
+        background: var(--soft);
+      }
+      figure.shot img {
+        display: block;
+        width: 100%;
+        height: auto;
+      }
+      figure.shot figcaption {
+        font-size: 8.8pt;
+        color: var(--caption);
+        margin-top: 1.8mm;
+        text-align: center;
+      }
+      figure.shot.missing .frame {
+        min-height: 40mm;
+        display: grid;
+        place-items: center;
+        color: #b91c1c;
+        font-size: 9pt;
+      }
+      .phones {
+        display: flex;
+        gap: 8mm;
+        justify-content: center;
+        align-items: flex-start;
+        margin: 3mm 0 2mm;
+        break-inside: avoid;
+      }
+      .phones figure.shot {
+        width: 56mm;
+        margin: 0;
+      }
+      figure.shot[data-size='phone'] .frame {
+        border-radius: 18px;
+        border: 3px solid #0b1220;
+        box-shadow: 0 10px 24px -10px rgba(15, 23, 42, 0.45);
+      }
+      figure.shot[data-size='half'] {
+        width: 75%;
+        margin-left: auto;
+        margin-right: auto;
+      }
+      .mark-box {
+        position: absolute;
+        border: 2.2px solid var(--mark);
+        border-radius: 7px;
+        box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85);
+        pointer-events: none;
+      }
+      .mark-box.ring {
+        border-radius: 999px;
+      }
+      .mark-num {
+        position: absolute;
+        width: 20px;
+        height: 20px;
+        margin: -10px 0 0 -10px;
+        border-radius: 50%;
+        background: var(--mark);
+        color: #fff;
+        font-size: 10.5px;
+        font-weight: 700;
+        display: grid;
+        place-items: center;
+        line-height: 1;
+        box-shadow: 0 0 0 2px #fff, 0 2px 6px rgba(0, 0, 0, 0.25);
+      }
+      figure.shot[data-size='phone'] .mark-num {
+        width: 16px;
+        height: 16px;
+        margin: -8px 0 0 -8px;
+        font-size: 9px;
+      }
+      ol.legend {
+        list-style: none;
+        counter-reset: lg;
+        padding: 0;
+        margin: 2mm 0 5mm;
+        font-size: 9.8pt;
+        break-before: avoid;
+      }
+      ol.legend > li {
+        counter-increment: lg;
+        position: relative;
+        padding-left: 7.5mm;
+        margin-bottom: 1.4mm;
+      }
+      ol.legend > li::before {
+        content: counter(lg);
+        position: absolute;
+        left: 0;
+        top: 0.18em;
+        width: 5mm;
+        height: 5mm;
+        border-radius: 50%;
+        background: var(--mark);
+        color: #fff;
+        font-size: 8pt;
+        font-weight: 700;
+        display: grid;
+        place-items: center;
+        line-height: 1;
+      }
+
+      /* ---------- tables ---------- */
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 9.6pt;
+        margin: 2mm 0 5mm;
+        break-inside: avoid;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 2mm 3mm;
+        border-bottom: 1px solid var(--line);
+        vertical-align: top;
+      }
+      th {
+        background: var(--soft);
+        color: var(--muted);
+        font-weight: 600;
+        font-size: 8.8pt;
+      }
+
+      /* ---------- table of contents ---------- */
+      .toc {
+        break-after: page;
+      }
+      .toc h2 {
+        font-size: 20pt;
+        margin: 0 0 6mm;
+      }
+      .toc ol {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+      .toc > ol > li {
+        margin: 0 0 3mm;
+        break-inside: avoid;
+      }
+      .toc > ol > li > a {
+        font-weight: 600;
+        color: var(--ink);
+        font-size: 11.5pt;
+      }
+      .toc > ol > li > a .num {
+        color: var(--primary);
+        display: inline-block;
+        width: 9mm;
+      }
+      .toc ol ol {
+        margin: 1mm 0 0 9mm;
+        columns: 2;
+        column-gap: 8mm;
+        font-size: 9.6pt;
+      }
+      .toc ol ol li {
+        margin: 0 0 0.8mm;
+        break-inside: avoid;
+      }
+      .toc ol ol a {
+        color: var(--muted);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="doc">
+      <section class="cover">
+        <div class="glow"></div>
+        <div class="brand"><span class="logo">N</span>New Era<span class="sep"></span><span class="product">Client Hub</span></div>
+        <h1>Hướng dẫn sử dụng Client Hub</h1>
+        <p class="lead">Cổng làm việc chung giữa New Era và khách hàng: dự án, công việc, báo giá, bán hàng và bản đồ khách hàng, gói gọn trong một nơi.</p>
+        <div class="meta">
+          <div><b>Địa chỉ</b>clienthub.nea.io.vn</div>
+          <div><b>Phiên bản</b><span id="guide-version">10/2026</span></div>
+          <div><b>Dành cho</b>Nội bộ New Era &amp; khách hàng</div>
+        </div>
+      </section>
+
+      <nav class="toc" aria-label="Mục lục">
+        <h2>Mục lục</h2>
+        <ol id="toc"></ol>
+      </nav>
+
+      <main id="content"></main>
+    </div>
+
+    <script>
+      // Chapter files, in order. Each file holds one <section class="chapter" id="…"> with an <h2>.
+      const SECTIONS = [
+        'sections/01-gioi-thieu.html',
+        'sections/02-dang-nhap.html',
+        'sections/03-giao-dien-noi-bo.html',
+        'sections/04-tong-quan.html',
+        'sections/05-khach-hang.html',
+        'sections/06-cong-viec-lo-trinh.html',
+        'sections/07-thuong-mai.html',
+        'sections/08-ban-hang.html',
+        'sections/09-khach-hang-muc-tieu.html',
+        'sections/10-du-an.html',
+        'sections/11-ban-do.html',
+        'sections/12-thong-bao-cai-dat.html',
+        'sections/13-cong-khach-hang.html',
+        'sections/14-hoi-dap.html',
+      ];
+
+      function el(tag, cls, text) {
+        const e = document.createElement(tag);
+        if (cls) e.className = cls;
+        if (text != null) e.textContent = text;
+        return e;
+      }
+
+      function renderShot(fig, manifest) {
+        const id = fig.dataset.shot;
+        const s = manifest[id];
+        const frame = el('div', 'frame');
+        fig.prepend(frame);
+        if (!s) {
+          fig.classList.add('missing');
+          frame.textContent = 'Thiếu ảnh: ' + id;
+          return Promise.resolve();
+        }
+        if (s.size && !fig.dataset.size) fig.dataset.size = s.size;
+        const img = new Image();
+        img.alt = fig.dataset.caption || '';
+        img.src = 'shots/' + s.file + '?v=' + (s.t || '');
+        frame.append(img);
+        for (const m of s.marks || []) {
+          const box = el('div', 'mark-box' + (m.shape === 'ring' ? ' ring' : ''));
+          box.style.left = (m.x / m.vw) * 100 + '%';
+          box.style.top = (m.y / m.vh) * 100 + '%';
+          box.style.width = (m.w / m.vw) * 100 + '%';
+          box.style.height = (m.h / m.vh) * 100 + '%';
+          frame.append(box);
+          // number badge on the box's top-left corner, or top-right when the box hugs the left edge
+          const num = el('div', 'mark-num', String(m.n));
+          const atRight = m.side === 'right' || (m.side === 'auto' && m.x < 14);
+          num.style.left = ((atRight ? m.x + m.w : m.x) / m.vw) * 100 + '%';
+          num.style.top = (Math.max(m.y, 10) / m.vh) * 100 + '%';
+          frame.append(num);
+        }
+        if (fig.dataset.caption) fig.append(el('figcaption', null, fig.dataset.caption));
+        return img.decode().catch(() => {});
+      }
+
+      function buildToc() {
+        const toc = document.getElementById('toc');
+        let n = 0;
+        for (const ch of document.querySelectorAll('#content section.chapter')) {
+          n += 1;
+          const h2 = ch.querySelector('h2');
+          if (!h2) continue;
+          if (!ch.id) ch.id = 'ch' + n;
+          if (!h2.querySelector('.num')) h2.prepend(el('span', 'num', String(n)));
+          const li = el('li');
+          const a = el('a');
+          a.href = '#' + ch.id;
+          a.append(el('span', 'num', String(n)), document.createTextNode(h2.textContent.replace(/^\d+/, '').trim()));
+          li.append(a);
+          const subs = ch.querySelectorAll('h3');
+          if (subs.length) {
+            const ol = el('ol');
+            let k = 0;
+            for (const h3 of subs) {
+              k += 1;
+              if (!h3.id) h3.id = ch.id + '-' + k;
+              const sli = el('li');
+              const sa = el('a', null, n + '.' + k + '  ' + h3.textContent);
+              sa.href = '#' + h3.id;
+              sli.append(sa);
+              ol.append(sli);
+              if (!h3.dataset.numbered) {
+                h3.textContent = n + '.' + k + '  ' + h3.textContent;
+                h3.dataset.numbered = '1';
+              }
+            }
+            li.append(ol);
+          }
+          toc.append(li);
+        }
+      }
+
+      (async () => {
+        const content = document.getElementById('content');
+        let manifest = {};
+        try {
+          manifest = await (await fetch('shots/manifest.json', { cache: 'no-store' })).json();
+        } catch (e) {
+          console.warn('no shots/manifest.json yet');
+        }
+        const parts = await Promise.all(
+          SECTIONS.map((p) =>
+            fetch(p, { cache: 'no-store' })
+              .then((r) => (r.ok ? r.text() : `<section class="chapter"><h2>${p}</h2><p class="warn">Chưa có nội dung.</p></section>`))
+              .catch(() => ''),
+          ),
+        );
+        content.innerHTML = parts.join('\n');
+        buildToc();
+        await Promise.all([...document.querySelectorAll('figure.shot')].map((f) => renderShot(f, manifest)));
+        await document.fonts.ready;
+        window.__GUIDE_MISSING__ = [...document.querySelectorAll('figure.shot.missing')].map((f) => f.dataset.shot);
+        window.__GUIDE_READY__ = true;
+      })();
+    </script>
+  </body>
+</html>
